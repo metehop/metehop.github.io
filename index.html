@@ -242,6 +242,20 @@
         }
         /* Pression et altitude : moins prioritaires visuellement, réduites pour gagner une ligne. */
         .hero-footer-small { font-size: 0.66rem; }
+        /* Rangée ALTITUDE -> phase de la lune : tout en petite taille + espacement resserré pour
+           tenir sur 2 lignes en version téléphone (voir libellés abrégés dans le HTML : Iso.,
+           humid., etc.). */
+        .hero-footer-secondary {
+            display: flex;
+            flex-wrap: wrap;
+            column-gap: 9px;
+            row-gap: 3px;
+            font-size: 0.66rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+            font-weight: 600;
+        }
+        .hero-footer-secondary i { font-size: 0.85em; }
         .hero-icon-col {
             display: flex;
             flex-direction: column;
@@ -1496,12 +1510,17 @@
                     <span>MIN <strong id="day-tmin">--</strong></span>
                     <span>MAX <strong id="day-tmax">--</strong></span>
                     <span class="hero-footer-small">PRESSION <strong id="hero-pressure-val">-- hPa</strong></span>
-                    <span class="hero-footer-small">ALTITUDE <strong id="hero-altitude-val">-- m</strong></span>
-                    <span id="hero-humidity-container"><i class="fa-solid fa-droplet" style="color: var(--accent-blue);"></i> <strong id="hero-humidity-val">--%</strong> humidité</span>
-                    <span id="hero-freezing-container"><i class="fa-solid fa-icicles" style="color: #00b4d8;"></i> Isotherme 0° <strong id="hero-freezing-val">-- m</strong></span>
+                </div>
+                <!-- Rangée dédiée ALTITUDE -> phase de la lune : police et espacement réduits +
+                     libellés abrégés (Isotherme -> Iso., humidité -> humid., etc.) pour que
+                     l'ensemble tienne sur 2 lignes en version téléphone (voir .hero-footer-secondary). -->
+                <div class="hero-footer-secondary">
+                    <span>ALTITUDE <strong id="hero-altitude-val">-- m</strong></span>
+                    <span id="hero-humidity-container"><i class="fa-solid fa-droplet" style="color: var(--accent-blue);"></i> <strong id="hero-humidity-val">--%</strong> humid.</span>
+                    <span id="hero-freezing-container"><i class="fa-solid fa-icicles" style="color: #00b4d8;"></i> Iso. 0° <strong id="hero-freezing-val">-- m</strong></span>
                     <span id="day-rain-container"><i class="fa-solid fa-droplet"></i> <strong id="day-precip-sum">--</strong> pluie</span>
                     <span id="day-snow-container" style="display: none;"><i class="fa-solid fa-snowflake" style="color: var(--accent-snow);"></i> <strong id="day-snow-sum">--</strong> neige</span>
-                    <span id="hero-rain-prob-container"><i class="fa-solid fa-umbrella" style="color: var(--accent-blue);"></i> <strong id="hero-rain-prob-val">--%</strong> proba. pluie</span>
+                    <span id="hero-rain-prob-container"><i class="fa-solid fa-umbrella" style="color: var(--accent-blue);"></i> <strong id="hero-rain-prob-val">--%</strong> proba pluie</span>
                     <span id="hero-uv-container"><i class="fa-solid fa-sun" style="color:#f59e0b;"></i> UV <strong id="hero-uv-val">--</strong> <span id="hero-uv-label"></span></span>
                     <span id="moon-phase-hero">🌙 <strong id="moon-phase-val">--</strong></span>
                 </div>
@@ -2354,7 +2373,7 @@
                 <a class="footer-icon-btn" href="mailto:stridemetric@proton.me" title="Contact">✉️</a>
                 <button type="button" class="footer-icon-btn" onclick="openSourcesModal()" title="Sources et modèles utilisés">💡</button>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 04/09/2026 à 11h43</div>
+            <div class="footer-last-update">Dernière mise à jour : 04/09/2026 à 12h02</div>
         </footer>
 
     </div>
@@ -3511,7 +3530,7 @@
             if (stored !== null) microClimateEnabled = (stored === 'true');
         } catch (e) { /* localStorage indisponible (navigation privée...) : reste désactivé par défaut */ }
 
-        const MICRO_CLIMATE_DISABLED_TEXT = "Analyse désactivée. Active l'interrupteur pour détecter les effets locaux (relief, bâti, cours d'eau) — méthodologie complète dans Sources & modèles utilisés (💡).";
+        const MICRO_CLIMATE_DISABLED_TEXT = "Désactivée. Méthodologie → 💡";
 
         // ============================================================================
         // AJUSTEMENT MICRO-CLIMAT LISSÉ — appliqué au bandeau "Votre météo, maintenant" (température
@@ -5267,7 +5286,7 @@
                 const uvRounded = Math.round(uvMax * 10) / 10;
                 let uvLabel = 'Faible', uvColor = '#2e7d32';
                 if (uvMax >= 11) { uvLabel = 'Extrême'; uvColor = '#7c3aed'; }
-                else if (uvMax >= 8) { uvLabel = 'Très élevé'; uvColor = '#dc2626'; }
+                else if (uvMax >= 8) { uvLabel = 'T. élevé'; uvColor = '#dc2626'; }
                 else if (uvMax >= 6) { uvLabel = 'Élevé'; uvColor = '#f97316'; }
                 else if (uvMax >= 3) { uvLabel = 'Modéré'; uvColor = '#eab308'; }
                 document.getElementById('hero-uv-val').innerText = uvRounded;
