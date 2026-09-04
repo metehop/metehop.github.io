@@ -2373,7 +2373,7 @@
                 <a class="footer-icon-btn" href="mailto:stridemetric@proton.me" title="Contact">✉️</a>
                 <button type="button" class="footer-icon-btn" onclick="openSourcesModal()" title="Sources et modèles utilisés">💡</button>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 04/09/2026 à 12h02</div>
+            <div class="footer-last-update">Dernière mise à jour : 04/09/2026 à 15h31</div>
         </footer>
 
     </div>
@@ -2570,6 +2570,16 @@
         let radarInterval = null;
         let pickingLocation = false;   // mode "cible" actif : le prochain clic sur la carte choisit le lieu
         let radarHost = 'https://tilecache.rainviewer.com';
+        // Zoom natif réel des tuiles RainViewer : au-delà, leur serveur ne renvoie pas une tuile
+        // plus précise mais une image d'erreur "Zoom Level Not Supported" (confirmé par plusieurs
+        // intégrations tierces et forums utilisateurs RainViewer). RADAR_TILE_NATIVE_MAX_ZOOM sert
+        // de maxNativeZoom Leaflet pour ne plus jamais interroger le serveur au-delà de ce niveau.
+        const RADAR_TILE_NATIVE_MAX_ZOOM = 7;
+        // Plafond de zoom autorisé à l'écran en mode "En direct" : au-delà du zoom natif ci-dessus,
+        // Leaflet agrandit simplement la dernière tuile radar valide (flou croissant) mais le fond
+        // de carte OSM reste net jusqu'à z18 ; ce plafond borne juste le flou du radar à un niveau
+        // encore lisible. Sans effet en mode "Prévisions 6h" (voir zoomend dans initRadarMap).
+        const RADAR_MAX_ZOOM = 13;
         let radarMode = 'radar';
         let forecastGridLayer = null;
         let forecastGridCells = [];
@@ -4920,12 +4930,29 @@
             return values[0] || 0;
         }
 
+        // weather_code est un code catégoriel WMO (3 = nuageux, 71 = neige faible, 82 = averses
+        // violentes...), pas une grandeur physique continue : l'interpoler linéairement entre deux
+        // heures comme une température peut produire un code arrondi qui n'a jamais existé dans
+        // aucune des deux prévisions (ex. entre code 3 et code 82, une interpolation à 83% donne
+        // ~69, tout près de 71 "neige faible" par pur hasard numérique). On prend donc directement
+        // le code de l'heure la plus proche, sans jamais fabriquer de valeur intermédiaire.
+        function nearestHourlyCode(times, codes, targetTime) {
+            if (!times || times.length === 0) return 0;
+            const tt = targetTime.getTime();
+            let bestIdx = 0, bestDiff = Infinity;
+            for (let i = 0; i < times.length; i++) {
+                const diff = Math.abs(new Date(times[i]).getTime() - tt);
+                if (diff < bestDiff) { bestDiff = diff; bestIdx = i; }
+            }
+            return (codes && typeof codes[bestIdx] === 'number') ? codes[bestIdx] : 0;
+        }
+
         function getForecastValueAt(time, hourly) {
             const t = new Date(time);
             return {
                 precip: interpolateHourlyData(hourly.time, hourly.precipitation || [], t),
                 temp: interpolateHourlyData(hourly.time, hourly.temperature_2m || [], t),
-                code: Math.round(interpolateHourlyData(hourly.time, hourly.weather_code || [], t)),
+                code: nearestHourlyCode(hourly.time, hourly.weather_code || [], t),
                 cloud: interpolateHourlyData(hourly.time, hourly.cloud_cover || [], t),
                 windSpeed: interpolateHourlyData(hourly.time, hourly.wind_speed_10m || [], t),
                 windDir: interpolateHourlyData(hourly.time, hourly.wind_direction_10m || [], t)
@@ -4981,8 +5008,12 @@
 
         function getCellOpacity(type, precip) {
             if (type === 'none') return 0;
-            if (type === 'storm') return Math.min(0.85, 0.4 + precip * 0.09);
-            return Math.min(0.75, 0.25 + precip * 0.12);
+            // Plancher et plafond relevés pour se rapprocher visuellement des tuiles radar RainViewer
+            // (opacité de calque 0.6 sur des tuiles dont les pixels sont déjà quasi opaques dès une
+            // pluie légère avec le barème "Universal Blue") : la grille était trop transparente en
+            // comparaison, même sur les cellules avec précipitations notables.
+            if (type === 'storm') return Math.min(0.9, 0.55 + precip * 0.09);
+            return Math.min(0.85, 0.5 + precip * 0.12);
         }
 
         async function buildForecastGridLayers(centerLat, centerLon) {
@@ -7494,10 +7525,10 @@ function updatePressureChart(dayIdx) {
             }
 
             const cellLatLng = metehopCellMarker.getLatLng();
-            // maxZoom borne le cadrage automatique au même plafond que celui déjà appliqué ailleurs
-            // en mode radar (zoom 10 = résolution native maximale des tuiles RainViewer), pour éviter
-            // tout comportement inattendu si les deux points sont proches l'un de l'autre.
-            map.fitBounds([[currentLat, currentLon], [cellLatLng.lat, cellLatLng.lng]], { padding: [40, 40], maxZoom: 10 });
+            // maxZoom borne le cadrage automatique au même plafond que celui appliqué ailleurs en
+            // mode radar (RADAR_MAX_ZOOM), pour éviter tout comportement inattendu si les deux
+            // points sont proches l'un de l'autre.
+            map.fitBounds([[currentLat, currentLon], [cellLatLng.lat, cellLatLng.lng]], { padding: [40, 40], maxZoom: RADAR_MAX_ZOOM });
             document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
@@ -7547,7 +7578,15 @@ function updatePressureChart(dayIdx) {
             if (typeof L === 'undefined') return;
             if (!map) {
                 map = L.map('map', { zoomControl: false }).setView([lat, lon], 7);
-            map.on('zoomend', () => { if (radarMode === 'radar' && map.getZoom() > 10) map.setZoom(10); });
+            // Plafond de zoom en mode radar uniquement : RainViewer n'a plus de tuiles natives
+            // au-delà de z7 (au-delà, leur serveur renvoie une image "Zoom Level Not Supported"
+            // au lieu d'une vraie tuile radar) ; maxNativeZoom:7 sur le tileLayer radar évite déjà
+            // ce message en agrandissant la dernière tuile valide sans retoucher leur serveur, donc
+            // ce plafond ne sert qu'à éviter un flou excessif sur le fond de carte, pas à éviter
+            // l'erreur RainViewer elle-même. En mode "Prévisions 6h" (grille de rectangles, pas de
+            // tuiles RainViewer), aucun plafond n'est appliqué : le zoom reste libre jusqu'à la
+            // limite du fond de carte (z18).
+            map.on('zoomend', () => { if (radarMode === 'radar' && map.getZoom() > RADAR_MAX_ZOOM) map.setZoom(RADAR_MAX_ZOOM); });
                 map.on('click', onMapClickForPicking);
                 L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '© OpenStreetMap France' }).addTo(map);
             } else {
@@ -7698,7 +7737,8 @@ function updatePressureChart(dayIdx) {
                 radarTileLayers[frame.time] = L.tileLayer(`${radarHost}${frame.path}/256/{z}/{x}/{y}/2/1_1.png`, {
                     opacity: 0.6,
                     tileSize: 256,
-                    maxNativeZoom: 10,
+                    maxNativeZoom: RADAR_TILE_NATIVE_MAX_ZOOM,
+                    maxZoom: RADAR_MAX_ZOOM,
                     errorTileUrl: emptyPng
                 });
             }
