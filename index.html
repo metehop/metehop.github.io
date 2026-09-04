@@ -143,6 +143,13 @@
             position: relative;
             overflow: hidden;
             display: flex;
+            flex-direction: column;
+        }
+        /* Rangée du haut (titre/température à gauche, icône soleil + vent à droite) : reprend
+           l'ancienne disposition en ligne de .hero-banner, désormais isolée pour laisser les
+           rangées d'infos ci-dessous (MIN/MAX/... ) s'étendre sur toute la largeur de la carte. */
+        .hero-top-row {
+            display: flex;
             justify-content: space-between;
             align-items: flex-start;
         }
@@ -231,31 +238,24 @@
             font-size: 0.75rem;
             color: var(--text-muted);
         }
+        /* Rangée unique d'infos (MIN/MAX/PRESS/ALT/humidité/Iso 0°/lune/pluie/proba/UV) : sortie de
+           la colonne de gauche pour occuper toute la largeur de la carte hero-banner (voir
+           .hero-top-row), ce qui permet une police plus grande tout en tenant sur moins de lignes
+           sur téléphone. */
         .hero-footer {
             display: flex;
-            gap: 15px;
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            margin-top: 10px;
-            font-weight: 600;
             flex-wrap: wrap;
-        }
-        /* Pression et altitude : moins prioritaires visuellement, réduites pour gagner une ligne. */
-        .hero-footer-small { font-size: 0.66rem; }
-        /* Rangée ALTITUDE -> phase de la lune : tout en petite taille + espacement resserré pour
-           tenir sur 2 lignes en version téléphone (voir libellés abrégés dans le HTML : Iso.,
-           humid., etc.). */
-        .hero-footer-secondary {
-            display: flex;
-            flex-wrap: wrap;
-            column-gap: 9px;
-            row-gap: 3px;
-            font-size: 0.66rem;
+            column-gap: 16px;
+            row-gap: 6px;
+            font-size: 0.85rem;
             color: var(--text-muted);
-            margin-top: 4px;
+            margin-top: 12px;
             font-weight: 600;
+            width: 100%;
         }
-        .hero-footer-secondary i { font-size: 0.85em; }
+        .hero-footer i { font-size: 0.9em; }
+        /* Pression et altitude : légèrement moins prioritaires visuellement. */
+        .hero-footer-small { font-size: 0.78rem; }
         .hero-icon-col {
             display: flex;
             flex-direction: column;
@@ -1503,53 +1503,52 @@
 
         <!-- Banner météo principale -->
         <div class="hero-banner">
-            <div>
-                <div class="hero-subtitle">VOTRE MÉTÉO, MAINTENANT</div>
-                <div class="hero-title" id="title">Grenoble</div>
-                <div class="hero-date" id="hero-date-str">Chargement...</div>
-                
-                <div class="hero-temp-container">
-                    <div class="hero-temp-wrap">
-                        <div class="hero-temp" id="hero-temp-val">--°C</div>
-                        <span class="hero-microclimate-badge" id="hero-microclimate-badge" style="display:none;"></span>
-                        <span class="hero-feels-like" id="hero-feels-val">Ressenti --°</span>
-                    </div>
-                    <div class="hero-condition">
-                        <span class="hero-condition-title" id="hero-cond-title">--</span>
-                        <span class="hero-condition-sub" id="hero-cond-sub">--</span>
-                    </div>
-                </div>
+            <div class="hero-top-row">
+                <div>
+                    <div class="hero-subtitle">VOTRE MÉTÉO, MAINTENANT</div>
+                    <div class="hero-title" id="title">Grenoble</div>
+                    <div class="hero-date" id="hero-date-str">Chargement...</div>
 
-                <div class="hero-footer">
-                    <span>MIN <strong id="day-tmin">--</strong></span>
-                    <span>MAX <strong id="day-tmax">--</strong></span>
-                    <span class="hero-footer-small">PRESSION <strong id="hero-pressure-val">-- hPa</strong></span>
+                    <div class="hero-temp-container">
+                        <div class="hero-temp-wrap">
+                            <div class="hero-temp" id="hero-temp-val">--°C</div>
+                            <span class="hero-microclimate-badge" id="hero-microclimate-badge" style="display:none;"></span>
+                            <span class="hero-feels-like" id="hero-feels-val">Ressenti --°</span>
+                        </div>
+                        <div class="hero-condition">
+                            <span class="hero-condition-title" id="hero-cond-title">--</span>
+                            <span class="hero-condition-sub" id="hero-cond-sub">--</span>
+                        </div>
+                    </div>
                 </div>
-                <!-- Rangée dédiée ALTITUDE -> phase de la lune : police et espacement réduits +
-                     libellés abrégés (Isotherme -> Iso., humidité -> humid., etc.) pour que
-                     l'ensemble tienne sur 2 lignes en version téléphone (voir .hero-footer-secondary). -->
-                <div class="hero-footer-secondary">
-                    <span>ALTITUDE <strong id="hero-altitude-val">-- m</strong></span>
-                    <span id="hero-humidity-container"><i class="fa-solid fa-droplet" style="color: var(--accent-blue);"></i> <strong id="hero-humidity-val">--%</strong> humid.</span>
-                    <span id="hero-freezing-container"><i class="fa-solid fa-icicles" style="color: #00b4d8;"></i> Iso. 0° <strong id="hero-freezing-val">-- m</strong></span>
-                    <span id="day-rain-container"><i class="fa-solid fa-droplet"></i> <strong id="day-precip-sum">--</strong> pluie</span>
-                    <span id="day-snow-container" style="display: none;"><i class="fa-solid fa-snowflake" style="color: var(--accent-snow);"></i> <strong id="day-snow-sum">--</strong> neige</span>
-                    <span id="hero-rain-prob-container"><i class="fa-solid fa-umbrella" style="color: var(--accent-blue);"></i> <strong id="hero-rain-prob-val">--%</strong> proba pluie</span>
-                    <span id="hero-uv-container"><i class="fa-solid fa-sun" style="color:#f59e0b;"></i> UV <strong id="hero-uv-val">--</strong> <span id="hero-uv-label"></span></span>
-                    <span id="moon-phase-hero">🌙 <strong id="moon-phase-val">--</strong></span>
+                <div class="hero-icon-col">
+                    <div class="hero-sun-icon">
+                        <i class="fa-solid fa-sun" id="hero-main-icon"></i>
+                    </div>
+                    <div class="hero-wind-compact" id="hero-wind-compact" title="Direction, vitesse moyenne et rafales du vent">
+                        <i class="fa-solid fa-arrow-up hero-wind-arrow" id="hero-wind-arrow" style="transform: rotate(0deg);"></i>
+                        <span class="hero-wind-figures">
+                            <strong id="hero-wind-speed">-- km/h</strong>
+                            <span class="hero-wind-gust">rafales <strong id="hero-wind-gust-val">--</strong></span>
+                        </span>
+                    </div>
                 </div>
             </div>
-            <div class="hero-icon-col">
-                <div class="hero-sun-icon">
-                    <i class="fa-solid fa-sun" id="hero-main-icon"></i>
-                </div>
-                <div class="hero-wind-compact" id="hero-wind-compact" title="Direction, vitesse moyenne et rafales du vent">
-                    <i class="fa-solid fa-arrow-up hero-wind-arrow" id="hero-wind-arrow" style="transform: rotate(0deg);"></i>
-                    <span class="hero-wind-figures">
-                        <strong id="hero-wind-speed">-- km/h</strong>
-                        <span class="hero-wind-gust">rafales <strong id="hero-wind-gust-val">--</strong></span>
-                    </span>
-                </div>
+
+            <!-- Rangée unique d'infos, en pleine largeur de la carte (voir .hero-footer / .hero-top-row
+                 dans le CSS) : MIN/MAX/PRESS/ALT/humidité/Iso 0°/lune/pluie/proba pluie/UV. -->
+            <div class="hero-footer">
+                <span>MIN <strong id="day-tmin">--</strong></span>
+                <span>MAX <strong id="day-tmax">--</strong></span>
+                <span class="hero-footer-small">PRESS. <strong id="hero-pressure-val">-- hPa</strong></span>
+                <span class="hero-footer-small">ALT. <strong id="hero-altitude-val">-- m</strong></span>
+                <span id="hero-humidity-container"><i class="fa-solid fa-droplet" style="color: var(--accent-blue);"></i> <strong id="hero-humidity-val">--%</strong> humid.</span>
+                <span id="hero-freezing-container"><i class="fa-solid fa-icicles" style="color: #00b4d8;"></i> Iso. 0° <strong id="hero-freezing-val">-- m</strong></span>
+                <span id="moon-phase-hero">🌙 <strong id="moon-phase-val">--</strong></span>
+                <span id="day-rain-container"><i class="fa-solid fa-droplet"></i> <strong id="day-precip-sum">--</strong> pluie</span>
+                <span id="day-snow-container" style="display: none;"><i class="fa-solid fa-snowflake" style="color: var(--accent-snow);"></i> <strong id="day-snow-sum">--</strong> neige</span>
+                <span id="hero-rain-prob-container"><i class="fa-solid fa-umbrella" style="color: var(--accent-blue);"></i> <strong id="hero-rain-prob-val">--%</strong> proba pluie</span>
+                <span id="hero-uv-container"><i class="fa-solid fa-sun" style="color:#f59e0b;"></i> UV <strong id="hero-uv-val">--</strong> <span id="hero-uv-label"></span></span>
             </div>
         </div>
 
@@ -2413,7 +2412,7 @@
                 <a class="footer-icon-btn" href="mailto:stridemetric@proton.me" title="Contact">✉️</a>
                 <button type="button" class="footer-icon-btn" onclick="openSourcesModal()" title="Sources et modèles utilisés">💡</button>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 04/09/2026 à 17h06</div>
+            <div class="footer-last-update">Dernière mise à jour : 04/09/2026 - 3</div>
         </footer>
 
     </div>
