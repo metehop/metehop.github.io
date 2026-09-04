@@ -181,11 +181,42 @@
             gap: 15px;
             margin: 10px 0;
         }
+        .hero-temp-wrap {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        /* Ressenti affiché sous la température, aligné à gauche, en petit. */
+        .hero-feels-like {
+            font-size: 0.68rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-top: -2px;
+            white-space: nowrap;
+        }
         .hero-temp {
             font-size: 3.6rem;
             font-weight: 800;
             line-height: 1;
             color: var(--primary-dark);
+        }
+        /* Badge d'ajustement micro-climat : petite pastille façon exposant, en haut à droite du
+           chiffre de température, visible uniquement quand un ajustement est réellement appliqué. */
+        .hero-microclimate-badge {
+            position: absolute;
+            top: -4px;
+            right: -6px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--accent-orange);
+            color: #ffffff;
+            font-size: 0.68rem;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+            cursor: help;
         }
         .hero-condition {
             display: flex;
@@ -209,6 +240,15 @@
             font-weight: 600;
             flex-wrap: wrap;
         }
+        /* Pression et altitude : moins prioritaires visuellement, réduites pour gagner une ligne. */
+        .hero-footer-small { font-size: 0.66rem; }
+        .hero-icon-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            z-index: 1;
+        }
         .hero-sun-icon {
             background: #fcf6e6;
             color: var(--accent-orange);
@@ -219,8 +259,38 @@
             align-items: center;
             justify-content: center;
             font-size: 3rem;
-            z-index: 1;
         }
+        /* Vent compact sous l'icône météo : flèche orientée + vitesse moyenne + rafales. */
+        .hero-wind-compact {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: var(--card-inner-bg);
+            border-radius: 20px;
+            padding: 4px 10px;
+            width: 100px;
+            box-sizing: border-box;
+            justify-content: center;
+        }
+        .hero-wind-arrow {
+            color: var(--accent-blue);
+            font-size: 0.85rem;
+            flex-shrink: 0;
+            transition: transform 0.3s ease;
+        }
+        .hero-wind-figures {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.15;
+            font-size: 0.62rem;
+            color: var(--text-muted);
+        }
+        .hero-wind-figures strong {
+            color: var(--primary-dark);
+            font-size: 0.68rem;
+            font-weight: 800;
+        }
+        .hero-wind-gust strong { color: var(--text-muted); font-weight: 700; }
 
         /* Bandeau vigilance météo */
         .vigilance-banner {
@@ -382,6 +452,7 @@
         .hour-time { font-size: 0.68rem; color: var(--text-muted); font-weight: 600; }
         .hour-icon { font-size: 0.85rem; color: var(--accent-orange); margin: 2px 0; }
         .hour-temp { font-size: 0.78rem; font-weight: 700; color: var(--primary-dark); }
+        .hour-micro-icon { font-size: 0.55rem; color: var(--accent-orange); margin-left: 2px; cursor: help; }
         .hour-precip { font-size: 0.6rem; color: var(--text-muted); display: flex; flex-direction: column; line-height: 1.1; }
         .hour-item-now {
             background: var(--primary-dark);
@@ -420,28 +491,87 @@
             color: var(--text-muted);
         }
         .mode-btn.active { background: #ffffff; color: var(--primary-dark); }
-        .model-toggle {
+        /* Effets locaux (micro-climat) : voir analyzeLocalEffects() */
+        .local-effects-card {
+            background: var(--card-inner-bg);
+            border-radius: var(--radius-medium);
+            padding: 10px 12px;
+            margin-top: 10px;
+        }
+        .local-effects-header-row {
             display: flex;
-            background: rgba(0,0,0,0.05);
-            border-radius: 10px;
-            padding: 2px;
-            gap: 2px;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+        /* Interrupteur compact pour activer/désactiver l'analyse micro-climat */
+        .micro-toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 34px;
+            height: 19px;
             flex-shrink: 0;
-        }
-        .model-toggle-btn {
-            border: none;
-            background: transparent;
-            font-family: inherit;
-            font-size: 0.58rem;
-            font-weight: 700;
-            padding: 4px 6px;
-            border-radius: 8px;
             cursor: pointer;
-            color: var(--text-muted);
-            white-space: nowrap;
         }
-        .model-toggle-btn.active { background: #ffffff; color: var(--primary-dark); box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
-        .model-toggle-btn.unavailable { opacity: 0.45; }
+        .micro-toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .micro-toggle-slider {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #cbd5c9;
+            transition: 0.2s;
+            border-radius: 19px;
+        }
+        .micro-toggle-slider::before {
+            position: absolute;
+            content: "";
+            height: 15px; width: 15px;
+            left: 2px; bottom: 2px;
+            background-color: #ffffff;
+            transition: 0.2s;
+            border-radius: 50%;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+        }
+        .micro-toggle-switch input:checked + .micro-toggle-slider { background-color: var(--accent-orange); }
+        .micro-toggle-switch input:checked + .micro-toggle-slider::before { transform: translateX(15px); }
+
+        .local-effects-header {
+            font-size: 0.75rem;
+            font-weight: 800;
+            color: var(--primary-dark);
+        }
+
+        .local-effects-header i { color: var(--accent-orange); margin-right: 5px; }
+        .local-effects-note {
+            font-size: 0.68rem;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+        .local-effects-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        /* Puce compacte emoji + signification, sans texte explicatif (voir Sources & modèles
+           utilisés pour la méthodologie complète). */
+        .local-effect-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #ffffff;
+            border-radius: 999px;
+            padding: 6px 11px;
+            font-size: 0.68rem;
+            line-height: 1.3;
+            color: var(--text-muted);
+        }
+        .local-effect-chip.alert { border: 1px solid var(--accent-orange); }
+        .local-effect-emoji { font-size: 0.9rem; }
+        .local-effect-chip strong { color: var(--primary-dark); }
 
         .badge-experimental {
             display: inline-block;
@@ -1231,6 +1361,77 @@
             color: var(--primary-dark);
         }
 
+        /* Encart Webcams à proximité (onglet Loisir) */
+        .webcam-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .webcam-tile {
+            background: var(--card-inner-bg);
+            border: 1px solid rgba(0,0,0,0.06);
+            border-radius: var(--radius-medium);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            text-decoration: none;
+            color: inherit;
+        }
+        .webcam-tile:active { opacity: 0.8; }
+        .webcam-thumb-wrap {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 4 / 3;
+            background: #dfe7e2;
+            overflow: hidden;
+        }
+        .webcam-thumb-wrap img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .webcam-thumb-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent-blue);
+            font-size: 1.3rem;
+        }
+        .webcam-live-badge {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            background: rgba(220, 38, 38, 0.92);
+            color: #ffffff;
+            font-size: 0.55rem;
+            font-weight: 800;
+            letter-spacing: 0.4px;
+            padding: 1px 5px;
+            border-radius: 8px;
+            z-index: 2;
+        }
+        .webcam-info { padding: 6px 8px; }
+        .webcam-name {
+            font-size: 0.68rem;
+            font-weight: 700;
+            color: var(--primary-dark);
+            line-height: 1.25;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .webcam-dist {
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+            display: block;
+        }
+
 </style>
 </head>
 <body>
@@ -1280,7 +1481,11 @@
                 <div class="hero-date" id="hero-date-str">Chargement...</div>
                 
                 <div class="hero-temp-container">
-                    <div class="hero-temp" id="hero-temp-val">--°C</div>
+                    <div class="hero-temp-wrap">
+                        <div class="hero-temp" id="hero-temp-val">--°C</div>
+                        <span class="hero-microclimate-badge" id="hero-microclimate-badge" style="display:none;"></span>
+                        <span class="hero-feels-like" id="hero-feels-val">Ressenti --°</span>
+                    </div>
                     <div class="hero-condition">
                         <span class="hero-condition-title" id="hero-cond-title">--</span>
                         <span class="hero-condition-sub" id="hero-cond-sub">--</span>
@@ -1290,8 +1495,10 @@
                 <div class="hero-footer">
                     <span>MIN <strong id="day-tmin">--</strong></span>
                     <span>MAX <strong id="day-tmax">--</strong></span>
-                    <span>PRESSION <strong id="hero-pressure-val">-- hPa</strong></span>
-                    <span>ALTITUDE <strong id="hero-altitude-val">-- m</strong></span>
+                    <span class="hero-footer-small">PRESSION <strong id="hero-pressure-val">-- hPa</strong></span>
+                    <span class="hero-footer-small">ALTITUDE <strong id="hero-altitude-val">-- m</strong></span>
+                    <span id="hero-humidity-container"><i class="fa-solid fa-droplet" style="color: var(--accent-blue);"></i> <strong id="hero-humidity-val">--%</strong> humidité</span>
+                    <span id="hero-freezing-container"><i class="fa-solid fa-icicles" style="color: #00b4d8;"></i> Isotherme 0° <strong id="hero-freezing-val">-- m</strong></span>
                     <span id="day-rain-container"><i class="fa-solid fa-droplet"></i> <strong id="day-precip-sum">--</strong> pluie</span>
                     <span id="day-snow-container" style="display: none;"><i class="fa-solid fa-snowflake" style="color: var(--accent-snow);"></i> <strong id="day-snow-sum">--</strong> neige</span>
                     <span id="hero-rain-prob-container"><i class="fa-solid fa-umbrella" style="color: var(--accent-blue);"></i> <strong id="hero-rain-prob-val">--%</strong> proba. pluie</span>
@@ -1299,8 +1506,17 @@
                     <span id="moon-phase-hero">🌙 <strong id="moon-phase-val">--</strong></span>
                 </div>
             </div>
-            <div class="hero-sun-icon">
-                <i class="fa-solid fa-sun" id="hero-main-icon"></i>
+            <div class="hero-icon-col">
+                <div class="hero-sun-icon">
+                    <i class="fa-solid fa-sun" id="hero-main-icon"></i>
+                </div>
+                <div class="hero-wind-compact" id="hero-wind-compact" title="Direction, vitesse moyenne et rafales du vent">
+                    <i class="fa-solid fa-arrow-up hero-wind-arrow" id="hero-wind-arrow" style="transform: rotate(0deg);"></i>
+                    <span class="hero-wind-figures">
+                        <strong id="hero-wind-speed">-- km/h</strong>
+                        <span class="hero-wind-gust">rafales <strong id="hero-wind-gust-val">--</strong></span>
+                    </span>
+                </div>
             </div>
         </div>
 
@@ -1329,14 +1545,28 @@
                         <div class="card-sage-title">Les prochaines heures</div>
                         <div class="card-sage-sub" id="hours-summary-sub">Aperçu rapide</div>
                     </div>
-                    <div class="model-toggle" id="model-toggle">
-                        <button type="button" class="model-toggle-btn active" data-model="auto" onclick="setModel('auto')" title="Meilleur modèle disponible (Open-Meteo)">Open-Meteo</button>
-                        <button type="button" class="model-toggle-btn" data-model="arome_hd" onclick="setModel('arome_hd')" title="Météo-France AROME France HD (haute résolution)">AROME HD</button>
-                    </div>
                 </div>
-                <div class="card-sage-sub" id="model-toggle-note" style="display:none;"></div>
 
                 <div class="hours-row" id="hours-row-container"></div>
+
+                <!-- EFFETS LOCAUX (micro-climat) : voir analyzeLocalEffects(). Affichage réduit à des
+                     puces emoji + signification indiquant les effets détectés pour ce jour ; la
+                     méthodologie complète (sources, formules, coefficients) est dans la modale
+                     Sources & modèles utilisés (💡), pas ici. Activable/désactivable via
+                     l'interrupteur (préférence mémorisée en local). -->
+                <div class="local-effects-card" id="local-effects-card">
+                    <div class="local-effects-header-row">
+                        <div class="local-effects-header">
+                            <i class="fa-solid fa-mountain-sun"></i> Effets locaux (micro-climat)
+                        </div>
+                        <label class="micro-toggle-switch" title="Activer/désactiver l'analyse micro-climat (relief, bâti, cours d'eau)">
+                            <input type="checkbox" id="micro-climate-toggle" onchange="onMicroClimateToggleChange()">
+                            <span class="micro-toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="local-effects-note" id="local-effects-note">Analyse du relief et du bâti local...</div>
+                    <div class="local-effects-list" id="local-effects-list"></div>
+                </div>
 
                 <div class="evolution-pill">
                     <span>Prochaine évolution</span>
@@ -1847,6 +2077,37 @@
             </div>
         </div>
 
+        <!-- ENCART WEBCAMS À PROXIMITÉ — le tag OpenStreetMap contact:webcam=* envisagé initialement
+             s'est révélé bien trop rare en pratique (voir commentaire détaillé sur
+             loadWebcamsNearby() : ~1150 usages dans le MONDE ENTIER selon Taginfo, quasiment pas
+             utilisé pour les webcams de stations de ski/plage françaises). Stratégie retenue :
+             tuiles de recherche fiables vers les vrais annuaires de webcams (Skiinfo, etc.) pour
+             les stations de ski/plage déjà connues de l'app, + bonus OpenStreetMap/Overpass
+             (gratuit, sans clé) quand un nœud référence vraiment une webcam à proximité — dans ce
+             cas rare, l'image est incrustée directement plutôt qu'un simple lien. -->
+        <div class="chart-card" data-groups="leisure" id="webcam-card" style="display:none;">
+            <div class="chart-header">
+                <div>
+                    <div class="card-sage-title">
+                        <i class="fa-solid fa-video" style="color: var(--accent-blue); margin-right: 6px;"></i>
+                        Webcams à proximité
+                    </div>
+                    <div class="card-sage-sub" id="webcam-note">Recherche des webcams publiques...</div>
+                </div>
+            </div>
+
+            <div id="webcam-no-data-msg" style="display:none; text-align:center; padding: 18px 10px; color: var(--text-muted); font-size: 0.8rem;">
+                <i class="fa-solid fa-video-slash" style="font-size: 1.4rem; color: var(--accent-blue); display:block; margin-bottom: 8px;"></i>
+                Aucune webcam publique référencée dans OpenStreetMap n'a été trouvée à proximité de ce lieu.
+            </div>
+
+            <div class="webcam-grid" id="webcam-grid"></div>
+
+            <div class="card-sage-sub" style="margin-top: 10px; font-size: 0.6rem; font-style: italic;">
+                Aucune base de données de webcams publique, gratuite et sans clé d'API ne couvre correctement les stations de ski/plage françaises : les tuiles "Rechercher" ouvrent une recherche ciblée sur ce lieu ; seules les tuiles "LIVE" (rares, via OpenStreetMap) affichent une image incrustée en direct.
+            </div>
+        </div>
+
         <!-- PRÉVISIONS SAISONNIÈRES OPEN-METEO — API dédiée "Seasonal Forecast" (ECMWF SEAS5, 51
              membres, climatologie propre au modèle). Anomalies calculées directement par ECMWF
              (Anomaly = Prévision - Climatologie du modèle), pas recalculées par l'app. Toujours
@@ -1937,6 +2198,9 @@
 
                 <div class="chart-container" id="hydro-chart-container" style="height: 150px;">
                     <canvas id="hydroChart"></canvas>
+                </div>
+                <div class="card-sage-sub" id="hydro-hist-note" style="margin-top:4px; font-size:0.62rem; display:none;">
+                    <span style="display:inline-block; width:14px; border-top:2px dashed #7a8a83; vertical-align:middle; margin-right:4px;"></span>Pointillé = niveau moyen du même mois sur l'historique disponible
                 </div>
                 <div class="card-sage-sub" id="hydro-last-obs" style="margin-top:6px; font-size:0.65rem;"></div>
             </div>
@@ -2090,7 +2354,7 @@
                 <a class="footer-icon-btn" href="mailto:stridemetric@proton.me" title="Contact">✉️</a>
                 <button type="button" class="footer-icon-btn" onclick="openSourcesModal()" title="Sources et modèles utilisés">💡</button>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 03/09/2026 à 19h53</div>
+            <div class="footer-last-update">Dernière mise à jour : 04/09/2026 à 11h30</div>
         </footer>
 
     </div>
@@ -2161,6 +2425,58 @@
                 <div class="sources-item">
                     <strong>Skiinfo / Météo-France Ski et Neige (liens uniquement)</strong>
                     <span>Non intégrés : l'API temps réel de Skiinfo (OnTheSnow/Mountain News) est payante avec clé requise ; le réseau Nivo-météo en accès libre de Météo-France (stations de mesure de neige en montagne) a été fermé — le fichier officiel testé ne répond plus. <a href="https://www.skiinfo.fr" target="_blank" rel="noopener">skiinfo.fr</a> / <a href="https://meteofrance.com/meteo-montagne" target="_blank" rel="noopener">meteofrance.com/meteo-montagne</a></span>
+                </div>
+            </div>
+
+            <div class="sources-group">
+                <h4>Eaux de surface & souterraines</h4>
+                <div class="sources-item">
+                    <strong>Hub'Eau — API Hydrométrie</strong>
+                    <span>Référentiel des stations et mesures temps réel de hauteur d'eau (H) et débit (Q) des rivières, opérées par le Service Central Vigicrues. <a href="https://hubeau.eaufrance.fr/page/api-hydrometrie" target="_blank" rel="noopener">hubeau.eaufrance.fr/api-hydrometrie</a></span>
+                </div>
+                <div class="sources-item">
+                    <strong>Hub'Eau — Observations élaborées (débits moyens mensuels)</strong>
+                    <span>Le pointillé affiché sur le graphique "Eaux de surface" (niveau moyen du même mois sur l'historique disponible) est la moyenne, toutes années confondues, du débit moyen mensuel réel (QmM) fourni par Hub'Eau — jamais une valeur inventée. N'est affiché que pour le débit : aucune moyenne mensuelle équivalente n'est à ce jour documentée pour la hauteur d'eau (uniquement des maxima).</span>
+                </div>
+                <div class="sources-item">
+                    <strong>Vigicrues</strong>
+                    <span>Flux GeoJSON public des tronçons de vigilance crues (niveau de vigilance par tronçon). <a href="https://www.vigicrues.gouv.fr/" target="_blank" rel="noopener">vigicrues.gouv.fr</a></span>
+                </div>
+                <div class="sources-item">
+                    <strong>Hub'Eau — Température des cours d'eau</strong>
+                    <span>Réseau de capteurs distinct du réseau hydrométrique, mesures temps réel de température de l'eau. <a href="https://hubeau.eaufrance.fr/page/api-temperature-continu" target="_blank" rel="noopener">hubeau.eaufrance.fr/api-temperature-continu</a></span>
+                </div>
+                <div class="sources-item">
+                    <strong>VigiEau</strong>
+                    <span>Restrictions sécheresse officielles par zone. <a href="https://vigieau.gouv.fr/" target="_blank" rel="noopener">vigieau.gouv.fr</a></span>
+                </div>
+                <div class="sources-item">
+                    <strong>Hub'Eau — API Piézométrie</strong>
+                    <span>Niveaux des nappes phréatiques (données ADES), exprimés en mètres NGF. <a href="https://hubeau.eaufrance.fr/page/api-piezometrie" target="_blank" rel="noopener">hubeau.eaufrance.fr/api-piezometrie</a></span>
+                </div>
+            </div>
+
+            <div class="sources-group">
+                <h4>Effets locaux (micro-climat)</h4>
+                <div class="sources-item">
+                    <strong>Fond de vallée / cuvette — inversion thermique</strong>
+                    <span>Par ciel clair et vent faible (typiquement nuit/tôt le matin), l'air refroidi par rayonnement le long des pentes s'écoule et s'accumule au fond des vallées/cuvettes, pouvant y rendre l'air plus froid que sur les hauteurs environnantes — l'inverse du gradient habituel. Dissipation généralement après le lever du soleil. Intensité typique de l'ordre de 0,5 à 1,7°C/100m de dénivelé encaissant selon les études de terrain (jusqu'à plusieurs °C en fond de vallée bien encaissée par conditions calmes). Sources : Rupp et al. 2020 (J. Geophys. Res. Atmos., bassin forestier des Cascades) ; étude de la vallée d'Eiras, Coimbra (Atmosphere, 2026) ; synthèse Andrews Forest Research Program.</span>
+                </div>
+                <div class="sources-item">
+                    <strong>Îlot de chaleur urbain</strong>
+                    <span>Les cœurs urbains denses (bâti minéral, moins de végétation, chaleur anthropique) sont statistiquement plus chauds que leur périphérie rurale. Estimation via la relation empirique d'Oke/Landsberg reliant l'écart à la population (ΔT_u-r(max) ≈ 2,01×log10(population) − 4,06, régression sur des villes européennes, Landsberg 1981 d'après les données d'Oke) quand la population est connue ; à défaut, simple indicateur de densité bâtie (nombre de bâtiments OpenStreetMap à proximité). Sources : Oke (1973, 1976), Landsberg (1981). Cette formule estime l'écart MAXIMAL théorique, typiquement atteint la nuit quelques heures après le coucher du soleil sous conditions calmes et dégagées idéales — appliquée telle quelle à la fenêtre d'après-midi (14h-18h) où cet ajustement est utilisé, elle surestime systématiquement l'échauffement réel. Un facteur correctif (×0,2) est donc appliqué à l'estimation basée sur la population avant affichage — calibré le 04/09/2026 sur La Roche-sur-Yon (terrain plat, aucun relief encaissant détecté) : formule brute +5,5°C, observé +1°C au maximum de l'après-midi. Le repli sur densité bâtie seule (sans population) reste un point déjà réaliste, non affecté par ce facteur.</span>
+                </div>
+                <div class="sources-item">
+                    <strong>Proximité d'un cours d'eau / plan d'eau</strong>
+                    <span>Effet modérateur bien connu (inertie thermique de l'eau) qui tend à réduire l'amplitude thermique journalière et humidifier l'air à proximité immédiate.</span>
+                </div>
+                <div class="sources-item">
+                    <strong>"Ville en cuvette" — deux mécanismes distincts (calibrés sur observation réelle)</strong>
+                    <span>Quand une agglomération est à la fois en fond de vallée/cuvette marqué ET suffisamment urbanisée (cas de Grenoble par exemple), le relief encaissant a deux effets opposés, traités séparément :<br>1. <em>Inversion nocturne atténuée</em> (×0,3) : la chaleur et le brassage turbulent de la ville limitent le refroidissement radiatif nocturne, donc l'inversion réelle du matin est plus faible qu'en vallée rurale équivalente.<br>2. <em>Échauffement diurne amplifié</em> (×1,5, appliqué après le facteur général ci-dessus) : une cuvette peu ventilée retient davantage la chaleur urbaine l'après-midi qu'un terrain ouvert équivalent.<br>Calibré le 04/09/2026 sur Grenoble : inversion -2,8°C calculée vs -0,7°C observée ; îlot de chaleur +6,8°C brut → +1,4°C après le facteur général → encore +2°C observé au maximum de l'après-midi, d'où le facteur d'amplification ×1,5. Chaque coefficient repose sur un seul point de calibration à ce stade, à affiner avec d'autres observations de terrain ; les vallées rurales isolées et les villes de plaine (sans les deux effets combinés) ne sont pas concernées.</span>
+                </div>
+                <div class="sources-item">
+                    <strong>Application aux prévisions affichées</strong>
+                    <span>Quand un effet est détecté ET que les conditions du jour lui sont favorables (ciel dégagé, vent faible), un ajustement indicatif est appliqué — lissé progressivement en entrée/sortie de la plage horaire concernée (jamais un saut brutal d'une heure à l'autre) — au bandeau "Votre météo, maintenant" (température affichée et MIN/MAX), à la rangée horaire, et aux graphiques "Température heure par heure & précipitations", "Température & risques de neige" et "Astronomie & conditions nocturnes". Ce sont des ordres de grandeur indicatifs, pas une mesure. Données : relief via l'API Elevation Open-Meteo (DEM Copernicus GLO-90, 90m) ; bâti et cours d'eau via Overpass API (OpenStreetMap).</span>
                 </div>
             </div>
 
@@ -2242,6 +2558,7 @@
         let selectedDayIndex = 0;
         let currentLat = 45.1885;
         let currentLon = 5.7245;
+        let currentPopulation = null; // population de la ville recherchée (geocoding Open-Meteo), utilisée pour l'estimation d'îlot de chaleur urbain — null si inconnue (GPS, clic carte)
         let gridForecastData = null;
         let isLoadingGrid = false;
         // ---- Sélecteur de groupe (Général / Été / Hiver / Astronomie / Jardinage) ----
@@ -2255,19 +2572,10 @@
         let seasonalTrendsLoaded = false; // tendances saisonnières (bouton "Charger les données")
         let gridCenterLat = null;
         let gridCenterLon = null;
-        let gridForecastModel = null; // modèle utilisé pour le cache de la grille de prévisions
 
-        // ---- Sélecteur de modèle (Open-Meteo / Météo-France AROME France HD) ----
-        // "auto" (Open-Meteo, meilleur modèle disponible localement) est la valeur par défaut.
-        // Passer sur "arome_hd" fusionne les données AROME France HD (haute résolution) dans
-        // weatherData pour toute la durée couverte par ce modèle (~2 jours) ; au-delà, et si le
-        // lieu n'est pas dans sa zone de couverture, les données Open-Meteo d'origine restent
-        // inchangées.
-        let selectedModel = 'auto'; // 'auto' | 'arome_hd'
-        let baseWeatherData = null;   // données Open-Meteo d'origine, jamais modifiées
-        let aromeMergedWeatherData = null; // données fusionnées avec AROME HD (calculées à la demande)
-        let aromeHourCount = 0;       // nombre d'heures effectivement issues d'AROME HD dans la fusion
-        let aromeHdCoverageCache = null; // { lat, lon, covered } — évite de re-tester à chaque bascule
+        // Prévisions Open-Meteo uniquement (sélection automatique du meilleur modèle disponible
+        // localement) — le bascule AROME France HD a été retiré (comparaison jugée peu lisible ;
+        // Open-Meteo "auto" combine déjà AROME et les autres modèles pertinents selon le lieu).
 
         // ---- Graphique expérimental "Évolution des 3 prochaines heures" (Metehop, radar seul) ----
         let evoChart = null;
@@ -2538,9 +2846,30 @@
             }
         }
 
+        // Chargement du lieu par défaut au démarrage : passe par la même API de géocodage fiable que
+        // la recherche de ville (searchCity) pour récupérer une population réelle dès le départ —
+        // plutôt que d'appeler fetchWeather() avec des coordonnées codées en dur et une population
+        // nulle, ce qui forçait l'estimation d'îlot de chaleur urbain à dépendre uniquement du repli
+        // Overpass (bâti/population par tag OSM), une source plus lente et moins fiable. Repli honnête
+        // sur les coordonnées d'origine (sans population) si le géocodage échoue, pour ne jamais
+        // bloquer le premier affichage.
+        async function loadDefaultLocation() {
+            try {
+                const res = await fetchWithTimeout(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent('Grenoble')}&count=1&language=fr&format=json`, { timeout: 5000 });
+                const data = await res.json();
+                const r = data.results && data.results[0];
+                if (r && typeof r.latitude === 'number' && typeof r.longitude === 'number') {
+                    await fetchWeather(r.latitude, r.longitude, r.name, typeof r.population === 'number' ? r.population : null);
+                    return;
+                }
+            } catch (e) { /* géocodage indisponible au démarrage : repli ci-dessous */ }
+            fetchWeather(45.1885, 5.7245, "Grenoble");
+        }
+
         window.addEventListener('DOMContentLoaded', () => {
             setGroup('general');
-            fetchWeather(45.1885, 5.7245, "Grenoble");
+            updateMicroClimateToggleUI();
+            loadDefaultLocation();
             setTimeout(updateMoonPhase, 800);
             initTrajetDepartureBounds();
             // Tant que l'application reste ouverte, on rafraîchit les données radar (carte +
@@ -2621,8 +2950,8 @@
                 const res = await fetchWithTimeout(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=fr&format=json`);
                 const data = await res.json();
                 if (data.results && data.results.length > 0) {
-                    const { latitude, longitude, name } = data.results[0];
-                    await fetchWeather(latitude, longitude, name);
+                    const { latitude, longitude, name, population } = data.results[0];
+                    await fetchWeather(latitude, longitude, name, typeof population === 'number' ? population : null);
                 } else {
                     alert("Ville non trouvée.");
                 }
@@ -2946,23 +3275,18 @@
             document.getElementById('plant-temp-note').innerText = 'Prévisions sol/air et moyennes historiques du lieu — chargées à la demande.';
         }
 
-        async function fetchWeather(lat, lon, locationName) {
+        async function fetchWeather(lat, lon, locationName, population = null) {
             currentLat = lat;
             currentLon = lon;
+            currentPopulation = population;
             document.getElementById('title').innerText = locationName;
             document.getElementById('radar-sub-location').innerText = `${locationName} et alentours`;
             
             try {
-                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,dew_point_2m,precipitation,precipitation_probability,rain,cloud_cover,snowfall,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,wind_speed_200hPa,pressure_msl,relative_humidity_2m,soil_temperature_0cm,is_day&daily=sunrise,sunset,precipitation_probability_max,temperature_2m_max,temperature_2m_min,temperature_2m_mean,uv_index_max&timezone=auto&forecast_days=16`;
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,apparent_temperature,dew_point_2m,precipitation,precipitation_probability,rain,cloud_cover,snowfall,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,wind_speed_200hPa,pressure_msl,relative_humidity_2m,freezing_level_height,soil_temperature_0cm,is_day&daily=sunrise,sunset,precipitation_probability_max,temperature_2m_max,temperature_2m_min,temperature_2m_mean,uv_index_max&timezone=auto&forecast_days=16`;
                 const res = await fetchWithTimeout(url, { timeout: 7000 });
                 if (!res.ok) throw new Error();
                 weatherData = await res.json();
-                baseWeatherData = weatherData;
-                aromeMergedWeatherData = null;
-                aromeHourCount = 0;
-                aromeHdCoverageCache = null;
-                selectedModel = 'auto';
-                resetModelToggleUI();
 
                 selectedDayIndex = 0;
                 renderCarousel();
@@ -2973,6 +3297,14 @@
                 renderVigilanceBanner().catch(() => {});
                 loadPollenChart(lat, lon).catch(() => {});
                 loadSeasonalForecastAPI(lat, lon).catch(() => {});
+                if (microClimateEnabled) {
+                    analyzeLocalEffects(lat, lon, currentPopulation).catch(() => {
+                        document.getElementById('local-effects-note').innerText = "Analyse indisponible pour le moment.";
+                        document.getElementById('local-effects-list').innerHTML = '';
+                    });
+                } else {
+                    updateMicroClimateToggleUI();
+                }
                 // Un changement de lieu (recherche classique ou fonction cible sur la carte) ferme
                 // le mode sélection s'il était resté actif.
                 pickingLocation = false;
@@ -2995,7 +3327,6 @@
                     forecastGridLayer = null;
                 }
                 forecastFrames30min = [];
-                gridForecastModel = null;
             } catch (e) {
                 console.error(e);
             }
@@ -3009,6 +3340,7 @@
         let currentBeachStations = [];
         let currentMarineData = null;
         let currentSkiCoords = { lat: null, lon: null };
+        let webcamRefreshInterval = null; // rafraîchissement périodique des images webcam en direct
 
         function showSkiCardNoData() {
             const card = document.getElementById('snow-station-card');
@@ -3162,6 +3494,414 @@
             }
         }
 
+        // ============================================================================
+        // TOGGLE MICRO-CLIMAT — active/désactive l'analyse ci-dessous (préférence mémorisée
+        // localement). Désactivé par défaut au tout premier lancement (opt-in) : l'analyse
+        // implique des appels réseau supplémentaires (Elevation + Overpass) à chaque lieu
+        // recherché, qu'on ne veut pas déclencher sans consentement explicite de l'utilisateur.
+        // ============================================================================
+        let microClimateEnabled = false;
+        let microClimateAdjustments = null; // { dayIndex, valley:{active,deltaC,startH,endH}, uhi:{...} } — voir analyzeLocalEffects()
+        try {
+            // Clé renommée (_v2) le 04/09/2026 : une préférence "activé" enregistrée avant l'introduction
+            // du défaut "désactivé" ne doit pas silencieusement contourner ce nouveau défaut. Toute
+            // bascule explicite de l'utilisateur APRÈS ce changement est de nouveau mémorisée normalement
+            // sous cette nouvelle clé.
+            const stored = localStorage.getItem('metehop_microclimate_enabled_v2');
+            if (stored !== null) microClimateEnabled = (stored === 'true');
+        } catch (e) { /* localStorage indisponible (navigation privée...) : reste désactivé par défaut */ }
+
+        const MICRO_CLIMATE_DISABLED_TEXT = "Analyse désactivée. Active l'interrupteur pour détecter les effets locaux (relief, bâti, cours d'eau) — méthodologie complète dans Sources & modèles utilisés (💡).";
+
+        // ============================================================================
+        // AJUSTEMENT MICRO-CLIMAT LISSÉ — appliqué au bandeau "Votre météo, maintenant" (température
+        // + MIN/MAX), à la rangée horaire, et aux graphiques "Température heure par heure &
+        // précipitations", "Température & risques de neige" et "Astronomie & conditions nocturnes".
+        // Contrairement à un ajustement "tout ou rien" sur une plage fixe [startH, endH] (qui produit
+        // un saut brutal de température à l'entrée/sortie de la plage), l'ajustement est ici lissé sur
+        // une fenêtre de transition (MICRO_CLIMATE_TRANSITION_H heures) en entrée et en sortie, via une
+        // fonction "smoothstep" : la correction monte/descend progressivement, jamais d'un coup entre
+        // deux heures consécutives.
+        // ============================================================================
+        const MICRO_CLIMATE_TRANSITION_H = 4;
+
+        function smoothstep01(edge0, edge1, x) {
+            if (edge0 === edge1) return x < edge0 ? 0 : 1;
+            const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
+            return t * t * (3 - 2 * t);
+        }
+
+        function microClimateWindowWeight(hourOfDay, startH, endH, ramp) {
+            const riseStart = startH - ramp, fallEnd = endH + ramp;
+            if (hourOfDay <= riseStart || hourOfDay >= fallEnd) return 0;
+            if (hourOfDay < startH) return smoothstep01(riseStart, startH, hourOfDay);
+            if (hourOfDay <= endH) return 1;
+            return 1 - smoothstep01(endH, fallEnd, hourOfDay);
+        }
+
+        // Renvoie { delta, icon, source } pour une heure du jour donnée (0-23), lissé en entrée/sortie
+        // de fenêtre. `forDayIdx` doit correspondre au jour pour lequel microClimateAdjustments a été
+        // calculé (analyzeLocalEffects) ; sinon aucun ajustement n'est appliqué.
+        function microClimateDeltaAtHour(hourOfDay, forDayIdx) {
+            if (!microClimateEnabled || !microClimateAdjustments || microClimateAdjustments.dayIndex !== forDayIdx) {
+                return { delta: 0, icon: null, source: null };
+            }
+            const v = microClimateAdjustments.valley, u = microClimateAdjustments.uhi;
+            let delta = 0, icon = null, source = null;
+            if (v && v.active) {
+                const w = microClimateWindowWeight(hourOfDay, v.startH, v.endH, MICRO_CLIMATE_TRANSITION_H);
+                if (w > 0.02) { delta += v.deltaC * w; icon = 'fa-mountain'; source = 'valley'; }
+            }
+            if (u && u.active) {
+                const w = microClimateWindowWeight(hourOfDay, u.startH, u.endH, MICRO_CLIMATE_TRANSITION_H);
+                if (w > 0.02) { delta += u.deltaC * w; if (!icon) { icon = 'fa-city'; source = 'uhi'; } }
+            }
+            return { delta: Math.round(delta * 10) / 10, icon, source };
+        }
+
+        // Applique l'ajustement lissé à un tableau de températures horaires, à partir d'un tableau
+        // d'heures-du-jour (0-23) de même longueur (utile pour la rangée nocturne qui chevauche deux
+        // jours calendaires).
+        function applyMicroClimateToTemps(temps, hourOffsets, forDayIdx) {
+            return temps.map((t, i) => t + microClimateDeltaAtHour(hourOffsets[i], forDayIdx).delta);
+        }
+
+        function updateMicroClimateToggleUI() {
+            const toggle = document.getElementById('micro-climate-toggle');
+            if (toggle) toggle.checked = microClimateEnabled;
+            if (!microClimateEnabled) {
+                document.getElementById('local-effects-note').innerText = MICRO_CLIMATE_DISABLED_TEXT;
+                document.getElementById('local-effects-list').innerHTML = '';
+            }
+        }
+
+        function onMicroClimateToggleChange() {
+            const toggle = document.getElementById('micro-climate-toggle');
+            microClimateEnabled = toggle.checked;
+            try { localStorage.setItem('metehop_microclimate_enabled_v2', String(microClimateEnabled)); } catch (e) { /* tant pis, préférence non persistée */ }
+
+            if (microClimateEnabled) {
+                if (currentLat !== null && currentLon !== null) {
+                    analyzeLocalEffects(currentLat, currentLon, currentPopulation).catch(() => {
+                        document.getElementById('local-effects-note').innerText = "Analyse indisponible pour le moment.";
+                        document.getElementById('local-effects-list').innerHTML = '';
+                    });
+                }
+            } else {
+                localEffectsRequestToken++; // annule une éventuelle analyse en cours
+                microClimateAdjustments = null;
+                document.getElementById('local-effects-note').innerText = MICRO_CLIMATE_DISABLED_TEXT;
+                document.getElementById('local-effects-list').innerHTML = '';
+                if (currentLat !== null) updateDayView(selectedDayIndex); // revient aux valeurs modèle brutes
+            }
+        }
+
+        // ============================================================================
+        // EFFETS LOCAUX (MICRO-CLIMAT) — encart informatif sous "Les prochaines heures"
+        // ============================================================================
+        // Les modèles météo (résolution kilométrique) ne peuvent pas résoudre les phénomènes de
+        // micro-climat liés au relief fin ou au tissu urbain. Deux effets bien documentés dans la
+        // littérature sont estimés ici de façon INDICATIVE (jamais une correction chiffrée
+        // appliquée en silence à la prévision affichée ailleurs dans l'app) :
+        //
+        // 1. INVERSION THERMIQUE / "COLD-AIR POOLING" DE FOND DE VALLÉE : par ciel clair et vent
+        //    faible (typiquement nuit/tôt le matin), l'air refroidi par rayonnement le long des
+        //    pentes s'écoule et s'accumule au fond des vallées/cuvettes, pouvant y rendre l'air
+        //    PLUS FROID que sur les hauteurs environnantes — l'inverse du gradient habituel.
+        //    Dissipation généralement après le lever du soleil. Intensité typique de l'ordre de
+        //    0,5 à 1,7°C/100m de dénivelé encaissant selon les études de terrain (jusqu'à plusieurs
+        //    °C en fond de vallée bien encaissée par conditions calmes). Sources : Rupp et al. 2020
+        //    (J. Geophys. Res. Atmos., bassin forestier des Cascades) ; étude de la vallée d'Eiras,
+        //    Coimbra (Atmosphere, 2026, écart observé ~4°C un matin d'été entre fond de vallée et
+        //    sommet) ; synthèse Andrews Forest Research Program.
+        //
+        // 2. ÎLOT DE CHALEUR URBAIN : les cœurs urbains denses (bâti minéral, moins de végétation,
+        //    chaleur anthropique) sont statistiquement plus chauds que leur périphérie rurale,
+        //    l'écart maximal étant généralement observé en fin d'après-midi/soirée par temps calme
+        //    et dégagé. Estimation via la relation empirique d'Oke/Landsberg reliant l'écart
+        //    maximal à la population (ΔT_max ≈ 2,01×log10(population) − 4,06, régression sur des
+        //    villes européennes, Landsberg 1981 d'après les données d'Oke) quand la population est
+        //    connue (recherche par nom de ville) ; à défaut, simple indicateur de densité bâtie
+        //    (nombre de bâtiments OpenStreetMap à proximité).
+        //
+        // 3. PROXIMITÉ D'UN COURS D'EAU / PLAN D'EAU : effet modérateur bien connu (inertie
+        //    thermique de l'eau) qui tend à réduire l'amplitude thermique journalière et humidifier
+        //    l'air à proximité immédiate.
+        //
+        // Sources de données, toutes gratuites et sans clé : relief via l'API Elevation Open-Meteo
+        // (DEM Copernicus GLO-90, 90m) ; bâti et cours d'eau via Overpass API (OpenStreetMap).
+        // ============================================================================
+        let localEffectsRequestToken = 0; // évite qu'une requête pour un lieu obsolète n'écrase l'affichage d'un lieu plus récent
+
+        async function analyzeLocalEffects(lat, lon, population) {
+            const myToken = ++localEffectsRequestToken;
+            const note = document.getElementById('local-effects-note');
+            const list = document.getElementById('local-effects-list');
+            note.innerText = 'Analyse du relief et du bâti local...';
+            list.innerHTML = '';
+
+            // ---- 1. RELIEF : deux anneaux de 8 points (2km ET 6km) + centre, un seul appel API ----
+            // Un seul rayon de 2km s'est révélé insuffisant pour détecter des vallées larges (ex.
+            // Grésivaudan, plusieurs km de large à plat en fond de vallée avant que les premiers
+            // contreforts ne s'élèvent) : le point recherché peut être à plus de 2km du versant le
+            // plus proche tout en étant réellement en fond de vallée. Un second anneau plus large
+            // (6km) capture ce cas ; on retient le signal le plus marqué des deux rayons.
+            const RING_RADII_KM = [2, 6];
+            const bearings = [0, 45, 90, 135, 180, 225, 270, 315];
+            const latDegPerKm = 1 / 111.32;
+            const lonDegPerKm = 1 / (111.32 * Math.cos(lat * Math.PI / 180));
+            const ringsPoints = RING_RADII_KM.map(radiusKm => bearings.map(b => {
+                const rad = b * Math.PI / 180;
+                return {
+                    lat: lat + radiusKm * latDegPerKm * Math.cos(rad),
+                    lon: lon + radiusKm * lonDegPerKm * Math.sin(rad)
+                };
+            }));
+            const allPoints = [{ lat, lon }, ...ringsPoints.flat()];
+
+            let reliefIndex = null; // moyenne(anneau retenu) - centre, en mètres. Positif = cuvette/vallée.
+            let reliefRadiusKm = null; // rayon (2 ou 6km) qui a produit le signal le plus marqué
+            try {
+                const latsParam = allPoints.map(p => p.lat.toFixed(5)).join(',');
+                const lonsParam = allPoints.map(p => p.lon.toFixed(5)).join(',');
+                const elevUrl = `https://api.open-meteo.com/v1/elevation?latitude=${latsParam}&longitude=${lonsParam}`;
+                const elevRes = await fetchWithTimeout(elevUrl, { timeout: 8000 });
+                if (elevRes.ok) {
+                    const elevData = await elevRes.json();
+                    const elevs = elevData.elevation;
+                    if (Array.isArray(elevs) && elevs.length === allPoints.length && elevs.every(v => typeof v === 'number')) {
+                        const centerElev = elevs[0];
+                        RING_RADII_KM.forEach((radiusKm, idx) => {
+                            const ringElevs = elevs.slice(1 + idx * bearings.length, 1 + (idx + 1) * bearings.length);
+                            const ringMean = ringElevs.reduce((a, b) => a + b, 0) / ringElevs.length;
+                            const idxRelief = Math.round(ringMean - centerElev);
+                            if (reliefIndex === null || idxRelief > reliefIndex) {
+                                reliefIndex = idxRelief;
+                                reliefRadiusKm = radiusKm;
+                            }
+                        });
+                    }
+                }
+            } catch (e) { /* relief indisponible : on continue sans ce signal */ }
+
+            // ---- 2. BÂTI ET COURS D'EAU : Overpass API ----
+            let buildingCount = null;
+            let nearestWater = null; // { type, distM }
+
+            try {
+                const bQuery = `[out:json][timeout:20];way(around:700,${lat},${lon})[building];out tags 300;`;
+                const bUrl = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(bQuery)}`;
+                const bRes = await fetchWithTimeout(bUrl, { timeout: 15000 });
+                if (bRes.ok) {
+                    const bData = await bRes.json();
+                    buildingCount = Array.isArray(bData.elements) ? bData.elements.length : null;
+                }
+            } catch (e) { /* densité bâtie indisponible */ }
+
+            try {
+                const wQuery = `[out:json][timeout:20];(way(around:800,${lat},${lon})[waterway~"^(river|canal)$"];way(around:800,${lat},${lon})[natural=water];relation(around:800,${lat},${lon})[natural=water];);out center tags 5;`;
+                const wUrl = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(wQuery)}`;
+                const wRes = await fetchWithTimeout(wUrl, { timeout: 15000 });
+                if (wRes.ok) {
+                    const wData = await wRes.json();
+                    let best = null;
+                    (wData.elements || []).forEach(el => {
+                        const elLat = el.lat ?? (el.center && el.center.lat);
+                        const elLon = el.lon ?? (el.center && el.center.lon);
+                        if (typeof elLat !== 'number' || typeof elLon !== 'number') return;
+                        const distM = Math.round(calculateDistance(lat, lon, elLat, elLon) * 1000);
+                        const type = (el.tags && el.tags.waterway) ? "cours d'eau" : 'plan d\'eau';
+                        if (!best || distM < best.distM) best = { type, distM };
+                    });
+                    nearestWater = best;
+                }
+            } catch (e) { /* cours d'eau indisponible */ }
+
+            // ---- 2bis. POPULATION DE REPLI (si non fournie par l'appelant, ex. lieu chargé par
+            // défaut, géolocalisation ou clic carte plutôt que recherche par nom) : nœud/way OSM
+            // taggé place=* avec un attribut population=*, le plus proche dans un rayon de 5km. ----
+            let resolvedPopulation = population;
+            if (typeof resolvedPopulation !== 'number' || resolvedPopulation <= 0) {
+                try {
+                    const pQuery = `[out:json][timeout:20];(node(around:5000,${lat},${lon})["place"]["population"];way(around:5000,${lat},${lon})["place"]["population"];);out center tags 10;`;
+                    const pUrl = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(pQuery)}`;
+                    const pRes = await fetchWithTimeout(pUrl, { timeout: 15000 });
+                    if (pRes.ok) {
+                        const pData = await pRes.json();
+                        let best = null;
+                        (pData.elements || []).forEach(el => {
+                            const elLat = el.lat ?? (el.center && el.center.lat);
+                            const elLon = el.lon ?? (el.center && el.center.lon);
+                            const pop = el.tags && parseInt(el.tags.population, 10);
+                            if (typeof elLat !== 'number' || typeof elLon !== 'number' || !pop || isNaN(pop)) return;
+                            const distM = calculateDistance(lat, lon, elLat, elLon) * 1000;
+                            if (!best || distM < best.distM) best = { pop, distM };
+                        });
+                        if (best) resolvedPopulation = best.pop;
+                    }
+                } catch (e) { /* population de repli indisponible : uniquement l'indicateur de densité bâtie */ }
+            }
+
+            if (myToken !== localEffectsRequestToken) return; // un lieu plus récent a été recherché entre-temps
+
+            // ---- Construction des messages, croisés avec les conditions prévues réelles (jamais
+            // un chiffre inventé : uniquement pour moduler le texte d'avertissement) ----
+            function hoursConditionsFavorable(startH, endH) {
+                if (!weatherData || !weatherData.hourly) return null;
+                const dayStart = selectedDayIndex * 24;
+                let cloudSum = 0, windSum = 0, n = 0;
+                for (let h = startH; h <= endH; h++) {
+                    const idx = dayStart + h;
+                    const cloud = weatherData.hourly.cloud_cover ? weatherData.hourly.cloud_cover[idx] : undefined;
+                    const wind = weatherData.hourly.wind_speed_10m ? weatherData.hourly.wind_speed_10m[idx] : undefined;
+                    if (typeof cloud === 'number' && typeof wind === 'number') { cloudSum += cloud; windSum += wind; n++; }
+                }
+                return n ? { cloudAvg: cloudSum / n, windAvg: windSum / n } : null;
+            }
+
+            // Calcul des ajustements (coefficients, favorabilité du jour...) — méthodologie complète,
+            // sources et formules détaillées dans la modale Sources & modèles utilisés (💡), pas ici :
+            // cet encart n'affiche plus que des puces emoji + signification pour les effets détectés
+            // ce jour-là. Coefficients ancrés dans les fourchettes citées en sources, plafonnés pour
+            // rester prudents : ce sont des ORDRES DE GRANDEUR indicatifs, pas une mesure.
+            let valleyDeltaC = 0, valleyFavorable = false;
+            let valleyDetected = false;
+
+            // 1. Fond de vallée / inversion thermique matinale
+            if (typeof reliefIndex === 'number' && reliefIndex >= 40) {
+                valleyDetected = true;
+                const morning = hoursConditionsFavorable(5, 9);
+                valleyFavorable = !!(morning && morning.cloudAvg < 30 && morning.windAvg < 12);
+                // ~0,5 à 1,7°C/100m de relief encaissant selon les études de terrain (voir Sources &
+                // modèles utilisés) ; retenu dans le haut de cette fourchette (0,9°C/100m), plafonné
+                // à -6°C au-delà duquel l'estimation devient trop incertaine pour un chiffre unique.
+                const coeffPer100m = 0.9;
+                const maxDeltaC = 6;
+                valleyDeltaC = valleyFavorable ? -Math.round(Math.min(maxDeltaC, Math.max(1, reliefIndex / 100 * coeffPer100m)) * 10) / 10 : 0;
+            }
+
+            // 2. Îlot de chaleur urbain — la POPULATION ADMINISTRATIVE d'une commune française peut
+            // couvrir un vaste territoire rural autour d'un centre bâti restreint : on ne fait
+            // confiance à l'estimation basée sur la population que si la densité bâtie RÉELLEMENT
+            // mesurée à proximité (Overpass) la corrobore. Plancher de population (3000 hab.)
+            // appliqué en dessous duquel l'effet documenté devient trop marginal pour être fiable.
+            let uhiDeltaC = 0, uhiFavorable = false;
+            let uhiDetected = false;
+            let uhiEstimate = null;
+            const buildingCorroborates = (typeof buildingCount !== 'number') || buildingCount >= 30;
+            if (typeof resolvedPopulation === 'number' && resolvedPopulation >= 3000 && buildingCorroborates) {
+                const est = 2.01 * Math.log10(resolvedPopulation) - 4.06;
+                if (est > 0.3) uhiEstimate = Math.round(est * 10) / 10;
+            }
+            const urbanTier = typeof buildingCount === 'number'
+                ? (buildingCount >= 120 ? 'dense' : (buildingCount >= 30 ? 'moderee' : null))
+                : null;
+            if (uhiEstimate || urbanTier) {
+                uhiDetected = true;
+                const afternoon = hoursConditionsFavorable(14, 18);
+                uhiFavorable = !!(afternoon && afternoon.cloudAvg < 40 && afternoon.windAvg < 15);
+                // Valeur numérique : l'estimation Oke/Landsberg si la population est connue ET
+                // corroborée par le bâti, sinon un point représentatif de la fourchette habituelle
+                // selon la densité bâtie détectée.
+                //
+                // La formule Oke/Landsberg estime l'écart MAXIMAL théorique ΔT_u-r(max), typiquement
+                // atteint la NUIT quelques heures après le coucher du soleil sous conditions calmes et
+                // dégagées idéales — pas l'écart réel en après-midi (14h-18h, fenêtre où cet ajustement
+                // est appliqué). Appliquée telle quelle à l'après-midi, elle surestime systématiquement
+                // l'échauffement réel, y compris hors contexte de cuvette (voir UHI_AFTERNOON_BASE_FACTOR
+                // ci-dessous — le repli sur densité bâtie seule reste, lui, un point déjà réaliste, non
+                // affecté par ce facteur). Calibré le 04/09/2026 sur La Roche-sur-Yon (terrain plat,
+                // aucun relief encaissant détecté) : formule brute +5,5°C, observé +1°C au maximum de
+                // l'après-midi → facteur retenu 0,2. Un seul point de calibration en terrain plat à ce
+                // stade, à affiner avec d'autres observations.
+                const UHI_AFTERNOON_BASE_FACTOR = 0.2;
+                const uhiPointEstimate = uhiEstimate
+                    ? uhiEstimate * UHI_AFTERNOON_BASE_FACTOR
+                    : (urbanTier === 'dense' ? 2.5 : 1.5);
+                uhiDeltaC = uhiFavorable ? Math.round(uhiPointEstimate * 10) / 10 : 0;
+            }
+
+            // Ajustements transmis à updateDayView()/updateChart()/updatePressureChart()/
+            // updateAstroChart() : appliqués de façon LISSÉE (transition progressive en entrée/sortie
+            // de fenêtre, jamais un saut brutal d'une heure à l'autre) — voir microClimateDeltaAtHour().
+            //
+            // ---- "Ville en cuvette" : deux mécanismes distincts, calibrés séparément ----
+            // Quand une agglomération est À LA FOIS en fond de vallée/cuvette marqué (valleyDetected)
+            // ET suffisamment urbanisée (uhiDetected), le relief encaissant a deux effets opposés,
+            // traités séparément plutôt que par un facteur unique appliqué aux deux grandeurs :
+            //
+            // 1. INVERSION NOCTURNE ATTÉNUÉE : la chaleur et le brassage turbulent générés par la ville
+            //    limitent le refroidissement radiatif nocturne, donc l'inversion réelle du matin est
+            //    plus faible que dans une vallée rurale équivalente. Calibré le 04/09/2026 sur Grenoble :
+            //    inversion -2,8°C calculée vs -0,7°C observée → coefficient retenu 0,3.
+            //
+            // 2. ÉCHAUFFEMENT DIURNE AMPLIFIÉ : une cuvette peu ventilée retient davantage la chaleur
+            //    urbaine l'après-midi qu'un terrain ouvert équivalent (moins de dispersion par le vent).
+            //    Calibré le 04/09/2026 sur Grenoble, UNE FOIS le facteur général UHI_AFTERNOON_BASE_FACTOR
+            //    déjà appliqué ci-dessus (+6,8°C brut × 0,2 = +1,4°C "après-midi générique") : écart
+            //    encore observé jusqu'à +2°C → coefficient d'amplification retenu 1,5.
+            //
+            // Ces deux coefficients reposent chacun sur un seul point de calibration à ce stade, à
+            // réévaluer avec d'autres observations de terrain (voir contexte.txt). Les vallées rurales
+            // isolées et les villes de plaine (sans les deux effets combinés) ne sont pas concernées.
+            const VALLEY_URBAN_SUPPRESSION = 0.3; // inversion nocturne atténuée par la chaleur urbaine
+            const UHI_VALLEY_AMPLIFICATION = 1.5; // échauffement diurne amplifié par la cuvette peu ventilée
+            const urbanValleyCoLocated = valleyDetected && uhiDetected;
+            if (urbanValleyCoLocated) {
+                valleyDeltaC = Math.round(valleyDeltaC * VALLEY_URBAN_SUPPRESSION * 10) / 10;
+                uhiDeltaC = Math.round(uhiDeltaC * UHI_VALLEY_AMPLIFICATION * 10) / 10;
+            }
+
+            microClimateAdjustments = {
+                dayIndex: selectedDayIndex,
+                valley: { active: valleyFavorable, deltaC: valleyDeltaC, startH: 5, endH: 9 },
+                uhi: { active: uhiFavorable, deltaC: uhiDeltaC, startH: 14, endH: 18 }
+            };
+
+            // 3. Cours d'eau / plan d'eau proche (effet non chiffré dans les ajustements ci-dessus,
+            // simple signalement)
+            const waterDetected = !!nearestWater;
+
+            // ---- Construction des puces emoji + signification (aucun texte explicatif ici) ----
+            const chips = [];
+            const valleyCoLocatedNote = urbanValleyCoLocated ? ' <em>(atténué : ville en cuvette)</em>' : '';
+            const uhiCoLocatedNote = urbanValleyCoLocated ? ' <em>(cuvette peu ventilée)</em>' : '';
+            if (valleyDetected) {
+                chips.push({
+                    emoji: '🏔️', alert: valleyFavorable,
+                    label: 'Fond de vallée (inversion thermique matinale)' + (valleyFavorable ? ` — <strong>${valleyDeltaC}°C 5h-9h</strong>${valleyCoLocatedNote}` : '')
+                });
+            }
+            if (uhiDetected) {
+                chips.push({
+                    emoji: '🏙️', alert: uhiFavorable,
+                    label: 'Îlot de chaleur urbain (fin d\'après-midi/soir)' + (uhiFavorable ? ` — <strong>+${uhiDeltaC}°C 14h-18h</strong>${uhiCoLocatedNote}` : '')
+                });
+            }
+            if (waterDetected) {
+                chips.push({ emoji: '🌊', alert: false, label: 'Cours d\'eau / plan d\'eau proche (effet modérateur)' });
+            }
+
+            if (!chips.length) {
+                microClimateAdjustments = null; // rien à ajuster : ni relief ni bâti significatifs détectés
+                note.innerText = "Aucun effet local détecté aujourd'hui.";
+                list.innerHTML = '';
+                return;
+            }
+
+            note.innerText = "Effets locaux détectés pour ce jour :";
+            list.innerHTML = chips.map(c => `
+                <div class="local-effect-chip${c.alert ? ' alert' : ''}">
+                    <span class="local-effect-emoji">${c.emoji}</span>
+                    <span>${c.label}</span>
+                </div>
+            `).join('');
+
+            // Rafraîchit l'affichage (bandeau, rangée horaire, min/max et graphiques) pour appliquer
+            // immédiatement les ajustements ci-dessus, sans attendre une autre action de l'utilisateur.
+            if (selectedDayIndex === microClimateAdjustments.dayIndex) updateDayView(selectedDayIndex);
+        }
+
         async function fetchExtraLocalData(lat, lon, locationName) {
             // Réinitialisation des affichages
             document.getElementById('extra-water-dist').innerText = "-- km";
@@ -3178,176 +3918,159 @@
             loadMarineStationsDropdown(lat, lon).catch(() => {
                 showMarineNoData();
             });
+
+            // 3. WEBCAMS PUBLIQUES À PROXIMITÉ (stations connues + bonus OpenStreetMap)
+            loadWebcamsNearby(lat, lon).catch(() => {
+                document.getElementById('webcam-grid').style.display = 'none';
+                document.getElementById('webcam-no-data-msg').style.display = 'block';
+                document.getElementById('webcam-note').innerText = 'Recherche de webcams indisponible pour le moment.';
+            });
+        }
+
+        // ---- Webcams publiques à proximité ----
+        // IMPORTANT (retour d'expérience) : le tag OpenStreetMap contact:webcam=* envisagé au
+        // départ comme source principale s'est révélé beaucoup trop rare en pratique pour être
+        // fiable (~1150 usages dans le MONDE ENTIER selon Taginfo, à l'origine pensé pour des
+        // caméras de vidéosurveillance et non pour les webcams touristiques de stations de ski/
+        // plage — vérifié après un premier retour utilisateur ne voyant aucun résultat même sur
+        // une station de ski connue). Les vraies webcams de stations françaises ne sont
+        // quasiment jamais cataloguées avec ce tag dans OSM. Il n'existe pas de base de données
+        // de webcams publique, gratuite ET sans clé d'API qui couvre correctement ces lieux
+        // (Windy Webcams API le permettrait, mais nécessite une clé personnelle à créer).
+        //
+        // Stratégie retenue, honnête et qui fonctionne réellement :
+        // 1. Pour les stations de ski/plage déjà connues et géolocalisées par l'app (mêmes
+        //    listes que le tableau "Station de ski & Station balnéaire" ci-dessus, recherche
+        //    synchrone et gratuite, sans appel réseau), on propose une tuile de recherche vers
+        //    un moteur de recherche déjà indexé sur les vrais annuaires de webcams (Skiinfo,
+        //    meteo-webcam.net, France Webcams, etc.) — fiable à 100%, jamais de lien mort.
+        // 2. En complément, une requête Overpass reste tentée (bonus) : quand un nœud OSM référence
+        //    vraiment une webcam à proximité (rare mais ça arrive, notamment en ville ou sur des
+        //    points de vue), son image est incrustée directement plutôt qu'un simple lien.
+        const WEBCAM_OSM_RADIUS_KM = 60;
+
+        function escapeWebcamText(str) {
+            return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
+        function buildWebcamSearchTile(name, dist) {
+            const query = `webcam en direct ${name}`;
+            return {
+                kind: 'search',
+                name,
+                dist,
+                url: `https://www.google.com/search?q=${encodeURIComponent(query)}&tbm=isch`
+            };
+        }
+
+        async function loadWebcamsNearby(lat, lon) {
+            const grid = document.getElementById('webcam-grid');
+            const noDataMsg = document.getElementById('webcam-no-data-msg');
+            const note = document.getElementById('webcam-note');
+            if (webcamRefreshInterval) { clearInterval(webcamRefreshInterval); webcamRefreshInterval = null; }
+            grid.innerHTML = '';
+            grid.style.display = '';
+            noDataMsg.style.display = 'none';
+            note.innerText = 'Recherche des webcams à proximité...';
+
+            // 1. Stations de ski/plage déjà connues (données synchrones, aucun appel réseau) :
+            // source la plus fiable, on prend les 3 plus proches de chaque type.
+            const nearbySki = (typeof findNearbySkiStations === 'function' ? findNearbySkiStations(lat, lon, 60) : []).slice(0, 3);
+            const nearbyBeach = (typeof findNearbyBeachStations === 'function' ? findNearbyBeachStations(lat, lon, 50) : []).slice(0, 3);
+            const searchTiles = [...nearbySki, ...nearbyBeach]
+                .sort((a, b) => a.dist - b.dist)
+                .map(s => buildWebcamSearchTile(s.name, s.dist));
+
+            // 2. Bonus OpenStreetMap (Overpass API, gratuit et sans clé) : rare mais quand ça
+            // matche, on incruste directement l'image plutôt qu'un simple lien.
+            let osmWebcams = [];
+            try {
+                const query = `[out:json][timeout:20];(node(around:${WEBCAM_OSM_RADIUS_KM * 1000},${lat},${lon})["contact:webcam"];node(around:${WEBCAM_OSM_RADIUS_KM * 1000},${lat},${lon})["surveillance:type"="webcam"];);out body;`;
+                const overpassUrl = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+                const res = await fetchWithTimeout(overpassUrl, { timeout: 15000 });
+                if (res.ok) {
+                    const data = await res.json();
+                    const byId = new Map();
+                    (data.elements || []).forEach(el => {
+                        if (typeof el.lat !== 'number' || typeof el.lon !== 'number') return;
+                        const t = el.tags || {};
+                        const webcamUrl = t['contact:webcam'] || t['url:webcam'] || t['webcam'] || t['website'] || t['url'] || t['contact:website'];
+                        if (!webcamUrl) return;
+                        if (!byId.has(el.id)) {
+                            byId.set(el.id, {
+                                kind: /\.(jpe?g|png|gif)(\?.*)?$/i.test(webcamUrl) ? 'image' : 'link',
+                                name: t.name || 'Webcam',
+                                url: webcamUrl,
+                                dist: calculateDistance(lat, lon, el.lat, el.lon)
+                            });
+                        }
+                    });
+                    osmWebcams = Array.from(byId.values()).sort((a, b) => a.dist - b.dist);
+                }
+            } catch (e) {
+                osmWebcams = []; // Overpass indisponible : on garde simplement les tuiles de recherche
+            }
+
+            const all = [...osmWebcams, ...searchTiles];
+
+            if (!all.length) {
+                grid.style.display = 'none';
+                noDataMsg.style.display = 'block';
+                note.innerText = "Aucune station de ski/plage connue ni webcam OpenStreetMap à proximité de ce lieu.";
+                return;
+            }
+
+            note.innerText = osmWebcams.length
+                ? `${osmWebcams.length} webcam${osmWebcams.length > 1 ? 's' : ''} OpenStreetMap à proximité, + recherche ciblée pour les stations connues.`
+                : "Recherche ciblée pour les stations de ski/plage connues les plus proches.";
+
+            grid.innerHTML = all.map(w => {
+                let host = '';
+                try { host = new URL(w.url).hostname.replace(/^www\./, ''); } catch (e) { host = ''; }
+                const safeName = escapeWebcamText(w.name);
+                const safeUrl = escapeWebcamText(w.url);
+                let thumb, badge, subLabel;
+                if (w.kind === 'image') {
+                    const cacheBustedSrc = `${w.url}${w.url.includes('?') ? '&' : '?'}_t=${Date.now()}`;
+                    thumb = `<img src="${escapeWebcamText(cacheBustedSrc)}" alt="${safeName}" loading="lazy" data-webcam-refresh="1" data-webcam-src="${safeUrl}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                              <div class="webcam-thumb-placeholder" style="display:none;"><i class="fa-solid fa-video-slash"></i></div>`;
+                    badge = '<span class="webcam-live-badge">LIVE</span>';
+                    subLabel = host ? escapeWebcamText(host) : 'OpenStreetMap';
+                } else if (w.kind === 'link') {
+                    thumb = `<div class="webcam-thumb-placeholder"><i class="fa-solid fa-up-right-from-square"></i></div>`;
+                    badge = '';
+                    subLabel = host ? escapeWebcamText(host) : 'OpenStreetMap';
+                } else {
+                    thumb = `<div class="webcam-thumb-placeholder"><i class="fa-solid fa-magnifying-glass"></i></div>`;
+                    badge = '';
+                    subLabel = 'Rechercher →';
+                }
+                return `<a class="webcam-tile" href="${safeUrl}" target="_blank" rel="noopener">
+                    <div class="webcam-thumb-wrap">
+                        ${badge}
+                        ${thumb}
+                    </div>
+                    <div class="webcam-info">
+                        <span class="webcam-name">${safeName}</span>
+                        <span class="webcam-dist">${w.dist} km · ${subLabel}</span>
+                    </div>
+                </a>`;
+            }).join('');
+
+            // Rafraîchissement périodique (toutes les 60s) des images OSM en direct, par cache-busting.
+            webcamRefreshInterval = setInterval(() => {
+                document.querySelectorAll('#webcam-grid img[data-webcam-refresh]').forEach(img => {
+                    const src = img.dataset.webcamSrc;
+                    if (!src) return;
+                    img.src = `${src}${src.includes('?') ? '&' : '?'}_t=${Date.now()}`;
+                });
+            }, 60000);
         }
 
 
         // ─── CHARGEMENT DE LA GRILLE DE PRÉVISIONS RÉELLES ───
-        // Détecte si le point est couvert par le modèle Météo-France AROME France HD (haute
-        // résolution ~1,5km, France et zones limitrophes). Hors de sa zone de couverture,
-        // Open-Meteo répond avec un code 200 mais des valeurs nulles plutôt qu'une erreur
-        // explicite : on vérifie donc qu'une vraie valeur est bien renvoyée avant de faire
-        // confiance à ce modèle. Un seul point de sonde (le centre de la grille) suffit : le
-        // domaine AROME HD est bien plus large que le rayon de la grille de prévisions (40km).
-        // Détecte si un point est couvert par le modèle Météo-France AROME France HD (haute
-        // résolution ~1,5km, France et zones limitrophes). Hors de sa zone de couverture,
-        // Open-Meteo répond avec un code 200 mais des valeurs nulles plutôt qu'une erreur
-        // explicite : on vérifie donc qu'une vraie valeur est bien renvoyée avant de faire
-        // confiance à ce modèle. Le résultat est mis en cache pour le lieu courant, pour éviter
-        // de re-tester à chaque bascule du sélecteur ou chargement de la grille.
-        async function detectAromeHdCoverage(lat, lon) {
-            try {
-                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m&models=meteofrance_arome_france_hd&forecast_days=1`;
-                const res = await fetchWithTimeout(url, { timeout: 5000 });
-                if (!res.ok) return false;
-                const data = await res.json();
-                const temps = data.hourly && data.hourly.temperature_2m;
-                return Array.isArray(temps) && temps.some(v => typeof v === 'number');
-            } catch (e) {
-                return false;
-            }
-        }
-
-        async function checkAromeHdCoverage(lat, lon) {
-            if (aromeHdCoverageCache && calculateDistance(lat, lon, aromeHdCoverageCache.lat, aromeHdCoverageCache.lon) < 2) {
-                return aromeHdCoverageCache.covered;
-            }
-            const covered = await detectAromeHdCoverage(lat, lon);
-            aromeHdCoverageCache = { lat, lon, covered };
-            return covered;
-        }
-
-        // Fusionne les données AROME France HD dans une copie des données Open-Meteo d'origine :
-        // seules les heures effectivement couvertes par AROME HD (~2 jours) sont remplacées ; le
-        // reste de la fenêtre de prévision (jusqu'à J+16) demeure strictement inchangé. Les
-        // agrégations journalières (min/max/moyenne) des jours entièrement couverts sont
-        // recalculées à partir des heures fusionnées ; le lever/coucher du soleil, lui, ne dépend
-        // d'aucun modèle et n'est jamais modifié.
-        function buildAromeMergedWeatherData(base, aromeHourly) {
-            const merged = JSON.parse(JSON.stringify(base));
-
-            let hourCount = 0;
-            if (aromeHourly.temperature_2m) {
-                for (const v of aromeHourly.temperature_2m) {
-                    if (v === null || v === undefined) break;
-                    hourCount++;
-                }
-            }
-            aromeHourCount = hourCount;
-
-            Object.keys(aromeHourly).forEach(key => {
-                if (key === 'time' || !merged.hourly[key]) return;
-                for (let i = 0; i < hourCount && i < merged.hourly[key].length; i++) {
-                    const v = aromeHourly[key][i];
-                    if (v !== null && v !== undefined) merged.hourly[key][i] = v;
-                }
-            });
-
-            if (merged.daily && merged.daily.time) {
-                const fullDaysCovered = Math.floor(hourCount / 24);
-                for (let d = 0; d < fullDaysCovered && d < merged.daily.time.length; d++) {
-                    const dayTemps = merged.hourly.temperature_2m.slice(d * 24, d * 24 + 24).filter(v => typeof v === 'number');
-                    if (dayTemps.length) {
-                        if (merged.daily.temperature_2m_max) merged.daily.temperature_2m_max[d] = Math.max(...dayTemps);
-                        if (merged.daily.temperature_2m_min) merged.daily.temperature_2m_min[d] = Math.min(...dayTemps);
-                        if (merged.daily.temperature_2m_mean) merged.daily.temperature_2m_mean[d] = dayTemps.reduce((a, b) => a + b, 0) / dayTemps.length;
-                    }
-                }
-            }
-
-            return merged;
-        }
-
-        function resetModelToggleUI() {
-            document.querySelectorAll('.model-toggle-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.model === 'auto');
-                btn.classList.remove('unavailable');
-            });
-            document.getElementById('model-toggle-note').style.display = 'none';
-        }
-
-        function rerenderAfterModelChange() {
-            renderCarousel();
-            updateDayView(selectedDayIndex);
-            render16DayTable();
-            renderVigilanceBanner().catch(() => {});
-            // La grille de prévisions (6h) suit elle aussi le modèle sélectionné : on invalide son
-            // cache pour forcer un rechargement avec le bon modèle.
-            gridForecastData = null;
-            gridCenterLat = null;
-            gridCenterLon = null;
-            if (currentLat !== null && currentLon !== null) loadGridForecasts(currentLat, currentLon).catch(() => {});
-        }
-
-        async function setModel(model) {
-            if (model === selectedModel || !baseWeatherData) return;
-            const noteEl = document.getElementById('model-toggle-note');
-
-            if (model === 'auto') {
-                selectedModel = 'auto';
-                weatherData = baseWeatherData;
-                document.querySelectorAll('.model-toggle-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.model === 'auto'));
-                noteEl.style.display = 'none';
-                rerenderAfterModelChange();
-                return;
-            }
-
-            // model === 'arome_hd'
-            noteEl.style.display = 'block';
-            noteEl.innerText = 'Vérification de la couverture AROME France HD...';
-            const covered = await checkAromeHdCoverage(currentLat, currentLon);
-            if (!covered) {
-                noteEl.innerText = "AROME France HD n'est pas disponible pour ce lieu (hors de sa zone de couverture). Modèle Open-Meteo conservé.";
-                document.querySelector('.model-toggle-btn[data-model="arome_hd"]').classList.add('unavailable');
-                setTimeout(() => { noteEl.style.display = 'none'; }, 4000);
-                return;
-            }
-
-            try {
-                const vars = 'temperature_2m,dew_point_2m,precipitation,rain,cloud_cover,snowfall,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl,relative_humidity_2m,soil_temperature_0cm,is_day';
-                const url = `https://api.open-meteo.com/v1/forecast?latitude=${currentLat}&longitude=${currentLon}&hourly=${vars}&models=meteofrance_arome_france_hd&timezone=auto&forecast_days=3`;
-                const res = await fetchWithTimeout(url, { timeout: 8000 });
-                if (!res.ok) throw new Error('Réponse AROME HD invalide');
-                const aromeData = await res.json();
-                if (!aromeData.hourly) throw new Error('Pas de données horaires AROME HD');
-
-                // Diagnostic : AROME France HD n'expose qu'un jeu de champs natifs réduit (pas de
-                // niveaux de pression, et certains champs dérivés peuvent revenir vides selon le
-                // lieu). On vérifie ici, variable par variable, laquelle a réellement été renvoyée
-                // avec des valeurs exploitables, pour ne jamais laisser croire que tout a changé si
-                // seule une partie des champs a pu être mise à jour.
-                const FIELD_LABELS = {
-                    temperature_2m: 'température', dew_point_2m: 'point de rosée', rain: 'pluie',
-                    snowfall: 'neige', cloud_cover: 'nébulosité', weather_code: 'code météo',
-                    wind_speed_10m: 'vent', wind_gusts_10m: 'rafales', pressure_msl: 'pression',
-                    relative_humidity_2m: 'humidité'
-                };
-                const merged = [], unavailable = [];
-                Object.keys(FIELD_LABELS).forEach(key => {
-                    const arr = aromeData.hourly[key];
-                    const hasRealData = Array.isArray(arr) && arr.some(v => v !== null && v !== undefined);
-                    (hasRealData ? merged : unavailable).push(FIELD_LABELS[key]);
-                });
-
-                aromeMergedWeatherData = buildAromeMergedWeatherData(baseWeatherData, aromeData.hourly);
-                selectedModel = 'arome_hd';
-                weatherData = aromeMergedWeatherData;
-
-                document.querySelectorAll('.model-toggle-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.model === 'arome_hd'));
-                document.querySelector('.model-toggle-btn[data-model="arome_hd"]').classList.remove('unavailable');
-                const hrs = aromeHourCount;
-                if (hrs > 0 && merged.length) {
-                    let msg = `AROME France HD appliqué sur les ${hrs} prochaines heures (~${Math.round(hrs / 24 * 10) / 10}j) pour : ${merged.join(', ')}.`;
-                    if (unavailable.length) msg += ` Non fourni par ce modèle ici (Open-Meteo conservé) : ${unavailable.join(', ')}.`;
-                    noteEl.innerText = msg;
-                } else {
-                    noteEl.innerText = "AROME France HD n'a renvoyé aucune donnée exploitable ; prévisions Open-Meteo conservées.";
-                }
-                rerenderAfterModelChange();
-            } catch (e) {
-                noteEl.innerText = "Erreur lors du chargement d'AROME France HD. Modèle Open-Meteo conservé.";
-                setTimeout(() => { noteEl.style.display = 'none'; }, 4000);
-            }
-        }
+        // Prévisions Open-Meteo uniquement (sélection automatique du meilleur modèle localement
+        // disponible) — le sous-système de bascule AROME France HD a été retiré.
 
         // ============================================================================
         // GRAPHIQUE EXPÉRIMENTAL "ÉVOLUTION DES 2 PROCHAINES HEURES" — Metehop (radar seul)
@@ -4020,26 +4743,16 @@
 
         async function loadGridForecasts(centerLat, centerLon) {
             if (isLoadingGrid) return;
-            // Si déjà chargé pour ce centre (à ~2km près) avec le même modèle, ne pas recharger
+            // Si déjà chargé pour ce centre (à ~2km près), ne pas recharger
             if (gridForecastData && gridCenterLat !== null && gridCenterLon !== null &&
-                calculateDistance(centerLat, centerLon, gridCenterLat, gridCenterLon) < 2 &&
-                gridForecastModel === selectedModel) {
+                calculateDistance(centerLat, centerLon, gridCenterLat, gridCenterLon) < 2) {
                 return;
             }
             isLoadingGrid = true;
             document.getElementById('radar-time').innerText = 'Chargement grille...';
 
-            // La grille suit le modèle choisi via le sélecteur "Les prochaines heures" : AROME
-            // France HD si sélectionné ET si le lieu est dans sa zone de couverture, sinon la
-            // sélection automatique Open-Meteo (meilleur modèle disponible localement).
-            const useAromeHd = (selectedModel === 'arome_hd') && await checkAromeHdCoverage(centerLat, centerLon);
-            const modelParam = useAromeHd ? '&models=meteofrance_arome_france_hd' : '';
             const sourceEl = document.getElementById('grid-model-source');
-            if (sourceEl) sourceEl.innerText = useAromeHd
-                ? 'Modèle : Météo-France AROME France HD (haute résolution)'
-                : (selectedModel === 'arome_hd'
-                    ? 'AROME France HD indisponible ici — sélection automatique Open-Meteo'
-                    : 'Modèle : sélection automatique Open-Meteo (meilleur modèle disponible localement)');
+            if (sourceEl) sourceEl.innerText = 'Modèle : sélection automatique Open-Meteo (meilleur modèle disponible localement)';
 
             // Points d'échantillonnage réels, répartis jusqu'au bord de la grille (50km) pour que
             // les cellules éloignées interpolent depuis des données proches plutôt que d'extrapoler
@@ -4064,7 +4777,7 @@
                     const lon = centerLon + dLon;
                     const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
                     try {
-                        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,precipitation,rain,snowfall,weather_code,wind_speed_10m,wind_direction_10m&timezone=auto&forecast_days=2${modelParam}`;
+                        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,precipitation,rain,snowfall,weather_code,wind_speed_10m,wind_direction_10m&timezone=auto&forecast_days=2`;
                         const res = await fetchWithTimeout(url, { timeout: 6000 });
                         if (res.ok) {
                             const data = await res.json();
@@ -4081,7 +4794,6 @@
 
             gridCenterLat = centerLat;
             gridCenterLon = centerLon;
-            gridForecastModel = selectedModel;
             isLoadingGrid = false;
         }
 
@@ -4434,10 +5146,49 @@
                 condIcon = 'fa-moon';
             }
 
-            document.getElementById('hero-temp-val').innerText = `${currentTemp}°C`;
+            // Mode micro-climat (si activé) : ajuste l'affichage de la température actuelle, lissé en
+            // entrée/sortie de la plage horaire jugée favorable au phénomène détecté (voir
+            // analyzeLocalEffects / microClimateDeltaAtHour) — jamais la valeur brute du modèle en
+            // mémoire, uniquement ce qui est montré à l'écran, avec badge et infobulle rappelant la
+            // valeur modèle d'origine. Lissage : voir MICRO_CLIMATE_TRANSITION_H, pour ne jamais
+            // produire de saut brutal de température d'une heure à l'autre.
+            const hourOfDay = currentHourIdx - start;
+            const heroMc = microClimateDeltaAtHour(hourOfDay, dayIdx);
+            let displayTemp = Math.round(currentTemp + heroMc.delta);
+            const microBadgeEl = document.getElementById('hero-microclimate-badge');
+            let microBadgeInfo = null;
+            if (heroMc.delta !== 0 && heroMc.icon) {
+                const sourceLabel = heroMc.source === 'valley' ? 'fond de vallée' : 'îlot de chaleur urbain';
+                microBadgeInfo = { icon: heroMc.icon, title: `Ajusté micro-climat : ${heroMc.delta > 0 ? '+' : ''}${heroMc.delta}°C (${sourceLabel}) — modèle : ${currentTemp}°C` };
+            }
+
+            document.getElementById('hero-temp-val').innerText = `${displayTemp}°C`;
+            if (microBadgeEl) {
+                if (microBadgeInfo) {
+                    microBadgeEl.innerHTML = `<i class="fa-solid ${microBadgeInfo.icon}"></i>`;
+                    microBadgeEl.title = microBadgeInfo.title;
+                    microBadgeEl.style.display = 'inline-flex';
+                } else {
+                    microBadgeEl.style.display = 'none';
+                }
+            }
             document.getElementById('hero-cond-title').innerText = condLabel;
-            document.getElementById('hero-cond-sub').innerText = `Ressenti ${currentTemp}° • air calme`;
             document.getElementById('hero-main-icon').className = `fa-solid ${condIcon}`;
+
+            // Ressenti (température apparente Open-Meteo, combine refroidissement éolien, humidité
+            // et rayonnement solaire) — jamais recalculé nous-mêmes, uniquement la vraie valeur API.
+            const feelsVal = weatherData.hourly.apparent_temperature ? weatherData.hourly.apparent_temperature[currentHourIdx] : undefined;
+            const feelsEl = document.getElementById('hero-feels-val');
+            if (typeof feelsVal === 'number') {
+                feelsEl.innerText = `Ressenti ${Math.round(feelsVal)}°`;
+                feelsEl.style.display = '';
+            } else {
+                feelsEl.style.display = 'none';
+            }
+
+            // Point de rosée en sous-titre (donnée déjà chargée, jamais affichée ailleurs dans le bandeau).
+            const dewVal = weatherData.hourly.dew_point_2m ? weatherData.hourly.dew_point_2m[currentHourIdx] : undefined;
+            document.getElementById('hero-cond-sub').innerText = (typeof dewVal === 'number') ? `Point de rosée ${Math.round(dewVal)}°` : '';
 
             const currentPressure = Math.round(weatherData.hourly.pressure_msl ? weatherData.hourly.pressure_msl[currentHourIdx] : 1013);
             const altitude = Math.round(weatherData.elevation || 0);
@@ -4445,12 +5196,62 @@
             document.getElementById('hero-pressure-val').innerText = `${currentPressure} hPa`;
             document.getElementById('hero-altitude-val').innerText = `${altitude} m`;
 
+            // Humidité relative à 2m (déjà chargée pour d'autres calculs, ex. point de rosée).
+            const humidityVal = weatherData.hourly.relative_humidity_2m ? weatherData.hourly.relative_humidity_2m[currentHourIdx] : undefined;
+            const humidityContainer = document.getElementById('hero-humidity-container');
+            if (typeof humidityVal === 'number') {
+                document.getElementById('hero-humidity-val').innerText = `${Math.round(humidityVal)}%`;
+                humidityContainer.style.display = 'inline-block';
+            } else {
+                humidityContainer.style.display = 'none';
+            }
+
+            // Altitude de l'isotherme 0°C (freezing_level_height, donnée API directe, jamais calculée).
+            const freezingVal = weatherData.hourly.freezing_level_height ? weatherData.hourly.freezing_level_height[currentHourIdx] : undefined;
+            const freezingContainer = document.getElementById('hero-freezing-container');
+            if (typeof freezingVal === 'number') {
+                document.getElementById('hero-freezing-val').innerText = `${Math.round(freezingVal)} m`;
+                freezingContainer.style.display = 'inline-block';
+            } else {
+                freezingContainer.style.display = 'none';
+            }
+
+            // Vent compact sous l'icône météo : flèche orientée + vitesse moyenne + rafales.
+            // wind_direction_10m indique la direction D'OÙ souffle le vent (convention météo
+            // standard) ; on tourne la flèche de +180° pour montrer visuellement VERS où il souffle,
+            // plus intuitif à lire d'un coup d'œil qu'une flèche pointant vers sa propre origine.
+            const windSpeedVal = weatherData.hourly.wind_speed_10m ? weatherData.hourly.wind_speed_10m[currentHourIdx] : undefined;
+            const windDirVal = weatherData.hourly.wind_direction_10m ? weatherData.hourly.wind_direction_10m[currentHourIdx] : undefined;
+            const windGustVal = weatherData.hourly.wind_gusts_10m ? weatherData.hourly.wind_gusts_10m[currentHourIdx] : undefined;
+            const windCompactEl = document.getElementById('hero-wind-compact');
+            const windArrowEl = document.getElementById('hero-wind-arrow');
+            if (typeof windSpeedVal === 'number') {
+                document.getElementById('hero-wind-speed').innerText = `${Math.round(windSpeedVal)} km/h`;
+                document.getElementById('hero-wind-gust-val').innerText = (typeof windGustVal === 'number') ? `${Math.round(windGustVal)}` : '--';
+                if (typeof windDirVal === 'number') {
+                    windArrowEl.style.transform = `rotate(${(windDirVal + 180) % 360}deg)`;
+                    const compassDirs = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSO', 'SO', 'OSO', 'O', 'ONO', 'NO', 'NNO'];
+                    const compass = compassDirs[Math.round(windDirVal / 22.5) % 16];
+                    windCompactEl.title = `Vent de ${compass} (${Math.round(windDirVal)}°) · ${Math.round(windSpeedVal)} km/h moy.${typeof windGustVal === 'number' ? ' · rafales ' + Math.round(windGustVal) + ' km/h' : ''}`;
+                } else {
+                    windArrowEl.style.visibility = 'hidden';
+                }
+                windCompactEl.style.display = 'flex';
+            } else {
+                windCompactEl.style.display = 'none';
+            }
+
             const temps = weatherData.hourly.temperature_2m.slice(start, end);
             const rain = weatherData.hourly.rain ? weatherData.hourly.rain.slice(start, end) : weatherData.hourly.precipitation.slice(start, end);
             const snowfall = weatherData.hourly.snowfall ? weatherData.hourly.snowfall.slice(start, end) : new Array(24).fill(0);
-            
-            const minT = Math.round(Math.min(...temps));
-            const maxT = Math.round(Math.max(...temps));
+
+            // MIN/MAX affichés dans le bandeau : tiennent compte de l'ajustement micro-climat lissé
+            // (fond de vallée / îlot de chaleur) quand il est actif ce jour-là, pas seulement des
+            // valeurs brutes du modèle.
+            const dayHourOffsets = Array.from({ length: temps.length }, (_, h) => h);
+            const adjustedTemps = applyMicroClimateToTemps(temps, dayHourOffsets, dayIdx);
+            const minT = Math.round(Math.min(...adjustedTemps));
+            const maxT = Math.round(Math.max(...adjustedTemps));
             const sumR = rain.reduce((a, b) => a + (b || 0), 0).toFixed(1);
             const sumS = snowfall.reduce((a, b) => a + (b || 0), 0).toFixed(1);
 
@@ -4503,13 +5304,25 @@
             for (let i = start; i < start + 24; i++) {
                 if (!weatherData.hourly.time[i]) break;
                 const hTime = weatherData.hourly.time[i].split('T')[1].substring(0, 2) + 'h';
-                const hTemp = Math.round(weatherData.hourly.temperature_2m[i]);
+                const hRawTemp = Math.round(weatherData.hourly.temperature_2m[i]);
                 const hCode = weatherData.hourly.weather_code[i] || 0;
                 const hRain = weatherData.hourly.rain ? (weatherData.hourly.rain[i] || 0) : (weatherData.hourly.precipitation[i] || 0);
                 const hSnow = weatherData.hourly.snowfall ? (weatherData.hourly.snowfall[i] || 0) : 0;
                 const hCond = wmoMap[hCode] || wmoMap[0];
                 const isCurrentHour = (i === currentHourIdx);
                 if (isCurrentHour) currentHourItemIndex = i - start;
+
+                // Même logique d'ajustement micro-climat lissé que pour la température actuelle du
+                // bandeau (voir microClimateDeltaAtHour) — appliquée heure par heure sur cette rangée,
+                // sans saut brutal d'une heure à l'autre.
+                const hHour = i - start;
+                const hMc = microClimateDeltaAtHour(hHour, dayIdx);
+                let hTemp = Math.round(hRawTemp + hMc.delta);
+                let hMicroIcon = '';
+                if (hMc.delta !== 0 && hMc.icon) {
+                    const hSourceLabel = hMc.source === 'valley' ? 'fond de vallée' : 'îlot de chaleur urbain';
+                    hMicroIcon = `<i class="fa-solid ${hMc.icon} hour-micro-icon" title="Ajusté micro-climat : ${hMc.delta > 0 ? '+' : ''}${hMc.delta}°C (${hSourceLabel}) — modèle : ${hRawTemp}°C"></i>`;
+                }
 
                 let precipText = hRain > 0 ? `${hRain.toFixed(1)}mm` : `0mm`;
                 if (hSnow > 0) precipText += ` ${hSnow.toFixed(1)}cm❄`;
@@ -4518,7 +5331,7 @@
                     <div class="hour-item${isCurrentHour ? ' hour-item-now' : ''}">
                         <span class="hour-time">${hTime}</span>
                         <i class="fa-solid ${hCond.icon} hour-icon"></i>
-                        <span class="hour-temp">${hTemp}°</span>
+                        <span class="hour-temp">${hTemp}°${hMicroIcon}</span>
                         <div class="hour-precip"><span>${precipText}</span></div>
                     </div>
                 `;
@@ -4582,11 +5395,22 @@
             const start = dayIdx * 24;
             const end = start + 24;
             const hours = weatherData.hourly.time.slice(start, end).map(t => t.split('T')[1].substring(0, 2) + 'h');
-            const temps = weatherData.hourly.temperature_2m.slice(start, end);
+            const rawTemps = weatherData.hourly.temperature_2m.slice(start, end);
             const rain = weatherData.hourly.rain ? weatherData.hourly.rain.slice(start, end) : weatherData.hourly.precipitation.slice(start, end);
             const snowfall = weatherData.hourly.snowfall ? weatherData.hourly.snowfall.slice(start, end) : new Array(24).fill(0);
 
+            // Température ajustée de l'effet micro-climat (lissé, sans saut d'une heure à l'autre) si
+            // détecté et activé pour ce jour — voir microClimateDeltaAtHour().
+            const hourOffsets = Array.from({ length: rawTemps.length }, (_, h) => h);
+            const temps = applyMicroClimateToTemps(rawTemps, hourOffsets, dayIdx);
+            const microClimateActiveToday = microClimateEnabled && microClimateAdjustments && microClimateAdjustments.dayIndex === dayIdx && (microClimateAdjustments.valley.active || microClimateAdjustments.uhi.active);
+
             document.getElementById('chart-max-label').innerText = `${Math.round(Math.max(...temps))}° pic journalier`;
+            const chartSubEl = document.getElementById('chart-sub-text');
+            if (chartSubEl) {
+                const baseSub = 'Évolution thermique, histogramme de pluie (mm) et neige (cm)';
+                chartSubEl.innerText = microClimateActiveToday ? `${baseSub} · ajusté micro-climat` : baseSub;
+            }
 
             if (typeof Chart === 'undefined') return;
             const ctx = document.getElementById('weatherChart').getContext('2d');
@@ -4656,16 +5480,22 @@
             if (weatherData.daily?.sunset?.[dayIdx]) sunsetHour = parseInt(weatherData.daily.sunset[dayIdx].split('T')[1].substring(0, 2));
             if (weatherData.daily?.sunrise?.[dayIdx + 1]) sunriseHour = parseInt(weatherData.daily.sunrise[dayIdx + 1].split('T')[1].substring(0, 2));
 
-            document.getElementById('astro-chart-sub').innerText = `Conditions de ${sunsetHour}h00 à ${sunriseHour}h00`;
-
             const startIdx = (dayIdx * 24) + sunsetHour;
             const endIdx = ((dayIdx + 1) * 24) + sunriseHour + 1;
             const nightTimes = weatherData.hourly.time.slice(startIdx, endIdx);
             if (!nightTimes.length) return;
 
             const labels = nightTimes.map(t => t.split('T')[1].substring(0, 2) + 'h');
-            const temps = weatherData.hourly.temperature_2m.slice(startIdx, endIdx);
+            const rawTemps = weatherData.hourly.temperature_2m.slice(startIdx, endIdx);
+            // Température ajustée de l'effet micro-climat (lissé) si détecté et activé pour ce jour —
+            // la nuit chevauche deux jours calendaires, on retient donc l'heure-du-jour réelle
+            // (0-23h) de chaque point plutôt que sa simple position dans le tableau.
+            const nightHourOffsets = nightTimes.map(t => parseInt(t.split('T')[1].substring(0, 2), 10));
+            const temps = applyMicroClimateToTemps(rawTemps, nightHourOffsets, dayIdx);
+            const microClimateActiveTonight = microClimateEnabled && microClimateAdjustments && microClimateAdjustments.dayIndex === dayIdx && (microClimateAdjustments.valley.active || microClimateAdjustments.uhi.active);
             const clouds = weatherData.hourly.cloud_cover ? weatherData.hourly.cloud_cover.slice(startIdx, endIdx) : [];
+
+            document.getElementById('astro-chart-sub').innerText = `Conditions de ${sunsetHour}h00 à ${sunriseHour}h00` + (microClimateActiveTonight ? ' · ajusté micro-climat' : '');
 
             // === POINT DE ROSÉE — gouttelettes quand l'air est proche de la saturation ===
             // Comparaison directe temp. réelle vs point de rosée réel (tous deux mesurés/prévus par
@@ -4805,9 +5635,19 @@ function updatePressureChart(dayIdx) {
             const start = dayIdx * 24;
             const end = start + 24;
             const hours = weatherData.hourly.time.slice(start, end).map(t => t.split('T')[1].substring(0, 2) + 'h');
-            const temps = weatherData.hourly.temperature_2m.slice(start, end);
+            const rawTemps = weatherData.hourly.temperature_2m.slice(start, end);
+            // Température ajustée de l'effet micro-climat (lissé) si détecté et activé pour ce jour.
+            const hourOffsetsPressure = Array.from({ length: rawTemps.length }, (_, h) => h);
+            const temps = applyMicroClimateToTemps(rawTemps, hourOffsetsPressure, dayIdx);
+            const microClimateActiveTodayPressure = microClimateEnabled && microClimateAdjustments && microClimateAdjustments.dayIndex === dayIdx && (microClimateAdjustments.valley.active || microClimateAdjustments.uhi.active);
             const humidity = weatherData.hourly.relative_humidity_2m ? weatherData.hourly.relative_humidity_2m.slice(start, end) : new Array(24).fill(60);
             const dewPoints = weatherData.hourly.dew_point_2m ? weatherData.hourly.dew_point_2m.slice(start, end) : temps.map((t, i) => t - ((100 - humidity[i]) / 5));
+
+            const pressureSubEl = document.getElementById('pressure-chart-sub');
+            if (pressureSubEl) {
+                const basePressureSub = 'Évolution sur 24h pour le jour sélectionné';
+                pressureSubEl.innerText = microClimateActiveTodayPressure ? `${basePressureSub} · ajusté micro-climat` : basePressureSub;
+            }
 
             const frostRowContainer = document.getElementById('frost-icons-row');
             frostRowContainer.innerHTML = '';
@@ -5122,7 +5962,10 @@ function updatePressureChart(dayIdx) {
             return { key, label: HYDRO_VIGILANCE_LABELS[key], troncon: props.NomEntVigiCru || 'Tronçon inconnu', dist: Math.round(nearestDist * 10) / 10 };
         }
 
-        function drawHydroChart(labels, values, label, color) {
+        // historicalAvg optionnel : { value, label } — ajoute une ligne pointillée horizontale (niveau
+        // moyen du même mois sur l'historique disponible, voir fetchHistoricalMonthlyAverage) quand
+        // cette donnée existe pour la station/grandeur affichée. Pas de ligne si indisponible.
+        function drawHydroChart(labels, values, label, color, historicalAvg) {
             if (typeof Chart === 'undefined') return;
             const canvas = document.getElementById('hydroChart');
             if (!canvas) return;
@@ -5133,16 +5976,28 @@ function updatePressureChart(dayIdx) {
             gradient.addColorStop(0, `${color}55`);
             gradient.addColorStop(1, `${color}00`);
 
+            const datasets = [{
+                label, data: values,
+                borderColor: color, backgroundColor: gradient, borderWidth: 2.5,
+                tension: 0.3, fill: true, pointRadius: 0, pointHoverRadius: 4
+            }];
+
+            const histNoteEl = document.getElementById('hydro-hist-note');
+            if (historicalAvg && typeof historicalAvg.value === 'number') {
+                datasets.push({
+                    label: historicalAvg.label,
+                    data: labels.map(() => historicalAvg.value),
+                    borderColor: '#7a8a83', borderWidth: 1.5, borderDash: [6, 4],
+                    fill: false, pointRadius: 0, pointHoverRadius: 0, tension: 0
+                });
+                if (histNoteEl) histNoteEl.style.display = 'block';
+            } else if (histNoteEl) {
+                histNoteEl.style.display = 'none';
+            }
+
             hydroChart = new Chart(ctx, {
                 type: 'line',
-                data: {
-                    labels,
-                    datasets: [{
-                        label, data: values,
-                        borderColor: color, backgroundColor: gradient, borderWidth: 2.5,
-                        tension: 0.3, fill: true, pointRadius: 0, pointHoverRadius: 4
-                    }]
-                },
+                data: { labels, datasets },
                 options: {
                     responsive: true, maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
@@ -5152,6 +6007,39 @@ function updatePressureChart(dayIdx) {
                     }
                 }
             });
+        }
+
+        // Moyenne, sur le même mois calendaire (toutes années confondues), d'une grandeur hydrométrique
+        // "élaborée" Hub'Eau (débit moyen mensuel QmM pour le débit ; pas d'équivalent "moyenne
+        // mensuelle" documenté pour la hauteur à ce jour — uniquement des maxima : dans ce cas, aucune
+        // ligne n'est affichée, conformément à "quand il est disponible"). Jamais une valeur inventée :
+        // uniquement les mesures réelles renvoyées par l'API, sur tout l'historique qu'elle expose.
+        async function fetchHistoricalMonthlyAverage(codeStation, grandeur) {
+            if (grandeur !== 'Q') return null; // pas de moyenne mensuelle documentée pour la hauteur
+            try {
+                const url = `https://hubeau.eaufrance.fr/api/v2/hydrometrie/obs_elab?code_entite=${encodeURIComponent(codeStation)}&grandeur_hydro_elab=QmM&size=3000&format=json`;
+                const res = await fetchWithTimeout(url, { timeout: 12000 });
+                if (!res.ok) return null;
+                const data = await res.json();
+                const list = Array.isArray(data) ? data : (data.data || []);
+                const targetMonth = new Date().getMonth() + 1;
+                const entries = [];
+                list.forEach(o => {
+                    const raw = o.date_obs_elab;
+                    if (typeof o.resultat_obs_elab !== 'number' || !raw) return;
+                    const monthNum = parseInt(String(raw).slice(5, 7), 10);
+                    const yearNum = parseInt(String(raw).slice(0, 4), 10);
+                    if (monthNum === targetMonth) entries.push({ value: o.resultat_obs_elab, year: yearNum });
+                });
+                if (!entries.length) return null;
+                const avg = entries.reduce((a, b) => a + b.value, 0) / entries.length;
+                const yearsCount = new Set(entries.map(e => e.year)).size;
+                // resultat_obs_elab en L/s comme les observations temps réel Q, converti en m³/s pour
+                // rester à la même échelle que le débit affiché sur le graphique.
+                return { value: Math.round((avg / 1000) * 100) / 100, yearsCount };
+            } catch (e) {
+                return null;
+            }
         }
 
         // Charge l'ensemble des données de l'onglet Eau (surface + souterraines) — le nom de la
@@ -5226,15 +6114,24 @@ function updatePressureChart(dayIdx) {
             // On privilégie la hauteur d'eau pour le graphique (plus universellement disponible que
             // le débit, qui nécessite un tarage de la station) ; à défaut, le débit.
             const useObs = hObs.length ? hObs : qObs;
+            const useGrandeur = hObs.length ? 'H' : 'Q';
             const useLabel = hObs.length ? "Hauteur d'eau (m)" : 'Débit (m³/s)';
+            const histNoteEl = document.getElementById('hydro-hist-note');
             if (useObs.length) {
                 const labels = useObs.map(o => o.time.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }));
                 const values = useObs.map(o => Math.round((o.value / 1000) * 100) / 100);
-                drawHydroChart(labels, values, useLabel, '#2b6cb0');
+                // Niveau moyen du même mois sur l'historique disponible (voir
+                // fetchHistoricalMonthlyAverage) : affiché en pointillé quand cette donnée existe pour
+                // la grandeur affichée, jamais inventé sinon.
+                const histAvg = await fetchHistoricalMonthlyAverage(station.code, useGrandeur).catch(() => null);
+                const monthLabel = new Date().toLocaleDateString('fr-FR', { month: 'long' });
+                const histDataset = histAvg ? { value: histAvg.value, label: `Débit moyen historique de ${monthLabel} (${histAvg.yearsCount} an${histAvg.yearsCount > 1 ? 's' : ''})` } : null;
+                drawHydroChart(labels, values, useLabel, '#2b6cb0', histDataset);
                 const lastTime = useObs[useObs.length - 1].time;
                 document.getElementById('hydro-last-obs').innerText = `Dernier relevé : ${lastTime.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} · ${useObs.length} mesures sur 24h`;
             } else {
                 if (hydroChart) { hydroChart.destroy(); hydroChart = null; }
+                if (histNoteEl) histNoteEl.style.display = 'none';
                 document.getElementById('hydro-last-obs').innerText = 'Aucune mesure disponible sur les dernières 24h pour cette station.';
             }
 
