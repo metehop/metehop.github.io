@@ -1335,6 +1335,20 @@
             gap: 6px;
         }
         .snow-detail-pill i { color: var(--accent-snow); font-size: 0.8rem; }
+        /* Pastilles de mesures pour "Station météo à proximité" — même layout que .snow-detail-pill,
+           icône bleue plutôt que la couleur "neige" pour ne pas induire en erreur visuellement. */
+        .station-pill {
+            background: var(--card-inner-bg);
+            border-radius: var(--radius-small);
+            padding: 6px 10px;
+            font-size: 0.72rem;
+            color: var(--primary-dark);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .station-pill i { color: var(--accent-blue); font-size: 0.8rem; }
         .snow-avalanche-note {
             background: var(--card-inner-bg);
             border-radius: var(--radius-medium);
@@ -1805,6 +1819,32 @@
             <div class="dew-icons-row" id="dew-icons-row"></div>
             <div class="card-sage-sub" id="dew-row-note" style="margin-top: 4px; font-size: 0.65rem; display: none;">
                 <i class="fa-solid fa-droplet" style="color: #4fa8d8; font-size: 0.7rem;"></i> Point de rosée atteint (air proche de la saturation — brouillard/rosée possible)
+            </div>
+        </div>
+
+        <!-- Station météo personnelle à proximité : n'apparaît que si le lieu affiché est à moins
+             de NEARBY_STATION.maxDistanceKm de Tencin. Source : Weather Underground PWS (station
+             personnelle ITENCI3), pas Open-Meteo — voir loadNearbyStation(). -->
+        <div class="chart-card" id="nearby-station-card" style="display:none;">
+            <div class="chart-header">
+                <div>
+                    <div class="card-sage-title"><i class="fa-solid fa-house-signal" style="color: var(--accent-blue); margin-right: 6px;"></i> Station météo à proximité</div>
+                    <div class="card-sage-sub">Station personnelle Weather Underground — ITENCI3, Tencin</div>
+                </div>
+            </div>
+
+            <div id="nearby-station-loading" style="text-align:center; padding: 14px 10px; color: var(--text-muted); font-size: 0.8rem;">
+                Chargement des relevés...
+            </div>
+
+            <div id="nearby-station-error" style="display:none; text-align:center; padding: 14px 10px; color: var(--text-muted); font-size: 0.78rem;">
+                <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-orange); display:block; margin-bottom:6px; font-size:1.1rem;"></i>
+                <span id="nearby-station-error-text">Relevés indisponibles pour le moment.</span>
+            </div>
+
+            <div id="nearby-station-content" style="display:none;">
+                <div class="snow-details-row" id="nearby-station-pills"></div>
+                <div class="card-sage-sub" id="nearby-station-updated" style="margin-top:6px; font-size:0.62rem;"></div>
             </div>
         </div>
 
@@ -2373,7 +2413,7 @@
                 <a class="footer-icon-btn" href="mailto:stridemetric@proton.me" title="Contact">✉️</a>
                 <button type="button" class="footer-icon-btn" onclick="openSourcesModal()" title="Sources et modèles utilisés">💡</button>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 04/09/2026 à 15h31</div>
+            <div class="footer-last-update">Dernière mise à jour : 04/09/2026 à 17h06</div>
         </footer>
 
     </div>
@@ -2599,6 +2639,32 @@
         let hydroDataLoaded = false; // données de l'onglet Eau (stations hydrométriques, vigilance crues)
         let plantationLoaded = false;     // données Jardinage (température sol/air)
         let seasonalTrendsLoaded = false; // tendances saisonnières (bouton "Charger les données")
+        // Station météo personnelle (Tencin, Isère) affichée dans l'onglet Hobby (Astronomie) quand
+        // le lieu consulté est à proximité — source Weather Underground PWS, pas Open-Meteo.
+        // Obfuscation légère (XOR + base64) de la clé API Weather Underground : ce n'est PAS un
+        // vrai chiffrement — le fichier étant autonome et exécuté entièrement côté navigateur, la
+        // clé doit être lisible en clair par le JS au moment de l'appel, donc n'importe qui ouvrant
+        // la console peut la retrouver en quelques secondes. Ça empêche seulement un Ctrl+F/grep
+        // basique ou un grattage automatisé passif du fichier source, pas un accès délibéré et ciblé.
+        function deobfuscateKey(encoded) {
+            const salt = 'metehop-tencin';
+            const decoded = atob(encoded);
+            let out = '';
+            for (let i = 0; i < decoded.length; i++) {
+                out += String.fromCharCode(decoded.charCodeAt(i) ^ salt.charCodeAt(i % salt.length));
+            }
+            return out;
+        }
+
+        const NEARBY_STATION = {
+            id: 'ITENCI3',
+            apiKey: deobfuscateKey('C1xNVgldRhhEVF1TXVYIVE1WCV1GGERUXVMKVghURVw='),
+            lat: 45.311,
+            lon: 5.961,
+            maxDistanceKm: 10
+        };
+        let nearbyStationInRange = false; // recalculé à chaque changement de lieu (voir fetchWeather)
+        let nearbyStationLoaded = false;  // chargée une seule fois par lieu, à la première activation de l'onglet Hobby
         let gridCenterLat = null;
         let gridCenterLon = null;
 
@@ -3232,6 +3298,10 @@
                 hydroDataLoaded = true;
                 loadHydroCard(currentLat, currentLon).catch(() => {});
             }
+            if (group === 'astrogarden' && !nearbyStationLoaded && nearbyStationInRange && currentLat !== null) {
+                nearbyStationLoaded = true;
+                loadNearbyStation();
+            }
 
             resizeGroupCharts(group);
         }
@@ -3304,6 +3374,58 @@
             document.getElementById('plant-temp-note').innerText = 'Prévisions sol/air et moyennes historiques du lieu — chargées à la demande.';
         }
 
+        // ---- Station météo personnelle à proximité (Tencin, ITENCI3) : Weather Underground PWS ----
+        // Requête envoyée directement depuis le navigateur (pas de backend) : si l'API Weather
+        // Underground n'autorise pas les appels cross-origin depuis un site tiers (CORS), la requête
+        // échouera et le message d'indisponibilité honnête ci-dessous s'affichera — jamais de valeur
+        // inventée en remplacement.
+        async function loadNearbyStation() {
+            const loadingEl = document.getElementById('nearby-station-loading');
+            const errorEl = document.getElementById('nearby-station-error');
+            const errorTextEl = document.getElementById('nearby-station-error-text');
+            const contentEl = document.getElementById('nearby-station-content');
+            const pillsEl = document.getElementById('nearby-station-pills');
+            const updatedEl = document.getElementById('nearby-station-updated');
+
+            loadingEl.style.display = '';
+            errorEl.style.display = 'none';
+            contentEl.style.display = 'none';
+
+            try {
+                const url = `https://api.weather.com/v2/pws/observations/current?stationId=${NEARBY_STATION.id}&format=json&units=m&apiKey=${NEARBY_STATION.apiKey}`;
+                const res = await fetchWithTimeout(url, { timeout: 7000 });
+                if (!res.ok) throw new Error('http ' + res.status);
+                const data = await res.json();
+                const obs = data && data.observations && data.observations[0];
+                if (!obs || !obs.metric) throw new Error('réponse vide');
+
+                const m = obs.metric;
+                const pills = [];
+                if (typeof m.temp === 'number') pills.push(`<div class="station-pill"><i class="fa-solid fa-temperature-half"></i> ${Math.round(m.temp)}°C</div>`);
+                if (typeof obs.humidity === 'number') pills.push(`<div class="station-pill"><i class="fa-solid fa-droplet"></i> ${Math.round(obs.humidity)}%</div>`);
+                if (typeof m.windSpeed === 'number') {
+                    const gustTxt = (typeof m.windGust === 'number' && m.windGust > m.windSpeed) ? ` (raf. ${Math.round(m.windGust)})` : '';
+                    pills.push(`<div class="station-pill"><i class="fa-solid fa-wind"></i> ${Math.round(m.windSpeed)} km/h${gustTxt}</div>`);
+                }
+                if (typeof m.pressure === 'number') pills.push(`<div class="station-pill"><i class="fa-solid fa-gauge"></i> ${Math.round(m.pressure)} hPa</div>`);
+                if (typeof m.precipRate === 'number' && m.precipRate > 0) pills.push(`<div class="station-pill"><i class="fa-solid fa-cloud-rain"></i> ${m.precipRate.toFixed(1)} mm/h</div>`);
+                if (typeof m.precipTotal === 'number') pills.push(`<div class="station-pill"><i class="fa-solid fa-umbrella"></i> ${m.precipTotal.toFixed(1)} mm aujourd'hui</div>`);
+
+                if (pills.length === 0) throw new Error('aucune mesure exploitable');
+
+                pillsEl.innerHTML = pills.join('');
+                updatedEl.innerText = obs.obsTimeLocal ? `Relevé du ${obs.obsTimeLocal}` : '';
+
+                loadingEl.style.display = 'none';
+                contentEl.style.display = '';
+            } catch (e) {
+                console.error('Erreur station météo à proximité (Tencin):', e);
+                loadingEl.style.display = 'none';
+                errorTextEl.innerText = "Relevés indisponibles pour le moment (station hors ligne, ou requête bloquée depuis le navigateur).";
+                errorEl.style.display = '';
+            }
+        }
+
         async function fetchWeather(lat, lon, locationName, population = null) {
             currentLat = lat;
             currentLon = lon;
@@ -3350,6 +3472,18 @@
                 if (hydroDataLoaded) loadHydroCard(lat, lon).catch(() => {});
                 resetPlantationGate();
                 resetSeasonalTrendsGate();
+                // Station météo à proximité (Tencin) : visible seulement si le lieu consulté est à
+                // moins de NEARBY_STATION.maxDistanceKm ; rechargée seulement si l'onglet Hobby est
+                // déjà actif (même logique de chargement différé que Été/Hiver et Eau ci-dessus).
+                nearbyStationInRange = calculateDistance(lat, lon, NEARBY_STATION.lat, NEARBY_STATION.lon) <= NEARBY_STATION.maxDistanceKm;
+                document.getElementById('nearby-station-card').style.display = nearbyStationInRange ? '' : 'none';
+                if (nearbyStationInRange) {
+                    document.getElementById('nearby-station-loading').style.display = '';
+                    document.getElementById('nearby-station-error').style.display = 'none';
+                    document.getElementById('nearby-station-content').style.display = 'none';
+                }
+                nearbyStationLoaded = (currentGroup === 'astrogarden' && nearbyStationInRange);
+                if (nearbyStationLoaded) loadNearbyStation();
                 // Réinitialiser la grille de prévisions si on change de position
                 if (forecastGridLayer) {
                     map.removeLayer(forecastGridLayer);
