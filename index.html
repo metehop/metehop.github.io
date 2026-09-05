@@ -3,7 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Météo Personnelle & Stations Officielles</title>
+    <title>Metehop – Météo hyperlocale Grenoble, Isère & massifs alpins</title>
+    <meta name="description" content="Metehop : prévisions météo précises pour Grenoble et le Grésivaudan, détection d'inversions thermiques, neige et stations de ski, qualité de l'eau des rivières, nuits d'observation astronomique et bilan hydrique jardin. Données Open-Meteo, Hub'Eau, Météo-France.">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://metehop.github.io/">
+
+    <meta property="og:title" content="Metehop – Météo hyperlocale Grenoble & Alpes">
+    <meta property="og:description" content="Prévisions, neige, eau, astronomie : une météo calibrée sur le terrain à Tencin et le Grésivaudan.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://metehop.github.io/">
+    <meta property="og:locale" content="fr_FR">
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Metehop",
+      "url": "https://metehop.github.io/",
+      "applicationCategory": "WeatherApplication",
+      "operatingSystem": "Web",
+      "inLanguage": "fr",
+      "description": "Application météo hyperlocale pour Grenoble, l'Isère et les massifs alpins : prévisions, neige, eau, astronomie, trajets.",
+      "featureList": [
+        "Prévisions horaires et à 16 jours",
+        "Détection d'inversion thermique nocturne (Grésivaudan)",
+        "Radar de précipitations en direct",
+        "Écarts à la normale saisonnière",
+        "Stations météo officielles Météo-France à proximité",
+        "Onglet Ski : 181 stations, cumuls de neige 7 jours, comparateur multi-stations",
+        "Limite pluie/neige et enneigement",
+        "Onglet Loisir : température de l'eau, marées, stations balnéaires",
+        "Hydrologie : niveaux de rivières (Vigicrues), nappes phréatiques, restrictions d'eau (VigiEau)",
+        "Astronomie : classement des meilleures nuits d'observation",
+        "Jardin : bilan hydrique (pluie vs évapotranspiration FAO)",
+        "Météo multi-lieux pour préparer un trajet"
+      ]
+    }
+    </script>
 
     <!-- Icône application (grenouille Metehop) : favicon, apple-touch-icon, manifest PWA -->
     <link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,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">
@@ -3005,7 +3041,7 @@
                     <i class="fa-brands fa-android"></i>
                 </button>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 05/09/2026 - 24</div>
+            <div class="footer-last-update">Dernière mise à jour : 05/09/2026 - 25</div>
         </footer>
 
     </div>
