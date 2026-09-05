@@ -858,18 +858,31 @@
             background: var(--accent-green);
         }
 
+        /* Cases remarquables du tableau 16 jours : seuil de vigilance atteint, ou changement
+           brusque par rapport à la veille. Un simple contour coloré (pas de légende dans l'app —
+           le code couleur est expliqué uniquement ici, dans le code source). */
+        .sage-table td.cell-remarkable-hot   { box-shadow: inset 0 0 0 2px #d32f2f; border-radius: 6px; } /* rouge : chaleur */
+        .sage-table td.cell-remarkable-cold  { box-shadow: inset 0 0 0 2px #0d47a1; border-radius: 6px; } /* bleu foncé : froid */
+        .sage-table td.cell-remarkable-snow  { box-shadow: inset 0 0 0 2px #7048e8; border-radius: 6px; } /* violet : neige */
+        .sage-table td.cell-remarkable-storm { box-shadow: inset 0 0 0 2px #f57c00; border-radius: 6px; } /* orange : orage */
+        .sage-table td.cell-remarkable-rain  { box-shadow: inset 0 0 0 2px #29b6f6; border-radius: 6px; } /* bleu clair : forte pluie */
+        .sage-table td.cell-remarkable-wind  { box-shadow: inset 0 0 0 2px #1b5e20; border-radius: 6px; } /* vert foncé : vent */
+        .wind-gust-sub { display: block; font-size: 0.6rem; color: var(--text-muted); font-weight: 400; margin-top: 1px; }
+
         .app-footer {
             text-align: center;
             padding: 22px 16px 28px;
             font-size: 0.72rem;
             color: var(--text-muted);
         }
-        .app-footer .footer-links {
+        .app-footer .footer-line1 {
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 14px;
-            margin-top: 8px;
+            gap: 10px;
+        }
+        .app-footer .footer-sep {
+            opacity: 0.4;
         }
         .app-footer .footer-icon-btn {
             background: none;
@@ -881,14 +894,105 @@
             text-decoration: none;
             opacity: 0.85;
             transition: opacity 0.15s;
+            color: inherit;
         }
         .app-footer .footer-icon-btn:hover { opacity: 1; }
+        .app-footer .footer-install-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 22px;
+            margin-top: 14px;
+        }
+        .app-footer .footer-install-label {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--primary-dark);
+            letter-spacing: 0.2px;
+        }
+        .app-footer .footer-install-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 6px;
+            line-height: 1;
+            color: var(--primary-dark);
+            opacity: 0.75;
+            font-size: 1.65rem;
+            transition: opacity 0.15s, transform 0.15s;
+        }
+        .app-footer .footer-install-btn:hover {
+            opacity: 1;
+            transform: translateY(-1px);
+        }
         .app-footer .footer-last-update {
             text-align: right;
             font-size: 0.6rem;
             color: var(--text-muted);
             opacity: 0.65;
             margin-top: 10px;
+        }
+
+        .install-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(20, 30, 27, 0.45);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .install-modal-overlay.visible { display: flex; }
+        .install-modal {
+            background: var(--bg-color);
+            border-radius: var(--radius-large, 16px);
+            max-width: 440px;
+            width: 100%;
+            max-height: 82vh;
+            overflow-y: auto;
+            padding: 20px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+        }
+        .install-modal h3 {
+            font-size: 0.95rem;
+            color: var(--primary-dark);
+            margin: 0 0 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            justify-content: space-between;
+        }
+        .install-modal h3 .install-modal-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .install-modal .install-close {
+            background: none;
+            border: none;
+            font-size: 1.1rem;
+            cursor: pointer;
+            color: var(--text-muted);
+            padding: 4px 8px;
+        }
+        .install-modal ol {
+            margin: 0;
+            padding-left: 20px;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            line-height: 1.55;
+        }
+        .install-modal ol li { margin-bottom: 8px; }
+        .install-modal ol li:last-child { margin-bottom: 0; }
+        .install-modal .install-note {
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(0,0,0,0.06);
+            font-size: 0.68rem;
+            color: var(--text-muted);
+            opacity: 0.85;
+            line-height: 1.4;
         }
 
         .sources-modal-overlay {
@@ -1540,11 +1644,11 @@
             <button type="button" class="group-tab active" data-group="general" onclick="setGroup('general')" title="Général">
                 <span class="group-tab-icon">🐸</span>
             </button>
+            <button type="button" class="group-tab" data-group="ski" onclick="setGroup('ski')" title="Neige et Ski">
+                <span class="group-tab-icon">❄️</span>
+            </button>
             <button type="button" class="group-tab" data-group="leisure" onclick="setGroup('leisure')" title="Loisir">
                 <span class="group-tab-icon">⛱️</span>
-            </button>
-            <button type="button" class="group-tab" data-group="ski" onclick="setGroup('ski')" title="Ski">
-                <span class="group-tab-icon">⛷️</span>
             </button>
             <button type="button" class="group-tab" data-group="astrogarden" onclick="setGroup('astrogarden')" title="Hobby">
                 <span class="group-tab-icon">🔭 🌱</span>
@@ -2033,6 +2137,103 @@
             <div class="card-sage-sub" style="margin-top: 6px;">Pour plus de précision sur la neige et le gel ici (fond de vallée, altitude), active le micro-climat. Réglage synchronisé avec l'onglet Général.</div>
         </div>
 
+        <!-- Graphique : Température & Risques de Neige / Givre -->
+        <div class="chart-card" data-groups="ski" style="display:none;">
+            <div class="chart-header">
+                <div>
+                    <div class="card-sage-title">
+                        <i class="fa-solid fa-temperature-three-quarters" style="color: var(--accent-orange); margin-right: 6px;"></i> 
+                        Température & risques de neige
+                    </div>
+                    <div class="card-sage-sub" id="pressure-chart-sub">Évolution sur 24h pour le jour sélectionné</div>
+                </div>
+                <div class="astro-legend">
+                    <span class="astro-legend-item"><span class="legend-dot" style="background: #d97736;"></span> Température</span>
+                    <span class="astro-legend-item"><span class="legend-dot" style="background: #a2d2ff;"></span> <i class="fa-solid fa-snowflake" style="color: #a2d2ff; font-size: 0.75rem;"></i> Risque de neige (proba. précip. si neige prévue)</span>
+                    <span class="astro-legend-item"><i class="fa-solid fa-icicles" style="color: #00b4d8; font-size: 0.85rem;"></i> Condition de givre</span>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <canvas id="pressureChart"></canvas>
+            </div>
+
+            <div class="frost-icons-row" id="frost-icons-row"></div>
+        </div>
+
+        <!-- Graphique : Limite pluie/neige heure par heure — ajouté le 05/09/2026. Voir
+             updateSnowLimitChart(). Isotherme 0°C (freezing_level_height, vraie valeur Open-Meteo)
+             comme référence solide ; limite pluie/neige elle-même ESTIMÉE (isotherme - 300m,
+             fourchette usuelle 200-400m en météorologie de montagne pour l'effet de fonte/évaporation
+             du manteau neigeux qui refroidit l'air sous l'isotherme) — jamais présentée comme une
+             mesure exacte. -->
+        <div class="chart-card" data-groups="ski" style="display:none;">
+            <div class="chart-header">
+                <div>
+                    <div class="card-sage-title">
+                        <i class="fa-solid fa-arrows-up-down" style="color: var(--accent-blue); margin-right: 6px;"></i>
+                        Limite pluie/neige heure par heure
+                    </div>
+                    <div class="card-sage-sub">Altitude à laquelle les précipitations basculent entre pluie et neige, pour le jour sélectionné</div>
+                </div>
+                <div class="astro-legend">
+                    <span class="astro-legend-item"><span class="legend-dot" style="background: #d97736;"></span> Isotherme 0°C</span>
+                    <span class="astro-legend-item"><span class="legend-dot" style="background: #2b6cb0;"></span> Limite pluie/neige (estimée)</span>
+                    <span class="astro-legend-item"><span class="legend-dot" style="background: #7d8f89;"></span> Altitude du lieu</span>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <canvas id="snowLimitChart"></canvas>
+            </div>
+
+            <div class="snow-avalanche-note">
+                <i class="fa-solid fa-circle-info"></i>
+                <span>La limite pluie/neige n'est pas mesurée directement par les modèles météo : elle est estimée ici à 300m sous l'isotherme 0°C (fourchette usuelle 200-400m selon l'humidité de l'air), un ordre de grandeur qui peut varier localement — l'isotherme 0°C lui-même est en revanche une vraie sortie du modèle.</span>
+            </div>
+        </div>
+
+        <!-- DÉTECTION AUTOMATIQUE D'ÉPISODE NEIGEUX — calculée côté client à partir des données
+             déjà chargées (weatherData.hourly.snowfall/weather_code), aucun appel API dédié. Voir
+             detectSnowEpisode() / updateSnowEpisodeCard(). Ajouté le 05/09/2026. -->
+        <div class="chart-card" data-groups="ski" id="snow-episode-card" style="display:none;">
+            <div class="chart-header">
+                <div>
+                    <div class="card-sage-title">
+                        <i class="fa-solid fa-snowflake" style="color: var(--accent-snow); margin-right: 6px;"></i>
+                        Prochain épisode neigeux
+                    </div>
+                    <div class="card-sage-sub" id="snow-episode-sub">Recherche du prochain épisode...</div>
+                </div>
+            </div>
+
+            <div id="snow-episode-none-msg" style="display:none; text-align:center; padding: 18px 10px; color: var(--text-muted); font-size: 0.8rem;">
+                <i class="fa-solid fa-sun" style="font-size: 1.4rem; color: var(--accent-snow); display:block; margin-bottom: 8px;"></i>
+                Aucun épisode neigeux détecté dans les 16 prochains jours pour ce lieu.
+            </div>
+
+            <div id="snow-episode-content" style="display:none;">
+                <div class="snow-grid">
+                    <div class="snow-main-item">
+                        <div class="snow-alt-label">Cumul estimé</div>
+                        <div class="snow-cm-value" id="snow-episode-cumul">--</div>
+                        <div class="snow-cm-unit">cm</div>
+                        <div class="snow-alt-sub" id="snow-episode-period">--</div>
+                    </div>
+                    <div class="snow-main-item">
+                        <div class="snow-alt-label">Intensité max.</div>
+                        <div class="snow-cm-value" id="snow-episode-max-hourly">--</div>
+                        <div class="snow-cm-unit">cm/h</div>
+                        <div class="snow-alt-sub">Sur une heure</div>
+                    </div>
+                </div>
+                <div class="snow-avalanche-note">
+                    <i class="fa-solid fa-circle-info"></i>
+                    <span>Détection automatique à partir des prévisions horaires (cumul de neige + code météo) pour ce lieu précis — un ordre de grandeur indicatif qui peut encore évoluer à l'approche de l'échéance, surtout au-delà de 5-6 jours.</span>
+                </div>
+            </div>
+        </div>
+
         <!-- CARTE DES STATIONS DE SKI COLORÉE PAR CUMUL DE NEIGE PRÉVU — ajoutée le 05/09/2026.
              Chargée UNE SEULE FOIS par session (indépendante du lieu recherché — c'est une vue
              d'ensemble des 181 stations connues, pas une donnée locale), via un unique appel batch
@@ -2092,103 +2293,6 @@
                 <canvas id="skiCompareChart"></canvas>
             </div>
             <div class="card-sage-sub" id="ski-compare-totals" style="margin-top: 8px;"></div>
-        </div>
-
-        <!-- DÉTECTION AUTOMATIQUE D'ÉPISODE NEIGEUX — calculée côté client à partir des données
-             déjà chargées (weatherData.hourly.snowfall/weather_code), aucun appel API dédié. Voir
-             detectSnowEpisode() / updateSnowEpisodeCard(). Ajouté le 05/09/2026. -->
-        <div class="chart-card" data-groups="ski" id="snow-episode-card" style="display:none;">
-            <div class="chart-header">
-                <div>
-                    <div class="card-sage-title">
-                        <i class="fa-solid fa-snowflake" style="color: var(--accent-snow); margin-right: 6px;"></i>
-                        Prochain épisode neigeux
-                    </div>
-                    <div class="card-sage-sub" id="snow-episode-sub">Recherche du prochain épisode...</div>
-                </div>
-            </div>
-
-            <div id="snow-episode-none-msg" style="display:none; text-align:center; padding: 18px 10px; color: var(--text-muted); font-size: 0.8rem;">
-                <i class="fa-solid fa-sun" style="font-size: 1.4rem; color: var(--accent-snow); display:block; margin-bottom: 8px;"></i>
-                Aucun épisode neigeux détecté dans les 16 prochains jours pour ce lieu.
-            </div>
-
-            <div id="snow-episode-content" style="display:none;">
-                <div class="snow-grid">
-                    <div class="snow-main-item">
-                        <div class="snow-alt-label">Cumul estimé</div>
-                        <div class="snow-cm-value" id="snow-episode-cumul">--</div>
-                        <div class="snow-cm-unit">cm</div>
-                        <div class="snow-alt-sub" id="snow-episode-period">--</div>
-                    </div>
-                    <div class="snow-main-item">
-                        <div class="snow-alt-label">Intensité max.</div>
-                        <div class="snow-cm-value" id="snow-episode-max-hourly">--</div>
-                        <div class="snow-cm-unit">cm/h</div>
-                        <div class="snow-alt-sub">Sur une heure</div>
-                    </div>
-                </div>
-                <div class="snow-avalanche-note">
-                    <i class="fa-solid fa-circle-info"></i>
-                    <span>Détection automatique à partir des prévisions horaires (cumul de neige + code météo) pour ce lieu précis — un ordre de grandeur indicatif qui peut encore évoluer à l'approche de l'échéance, surtout au-delà de 5-6 jours.</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Graphique : Température & Risques de Neige / Givre -->
-        <div class="chart-card" data-groups="ski" style="display:none;">
-            <div class="chart-header">
-                <div>
-                    <div class="card-sage-title">
-                        <i class="fa-solid fa-temperature-three-quarters" style="color: var(--accent-orange); margin-right: 6px;"></i> 
-                        Température & risques de neige
-                    </div>
-                    <div class="card-sage-sub" id="pressure-chart-sub">Évolution sur 24h pour le jour sélectionné</div>
-                </div>
-                <div class="astro-legend">
-                    <span class="astro-legend-item"><span class="legend-dot" style="background: #d97736;"></span> Température</span>
-                    <span class="astro-legend-item"><span class="legend-dot" style="background: #a2d2ff;"></span> <i class="fa-solid fa-snowflake" style="color: #a2d2ff; font-size: 0.75rem;"></i> Risque de neige (proba. précip. si neige prévue)</span>
-                    <span class="astro-legend-item"><i class="fa-solid fa-icicles" style="color: #00b4d8; font-size: 0.85rem;"></i> Condition de givre</span>
-                </div>
-            </div>
-
-            <div class="chart-container">
-                <canvas id="pressureChart"></canvas>
-            </div>
-
-            <div class="frost-icons-row" id="frost-icons-row"></div>
-        </div>
-
-        <!-- Graphique : Limite pluie/neige heure par heure — ajouté le 05/09/2026. Voir
-             updateSnowLimitChart(). Isotherme 0°C (freezing_level_height, vraie valeur Open-Meteo)
-             comme référence solide ; limite pluie/neige elle-même ESTIMÉE (isotherme - 300m,
-             fourchette usuelle 200-400m en météorologie de montagne pour l'effet de fonte/évaporation
-             du manteau neigeux qui refroidit l'air sous l'isotherme) — jamais présentée comme une
-             mesure exacte. -->
-        <div class="chart-card" data-groups="ski" style="display:none;">
-            <div class="chart-header">
-                <div>
-                    <div class="card-sage-title">
-                        <i class="fa-solid fa-arrows-up-down" style="color: var(--accent-blue); margin-right: 6px;"></i>
-                        Limite pluie/neige heure par heure
-                    </div>
-                    <div class="card-sage-sub">Altitude à laquelle les précipitations basculent entre pluie et neige, pour le jour sélectionné</div>
-                </div>
-                <div class="astro-legend">
-                    <span class="astro-legend-item"><span class="legend-dot" style="background: #d97736;"></span> Isotherme 0°C</span>
-                    <span class="astro-legend-item"><span class="legend-dot" style="background: #2b6cb0;"></span> Limite pluie/neige (estimée)</span>
-                    <span class="astro-legend-item"><span class="legend-dot" style="background: #7d8f89;"></span> Altitude du lieu</span>
-                </div>
-            </div>
-
-            <div class="chart-container">
-                <canvas id="snowLimitChart"></canvas>
-            </div>
-
-            <div class="snow-avalanche-note">
-                <i class="fa-solid fa-circle-info"></i>
-                <span>La limite pluie/neige n'est pas mesurée directement par les modèles météo : elle est estimée ici à 300m sous l'isotherme 0°C (fourchette usuelle 200-400m selon l'humidité de l'air), un ordre de grandeur qui peut varier localement — l'isotherme 0°C lui-même est en revanche une vraie sortie du modèle.</span>
-            </div>
         </div>
 
         <!-- TABLEAU : STATION DE SKI LA PLUS PROCHE (déplacé depuis l'ancien tableau combiné
@@ -2727,14 +2831,39 @@
         </div>
 
         <footer class="app-footer">
-            ©2026 Metehop
-            <div class="footer-links">
+            <div class="footer-line1">
+                <span>©2026 Metehop</span>
+                <span class="footer-sep">|</span>
                 <a class="footer-icon-btn" href="mailto:stridemetric@proton.me" title="Contact">✉️</a>
+                <span class="footer-sep">|</span>
                 <button type="button" class="footer-icon-btn" onclick="openSourcesModal()" title="Sources et modèles utilisés">💡</button>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 05/09/2026 - 16</div>
+            <div class="footer-install-row">
+                <span class="footer-install-label">Installe-moi !</span>
+                <button type="button" class="footer-install-btn" onclick="openInstallModal('windows')" title="Installer sur Windows">
+                    <i class="fa-brands fa-windows"></i>
+                </button>
+                <button type="button" class="footer-install-btn" onclick="openInstallModal('apple')" title="Installer sur iPhone / iPad / Mac">
+                    <i class="fa-brands fa-apple"></i>
+                </button>
+                <button type="button" class="footer-install-btn" onclick="openInstallModal('android')" title="Installer sur Android">
+                    <i class="fa-brands fa-android"></i>
+                </button>
+            </div>
+            <div class="footer-last-update">Dernière mise à jour : 05/09/2026 - 21</div>
         </footer>
 
+    </div>
+
+    <div class="install-modal-overlay" id="install-modal-overlay" onclick="if(event.target===this) closeInstallModal()">
+        <div class="install-modal">
+            <h3>
+                <span class="install-modal-title"><i id="install-modal-icon" class="fa-brands fa-windows"></i> <span id="install-modal-title-text">Installer sur Windows</span></span>
+                <button type="button" class="install-close" onclick="closeInstallModal()">✕</button>
+            </h3>
+            <ol id="install-modal-steps"></ol>
+            <div class="install-note">Metehop s'installe comme une application web (PWA) : pas de store, pas de téléchargement, elle se met à jour automatiquement.</div>
+        </div>
     </div>
 
     <div class="sources-modal-overlay" id="sources-modal-overlay" onclick="if(event.target===this) closeSourcesModal()">
@@ -2906,6 +3035,51 @@
         }
         function closeSourcesModal() {
             document.getElementById('sources-modal-overlay').classList.remove('visible');
+        }
+
+        const INSTALL_INSTRUCTIONS = {
+            windows: {
+                icon: 'fa-brands fa-windows',
+                title: 'Installer sur Windows',
+                steps: [
+                    'Ouvrez Metehop dans <strong>Google Chrome</strong> ou <strong>Microsoft Edge</strong>.',
+                    'Cliquez sur l\'icône d\'installation (⊕ ou écran avec flèche) tout à droite de la barre d\'adresse.',
+                    'Si vous ne la voyez pas, ouvrez le menu ⋮ (Chrome) ou ••• (Edge), puis choisissez <strong>« Installer Metehop »</strong> (ou « Applications » → « Installer ce site en tant qu\'application »).',
+                    'Confirmez : Metehop apparaît alors comme une application, avec sa propre fenêtre et une icône dans le menu Démarrer.'
+                ]
+            },
+            apple: {
+                icon: 'fa-brands fa-apple',
+                title: 'Installer sur iPhone, iPad ou Mac',
+                steps: [
+                    '<strong>iPhone / iPad :</strong> ouvrez Metehop dans <strong>Safari</strong>, appuyez sur l\'icône de partage <i class="fa-solid fa-arrow-up-from-bracket"></i> en bas de l\'écran.',
+                    'Faites défiler puis appuyez sur <strong>« Sur l\'écran d\'accueil »</strong>, confirmez avec « Ajouter ».',
+                    'Metehop apparaît alors comme une vraie application sur votre écran d\'accueil, en plein écran.',
+                    '<strong>Mac :</strong> ouvrez Metehop dans Safari, menu <strong>Fichier → Ajouter au Dock</strong> (ou l\'icône de partage puis « Ajouter au Dock »).'
+                ]
+            },
+            android: {
+                icon: 'fa-brands fa-android',
+                title: 'Installer sur Android',
+                steps: [
+                    'Ouvrez Metehop dans <strong>Google Chrome</strong>.',
+                    'Appuyez sur le menu ⋮ en haut à droite.',
+                    'Choisissez <strong>« Installer l\'application »</strong> (ou « Ajouter à l\'écran d\'accueil »).',
+                    'Confirmez : une icône Metehop est ajoutée à votre écran d\'accueil et l\'app s\'ouvre en plein écran, sans barre de navigateur.'
+                ]
+            }
+        };
+
+        function openInstallModal(os) {
+            const data = INSTALL_INSTRUCTIONS[os];
+            if (!data) return;
+            document.getElementById('install-modal-icon').className = data.icon;
+            document.getElementById('install-modal-title-text').textContent = data.title;
+            document.getElementById('install-modal-steps').innerHTML = data.steps.map(s => `<li>${s}</li>`).join('');
+            document.getElementById('install-modal-overlay').classList.add('visible');
+        }
+        function closeInstallModal() {
+            document.getElementById('install-modal-overlay').classList.remove('visible');
         }
     </script>
 
@@ -8555,12 +8729,12 @@ function updatePressureChart(dayIdx) {
                 }
                 ensembleConfidenceByDay = result;
                 const noteEl = document.getElementById('confidence-source-note');
-                if (noteEl) noteEl.innerText = "Matin, après-midi, précipitations, vent et indice de confiance — calculé à partir de l'écart réel entre 31 membres d'ensemble (modèle GFS, méthode utilisée par les services météo professionnels).";
+                if (noteEl) noteEl.innerText = "Matin, après-midi, précipitations, vent et indice de confiance — calculé à partir de l'écart réel entre 31 membres d'ensemble (modèle GFS, méthode utilisée par les services météo professionnels). Les cases entourées d'un contour coloré signalent un seuil de vigilance possible ou un changement brusque par rapport à la veille.";
                 render16DayTable(); // re-rendu avec les vraies valeurs une fois chargées
             } catch (e) {
                 ensembleConfidenceByDay = null; // repli silencieux sur l'heuristique par échéance
                 const noteEl = document.getElementById('confidence-source-note');
-                if (noteEl) noteEl.innerText = "Matin, après-midi, précipitations, vent et indice de confiance — estimation par échéance (API ensemble indisponible pour ce lieu).";
+                if (noteEl) noteEl.innerText = "Matin, après-midi, précipitations, vent et indice de confiance — estimation par échéance (API ensemble indisponible pour ce lieu). Les cases entourées d'un contour coloré signalent un seuil de vigilance possible ou un changement brusque par rapport à la veille.";
             }
         }
 
@@ -8577,14 +8751,58 @@ function updatePressureChart(dayIdx) {
             return 1;
         }
 
+        // ---- Détection des "cases remarquables" du tableau 16 jours ----
+        // Une case est mise en avant si sa valeur du jour est susceptible de déclencher une
+        // vigilance météo (mêmes ordres de grandeur que computeVigilance(), adaptés à un cumul/pic
+        // journalier plutôt qu'à la fenêtre "prochaines 24h glissantes"), OU si elle représente un
+        // changement brusque par rapport à la veille (rupture qu'une simple valeur absolue modérée
+        // ne ferait pas ressortir). Seuils volontairement documentés ici en commentaire : aucune
+        // légende n'est affichée dans l'app.
+        const REMARK_HOT_ABS_C = 30;        // rouge : chaleur notable (°C, max du jour)
+        const REMARK_HOT_JUMP_C = 8;        // rouge : hausse brutale du max vs veille (°C)
+        const REMARK_COLD_ABS_C = 0;        // bleu foncé : gel (°C, min du jour)
+        const REMARK_COLD_JUMP_C = 8;       // bleu foncé : chute brutale du min vs veille (°C)
+        const REMARK_RAIN_ABS_MM = 20;      // bleu clair : cumul de pluie notable (mm/24h)
+        const REMARK_RAIN_JUMP_MM = 15;     // bleu clair : hausse brutale du cumul vs veille (mm)
+        const REMARK_WIND_GUST_ABS_KMH = 60;  // vert foncé : rafales soutenues (km/h)
+        const REMARK_WIND_GUST_JUMP_KMH = 25; // vert foncé : hausse brutale des rafales vs veille (km/h)
+        const REMARK_SNOW_ABS_CM = 5;       // violet : épisode neigeux notable (cm/24h)
+        const REMARK_SNOW_JUMP_CM = 5;      // violet : hausse brutale du cumul de neige vs veille (cm)
+        const REMARK_STORM_PROB_MIN = 40;   // orange : orage prévu (code orage + proba mini, %)
+
+        // Détecte la présence d'un orage prévu (code météo orage + probabilité de précipitation
+        // suffisante) sur une plage d'heures donnée (ex : matinée ou après-midi d'un jour donné).
+        function detectStormInRange(startIdx, endIdx) {
+            const hourly = weatherData.hourly;
+            const stormCodes = [95, 96, 99];
+            for (let i = startIdx; i < endIdx && i < hourly.time.length; i++) {
+                const code = hourly.weather_code ? hourly.weather_code[i] : null;
+                const prob = hourly.precipitation_probability ? hourly.precipitation_probability[i] : null;
+                if (stormCodes.includes(code) && (typeof prob !== 'number' || prob >= REMARK_STORM_PROB_MIN)) return true;
+            }
+            return false;
+        }
+
+        // Cumul de neige (cm) sur une plage d'heures donnée.
+        function sumSnowInRange(startIdx, endIdx) {
+            const snowfall = weatherData.hourly.snowfall;
+            if (!snowfall) return 0;
+            let total = 0;
+            for (let i = startIdx; i < endIdx && i < snowfall.length; i++) total += (snowfall[i] || 0);
+            return total;
+        }
+
         function render16DayTable() {
             const tbody = document.getElementById('forecast-table-body');
-            let html = '';
+
+            // Passe 1 : calcule les métriques de chaque jour (nécessaire pour comparer un jour à
+            // celui qui le précède, y compris pour "Aujourd'hui" qui n'a pas de veille disponible).
+            const dayMetrics = [];
             for (let day = 0; day < 16; day++) {
                 const start = day * 24;
                 if (!weatherData.hourly.time[start]) break;
                 const d = new Date(weatherData.hourly.time[start].split('T')[0]);
-                const dayOfWeek = d.getDay(); // 0 = dimanche, 6 = samedi
+                const dayOfWeek = d.getDay();
                 const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
                 const dayStr = day === 0 ? "Aujourd'hui" : d.toLocaleDateString('fr-FR', { weekday: 'short' });
                 const dateNum = d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
@@ -8600,25 +8818,62 @@ function updatePressureChart(dayIdx) {
                 const adjustedDayTemps = applyMicroClimateToTemps(temps, dayHourOffsets, day);
                 const minT = Math.round(Math.min(...adjustedDayTemps));
                 const maxT = Math.round(Math.max(...adjustedDayTemps));
-                const rain = weatherData.hourly.rain ? weatherData.hourly.rain.slice(start, start + 24).reduce((a,b)=>a+(b||0),0).toFixed(1) : 0;
+                const rain = weatherData.hourly.rain ? weatherData.hourly.rain.slice(start, start + 24).reduce((a,b)=>a+(b||0),0) : 0;
                 const windAvg = Math.round(weatherData.hourly.wind_speed_10m.slice(start, start + 24).reduce((a,b)=>a+b,0)/24);
+                const gustsDay = (weatherData.hourly.wind_gusts_10m || []).slice(start, start + 24).filter(v => typeof v === 'number');
+                const gustMax = gustsDay.length ? Math.round(Math.max(...gustsDay)) : null;
+                const snowSum = sumSnowInRange(start, start + 24);
+                const stormMatin = detectStormInRange(start + 6, start + 13);
+                const stormApres = detectStormInRange(start + 13, start + 20);
+                const snowMatin = sumSnowInRange(start + 6, start + 13) > 0.1;
+                const snowApres = sumSnowInRange(start + 13, start + 20) > 0.1;
                 const conf = calculateOpenMeteoConfidence(day);
 
+                dayMetrics.push({ day, isWeekend, dayStr, dateNum, condMatin, condApres, minT, maxT, rain, windAvg, gustMax, snowSum, stormMatin, stormApres, snowMatin, snowApres, conf });
+            }
+
+            // Passe 2 : construit le tableau, en comparant chaque jour à son prédécesseur pour
+            // détecter les changements brusques (jour 0 = "Aujourd'hui" n'a pas de veille connue).
+            let html = '';
+            dayMetrics.forEach((m, idx) => {
+                const prev = idx > 0 ? dayMetrics[idx - 1] : null;
+
+                const isHot = m.maxT >= REMARK_HOT_ABS_C || (prev && (m.maxT - prev.maxT) >= REMARK_HOT_JUMP_C);
+                const isCold = m.minT <= REMARK_COLD_ABS_C || (prev && (m.minT - prev.minT) <= -REMARK_COLD_JUMP_C);
+                let minMaxClass = '';
+                if (isHot) minMaxClass = 'cell-remarkable-hot';
+                else if (isCold) minMaxClass = 'cell-remarkable-cold';
+
+                const isHeavyRain = m.rain >= REMARK_RAIN_ABS_MM || (prev && (m.rain - prev.rain) >= REMARK_RAIN_JUMP_MM);
+                const rainClass = isHeavyRain ? 'cell-remarkable-rain' : '';
+
+                const isWindy = (m.gustMax !== null && m.gustMax >= REMARK_WIND_GUST_ABS_KMH) ||
+                    (prev && prev.gustMax !== null && m.gustMax !== null && (m.gustMax - prev.gustMax) >= REMARK_WIND_GUST_JUMP_KMH);
+                const windClass = isWindy ? 'cell-remarkable-wind' : '';
+
+                const isSnowyDay = m.snowSum >= REMARK_SNOW_ABS_CM || (prev && (m.snowSum - prev.snowSum) >= REMARK_SNOW_JUMP_CM);
+                // L'orage prime sur la neige si les deux coïncident sur la même demi-journée (cas
+                // très rare, type orage de neige) : c'est le phénomène le plus immédiatement notable.
+                const matinClass = m.stormMatin ? 'cell-remarkable-storm' : (isSnowyDay && m.snowMatin ? 'cell-remarkable-snow' : '');
+                const apresClass = m.stormApres ? 'cell-remarkable-storm' : (isSnowyDay && m.snowApres ? 'cell-remarkable-snow' : '');
+
                 let dots = '';
-                for (let i = 1; i <= 4; i++) dots += `<span class="confidence-dot ${i <= conf ? 'active' : ''}"></span>`;
+                for (let i = 1; i <= 4; i++) dots += `<span class="confidence-dot ${i <= m.conf ? 'active' : ''}"></span>`;
+
+                const gustLabel = m.gustMax !== null ? `<span class="wind-gust-sub">Raf. ${m.gustMax} km/h</span>` : '';
 
                 html += `
-                    <tr class="${isWeekend ? 'weekend-row' : ''}">
-                        <td class="day-cell">${dayStr} <span>${dateNum}</span></td>
-                        <td><div class="table-cond"><i class="fa-solid ${condMatin.icon}"></i> <span>${condMatin.label}</span></div></td>
-                        <td><div class="table-cond"><i class="fa-solid ${condApres.icon}"></i> <span>${condApres.label}</span></div></td>
-                        <td><strong>${minT}°/${maxT}°</strong></td>
-                        <td><span>${rain}mm</span></td>
-                        <td>${windAvg} km/h</td>
+                    <tr class="${m.isWeekend ? 'weekend-row' : ''}">
+                        <td class="day-cell">${m.dayStr} <span>${m.dateNum}</span></td>
+                        <td class="${matinClass}"><div class="table-cond"><i class="fa-solid ${m.condMatin.icon}"></i> <span>${m.condMatin.label}</span></div></td>
+                        <td class="${apresClass}"><div class="table-cond"><i class="fa-solid ${m.condApres.icon}"></i> <span>${m.condApres.label}</span></div></td>
+                        <td class="${minMaxClass}"><strong>${m.minT}°/${m.maxT}°</strong></td>
+                        <td class="${rainClass}"><span>${m.rain.toFixed(1)}mm</span></td>
+                        <td class="${windClass}">${m.windAvg} km/h${gustLabel}</td>
                         <td style="text-align: center;"><div class="confidence-dots">${dots}</div></td>
                     </tr>
                 `;
-            }
+            });
             tbody.innerHTML = html;
         }
 
