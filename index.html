@@ -869,6 +869,44 @@
         .sage-table td.cell-remarkable-wind  { box-shadow: inset 0 0 0 2px #1b5e20; border-radius: 6px; } /* vert foncé : vent */
         .wind-gust-sub { display: block; font-size: 0.6rem; color: var(--text-muted); font-weight: 400; margin-top: 1px; }
 
+        /* Carte "Chauffage : quand allumer / éteindre ?" (onglet Hobby/Astronomie) */
+        .heating-status-row {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0 4px;
+            flex-wrap: wrap;
+        }
+        .heating-status-pill {
+            flex: 1;
+            min-width: 140px;
+            border-radius: var(--radius-medium);
+            padding: 10px 12px;
+            background: var(--card-inner-bg);
+        }
+        .heating-status-pill .heating-pill-label {
+            font-size: 0.62rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            font-weight: 700;
+        }
+        .heating-status-pill .heating-pill-value {
+            font-size: 0.88rem;
+            font-weight: 800;
+            color: var(--primary-dark);
+            margin-top: 2px;
+        }
+        .heating-status-pill.heating-on .heating-pill-value { color: #d97736; }
+        .heating-status-pill.heating-off .heating-pill-value { color: #2b6cb0; }
+        .heating-forecast-note {
+            font-size: 0.68rem;
+            color: var(--text-muted);
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(0,0,0,0.06);
+            line-height: 1.45;
+        }
+
         .app-footer {
             text-align: center;
             padding: 22px 16px 28px;
@@ -2040,6 +2078,38 @@
             </div>
         </div>
 
+        <!-- Chauffage : quand allumer / éteindre ? — chargée à la demande (nécessite un historique
+             de plusieurs années, comme les tendances saisonnières). Méthode et sources détaillées
+             dans la modal "Sources & modèles utilisés" (groupe "Chauffage"). -->
+        <div class="chart-card" id="heating-card" data-groups="astrogarden" style="display:none;">
+            <div class="chart-header">
+                <div>
+                    <div class="card-sage-title"><i class="fa-solid fa-fire" style="color: #d97736; margin-right: 6px;"></i> Chauffage : quand allumer / éteindre ?</div>
+                    <div class="card-sage-sub" id="heating-note">Basé sur la normale climatique du lieu — chargée à la demande.</div>
+                </div>
+            </div>
+            <button type="button" class="btn-load-data" id="heating-load-btn" onclick="triggerLoadHeatingEstimate()">Charger les données</button>
+            <div id="heating-content" style="display:none;">
+                <div class="heating-status-row">
+                    <div class="heating-status-pill" id="heating-status-pill">
+                        <div class="heating-pill-label">Actuellement</div>
+                        <div class="heating-pill-value" id="heating-status-value">--</div>
+                    </div>
+                    <div class="heating-status-pill">
+                        <div class="heating-pill-label">Allumage habituel</div>
+                        <div class="heating-pill-value" id="heating-on-date">--</div>
+                    </div>
+                    <div class="heating-status-pill">
+                        <div class="heating-pill-label">Extinction habituelle</div>
+                        <div class="heating-pill-value" id="heating-off-date">--</div>
+                    </div>
+                </div>
+                <div class="chart-container" style="height: 220px;">
+                    <canvas id="heatingChart"></canvas>
+                </div>
+                <div class="heating-forecast-note" id="heating-forecast-note"></div>
+            </div>
+        </div>
         <!-- Graphique : Trajet — distance entre deux points -->
         <div class="chart-card" data-groups="trajet" style="display:none;">
             <div class="chart-header">
@@ -2850,7 +2920,7 @@
                     <i class="fa-brands fa-android"></i>
                 </button>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 05/09/2026 - 21</div>
+            <div class="footer-last-update">Dernière mise à jour : 05/09/2026 - 22</div>
         </footer>
 
     </div>
@@ -3012,6 +3082,22 @@
             </div>
 
             <div class="sources-group">
+                <h4>Chauffage (allumage/extinction)</h4>
+                <div class="sources-item">
+                    <strong>Seuil retenu : 15°C de température moyenne journalière</strong>
+                    <span>Ce seuil ("Heizgrenztemperatur", limite de chauffe) correspond à la norme allemande VDI 4710 / VDI 3807, qui définit un "jour de chauffe" comme un jour où la température moyenne (min+max)/2 passe sous 15°C — un repère pertinent à l'échelle d'une maison individuelle (avec ses apports internes/solaires). En France, les degrés-jours unifiés (DJU) utilisent traditionnellement 18°C pour le bâti tertiaire ancien, mais les statistiques nationales du SDES calculent aussi des DJU aux seuils 15°C et 17°C, plus réalistes pour un logement récent. Ce n'est pas une préconisation de confort ; ajustez selon l'isolation réelle du logement.</span>
+                </div>
+                <div class="sources-item">
+                    <strong>Dates "habituelles" (climatologie lissée)</strong>
+                    <span>Calculées à partir de la température moyenne journalière ((Tmax+Tmin)/2, méthode "météo" des DJU) sur les 15 dernières années à cet endroit (Open-Meteo, archive historique), moyennées par jour de l'année puis lissées sur une fenêtre glissante de 15 jours (comme les normales climatologiques quotidiennes) pour ne retenir qu'un seul passage sous le seuil en automne et un seul retour au-dessus au printemps — volontairement pas de succession d'allumages/extinctions. Ce sont des dates indicatives moyennes : chaque année réelle peut s'en écarter de plusieurs semaines.</span>
+                </div>
+                <div class="sources-item">
+                    <strong>Affinage par la prévision réelle</strong>
+                    <span>Quand la date "habituelle" tombe dans les 16 prochains jours, la prévision réelle Open-Meteo est utilisée pour préciser (ou contredire) la date climatologique, si elle indique effectivement un franchissement du seuil sur cette période.</span>
+                </div>
+            </div>
+
+            <div class="sources-group">
                 <h4>Bibliothèques techniques</h4>
                 <div class="sources-item">
                     <strong>Chart.js</strong>
@@ -3093,6 +3179,7 @@
         let plantTempChart = null;
         let pollenChart = null;
         let seasonalTrendsChart = null;
+        let heatingChart = null;
         let map = null;
         let marker = null;
         let metehopCellMarker = null; // marqueur affichant la cellule suivie par Metehop sur la carte radar
@@ -3154,6 +3241,8 @@
         let hydroDataLoaded = false; // données de l'onglet Eau (stations hydrométriques, vigilance crues)
         let plantationLoaded = false;     // données Jardinage (température sol/air)
         let seasonalTrendsLoaded = false; // tendances saisonnières (bouton "Charger les données")
+        let heatingLoaded = false;        // estimation chauffage (bouton "Charger les données")
+        let lastHeatingResult = null;     // { onDoy, offDoy, climByDoy, ... } pour éviter de recalculer au resize
         // Station météo personnelle (Tencin, Isère) affichée dans l'onglet Hobby (Astronomie) quand
         // le lieu consulté est à proximité — source Weather Underground PWS, pas Open-Meteo.
         // Obfuscation légère (XOR + base64) de la clé API Weather Underground : ce n'est PAS un
@@ -3845,6 +3934,7 @@
                 if (group === 'ski' && skiCompareChart) skiCompareChart.resize();
                 if (group === 'astrogarden' && astroChart) astroChart.resize();
                 if (group === 'astrogarden' && plantTempChart) plantTempChart.resize();
+                if (group === 'astrogarden' && heatingChart) heatingChart.resize();
                 if (group === 'eau' && hydroChart) hydroChart.resize();
                 if (group === 'eau' && tempEauChart) tempEauChart.resize();
                 if (group === 'eau' && nappesChart) nappesChart.resize();
@@ -3884,6 +3974,29 @@
             document.getElementById('seasonal-trends-legend').style.display = 'none';
             document.getElementById('seasonal-trends-table-card').style.display = 'none';
             document.getElementById('seasonal-trends-note').innerText = "Prévisions sur 6 mois basées sur l'historique réel du lieu — chargées à la demande.";
+        }
+
+        // ---- Chauffage (allumage/extinction) : chargé uniquement au clic, même logique que les
+        // tendances saisonnières (nécessite un historique pluriannuel complet, contrairement au
+        // reste de l'app qui ne charge que 6 mois glissants) ----
+        function triggerLoadHeatingEstimate() {
+            if (heatingLoaded || currentLat === null) return;
+            heatingLoaded = true;
+            document.getElementById('heating-load-btn').style.display = 'none';
+            document.getElementById('heating-content').style.display = '';
+            document.getElementById('heating-note').innerText = 'Chargement de la climatologie locale...';
+            loadHeatingSeasonEstimate(currentLat, currentLon).catch(() => {
+                document.getElementById('heating-note').innerText = 'Données indisponibles pour le moment.';
+            });
+        }
+
+        function resetHeatingGate() {
+            heatingLoaded = false;
+            lastHeatingResult = null;
+            document.getElementById('heating-load-btn').style.display = '';
+            document.getElementById('heating-content').style.display = 'none';
+            document.getElementById('heating-note').innerText = "Basé sur la normale climatique du lieu — chargée à la demande.";
+            if (heatingChart) { heatingChart.destroy(); heatingChart = null; }
         }
 
         // ---- Jardinage : chargées uniquement au clic, pour la même raison (limiter les requêtes API) ----
@@ -4147,6 +4260,7 @@
                 if (hydroDataLoaded) loadHydroCard(lat, lon).catch(() => {});
                 resetPlantationGate();
                 resetSeasonalTrendsGate();
+                resetHeatingGate();
                 // Station météo à proximité (Tencin) : visible seulement si le lieu consulté est à
                 // moins de NEARBY_STATION.maxDistanceKm ; rechargée seulement si l'onglet Hobby est
                 // déjà actif (même logique de chargement différé que Été/Hiver et Eau ci-dessus).
@@ -8094,8 +8208,288 @@ function updatePressureChart(dayIdx) {
             }
         }
 
+        // ---- Chauffage : estimation climatologique de l'allumage/extinction ----
+        // Objectif : donner UNE date "habituelle" de mise en route en automne et UNE date
+        // "habituelle" d'arrêt au printemps — pas une succession d'allumages/extinctions au fil de
+        // variations météo court terme. Méthode et sources détaillées dans la modal "Sources &
+        // modèles utilisés" (groupe "Chauffage") : seuil de 15°C sur la température moyenne
+        // journalière (norme allemande VDI 3807/4710, "Heizgrenztemperatur"), climatologie sur 15
+        // ans lissée sur une fenêtre de 15 jours pour ne garder qu'un seul passage de seuil dans
+        // chaque sens (le lissage élimine les faux franchissements dus au bruit jour à jour).
+        const HEATING_THRESHOLD_C = 15;
+        const HEATING_YEARS_BACK = 15;
+        const HEATING_SMOOTH_HALF_WINDOW = 7; // fenêtre de lissage = 2×7+1 = 15 jours
+        const HEATING_REF_YEAR = 2027; // année non bissextile fixe, utilisée uniquement pour formater des dates "jour/mois" sans année réelle
+
+        // Jour de l'année sur une échelle fixe à 365 jours (le 29 février est neutralisé pour ne
+        // pas décaler les statistiques entre années bissextiles et non bissextiles — approximation
+        // usuelle et sans conséquence pratique pour une estimation "à quelques jours près").
+        function dayOfYear365(date) {
+            const year = date.getFullYear();
+            const start = new Date(year, 0, 1);
+            let doy = Math.round((date - start) / 86400000) + 1;
+            const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+            if (isLeap && doy > 59) doy -= 1;
+            if (doy < 1) doy = 1;
+            if (doy > 365) doy = 365;
+            return doy;
+        }
+
+        // Conversion inverse, uniquement pour affichage ("25 octobre", sans année réelle).
+        function doyToDateLabel(doy) {
+            const d = new Date(HEATING_REF_YEAR, 0, 1);
+            d.setDate(d.getDate() + (Math.round(doy) - 1));
+            return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+        }
+
+        // Moyenne circulaire sur une fenêtre de ±halfWindow jours autour de chaque jour de l'année
+        // (le lissage "boucle" entre le 31 décembre et le 1er janvier, comme il se doit pour un
+        // cycle saisonnier). Valeurs manquantes ignorées.
+        function smoothCircular365(values, halfWindow) {
+            const n = values.length; // 365
+            const out = new Array(n).fill(null);
+            for (let i = 0; i < n; i++) {
+                let sum = 0, count = 0;
+                for (let k = -halfWindow; k <= halfWindow; k++) {
+                    const idx = ((i + k) % n + n) % n;
+                    const v = values[idx];
+                    if (typeof v === 'number') { sum += v; count++; }
+                }
+                out[i] = count ? sum / count : null;
+            }
+            return out;
+        }
+
+        async function loadHeatingSeasonEstimate(lat, lon) {
+            const noteEl = document.getElementById('heating-note');
+            const forecastNoteEl = document.getElementById('heating-forecast-note');
+
+            const fmt = d => d.toISOString().slice(0, 10);
+            const today = new Date();
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const startDate = new Date(yesterday);
+            startDate.setFullYear(startDate.getFullYear() - HEATING_YEARS_BACK);
+
+            const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${fmt(startDate)}&end_date=${fmt(yesterday)}&daily=temperature_2m_max,temperature_2m_min&timezone=auto`;
+            const res = await fetchWithTimeout(url, { timeout: 20000 });
+            if (!res.ok) throw new Error('Archive indisponible');
+            const data = await res.json();
+            const daily = data.daily;
+            if (!daily || !daily.time || !daily.time.length) throw new Error('Aucune donnée historique');
+
+            // Regroupe les températures moyennes journalières ((Tmax+Tmin)/2, méthode "météo" des
+            // DJU) par jour de l'année (1-365), toutes années confondues.
+            const byDoy = Array.from({ length: 365 }, () => []);
+            daily.time.forEach((dateStr, i) => {
+                const tmax = daily.temperature_2m_max ? daily.temperature_2m_max[i] : undefined;
+                const tmin = daily.temperature_2m_min ? daily.temperature_2m_min[i] : undefined;
+                if (typeof tmax !== 'number' || typeof tmin !== 'number') return;
+                const doy = dayOfYear365(new Date(dateStr)) - 1; // index 0-364
+                byDoy[doy].push((tmax + tmin) / 2);
+            });
+
+            const rawClim = byDoy.map(arr => average(arr));
+            const yearsAvailable = Math.max(...byDoy.map(arr => arr.length), 0);
+            if (yearsAvailable < 2) throw new Error('Historique insuffisant pour cette localisation');
+
+            const smoothClim = smoothCircular365(rawClim, HEATING_SMOOTH_HALF_WINDOW);
+            if (smoothClim.some(v => v === null)) throw new Error('Climatologie incomplète pour cette localisation');
+
+            // Minimum annuel (cœur de l'hiver) : point de pivot séparant la demi-saison descendante
+            // (recherche du passage sous le seuil = allumage) de la demi-saison montante (recherche
+            // du retour au-dessus du seuil = extinction). Cela garantit UN SEUL franchissement de
+            // chaque côté, même si la courbe lissée a de petites ondulations locales.
+            let minIdx = 0;
+            for (let i = 1; i < 365; i++) if (smoothClim[i] < smoothClim[minIdx]) minIdx = i;
+
+            // Reconstruit un cycle continu "été → hiver (minIdx) → été suivant" pour chercher les
+            // deux franchissements sans se soucier du rebouclage 31/12 → 01/01.
+            const cycle = [];
+            for (let k = -182; k <= 182; k++) cycle.push(((minIdx + k) % 365 + 365) % 365);
+            const cycleVals = cycle.map(idx => smoothClim[idx]);
+            const pivotPos = 182; // position du minimum dans le tableau "cycle"
+
+            function interpolateCrossing(pos1, pos2, threshold) {
+                const v1 = cycleVals[pos1], v2 = cycleVals[pos2];
+                const frac = (v1 - threshold) / (v1 - v2); // marche pour montée ET descente
+                const realIdx1 = cycle[pos1], realIdx2 = cycle[pos2];
+                let interpDoy;
+                let diff = realIdx2 - realIdx1;
+                if (diff > 182) diff -= 365;
+                if (diff < -182) diff += 365;
+                interpDoy = realIdx1 + frac * diff;
+                interpDoy = ((interpDoy % 365) + 365) % 365;
+                return interpDoy + 1; // retour en échelle 1-365
+            }
+
+            // Franchissement descendant (allumage) : scanne depuis le début du cycle (été, 6 mois
+            // avant le minimum) vers le pivot.
+            let onDoy = null;
+            for (let p = 0; p < pivotPos; p++) {
+                if (cycleVals[p] >= HEATING_THRESHOLD_C && cycleVals[p + 1] < HEATING_THRESHOLD_C) {
+                    onDoy = interpolateCrossing(p, p + 1, HEATING_THRESHOLD_C);
+                    break;
+                }
+            }
+            // Franchissement montant (extinction) : scanne depuis le pivot vers la fin du cycle.
+            let offDoy = null;
+            for (let p = pivotPos; p < cycle.length - 1; p++) {
+                if (cycleVals[p] < HEATING_THRESHOLD_C && cycleVals[p + 1] >= HEATING_THRESHOLD_C) {
+                    offDoy = interpolateCrossing(p, p + 1, HEATING_THRESHOLD_C);
+                    break;
+                }
+            }
+
+            if (onDoy === null || offDoy === null) {
+                // Climat trop doux (ou trop froid toute l'année) pour qu'un seuil à 15°C ait un sens :
+                // on l'indique honnêtement plutôt que d'inventer une date.
+                noteEl.innerText = "Climat local trop stable autour de ce seuil pour dégager des dates d'allumage/extinction fiables.";
+                document.getElementById('heating-status-value').innerText = '--';
+                document.getElementById('heating-on-date').innerText = '--';
+                document.getElementById('heating-off-date').innerText = '--';
+                return;
+            }
+
+            // Statut actuel : "en saison de chauffe" si on est après l'allumage habituel ou avant
+            // l'extinction habituelle (gère le rebouclage puisque onDoy > offDoy en toute logique,
+            // l'automne étant après le printemps dans le calendrier).
+            const todayDoy = dayOfYear365(today);
+            const isHeatingSeason = (todayDoy >= Math.round(onDoy)) || (todayDoy < Math.round(offDoy));
+
+            lastHeatingResult = { onDoy, offDoy, smoothClim, isHeatingSeason, yearsAvailable };
+
+            // Affinage court terme : si la date habituelle tombe dans les 16 prochains jours et que
+            // la prévision réelle du lieu est déjà chargée, on cherche un franchissement effectif
+            // dans cette prévision plutôt que de s'en tenir à la climatologie.
+            let forecastNote = '';
+            try {
+                if (weatherData && weatherData.daily && weatherData.daily.time && weatherData.daily.temperature_2m_max && weatherData.daily.temperature_2m_min) {
+                    const fTimes = weatherData.daily.time;
+                    const fMean = fTimes.map((_, i) => {
+                        const tmax = weatherData.daily.temperature_2m_max[i];
+                        const tmin = weatherData.daily.temperature_2m_min[i];
+                        return (typeof tmax === 'number' && typeof tmin === 'number') ? (tmax + tmin) / 2 : null;
+                    });
+                    const relevantDoy = isHeatingSeason ? offDoy : onDoy;
+                    const daysUntilRelevant = ((Math.round(relevantDoy) - todayDoy) % 365 + 365) % 365;
+                    if (daysUntilRelevant <= 16) {
+                        for (let i = 0; i < fMean.length - 1; i++) {
+                            const v1 = fMean[i], v2 = fMean[i + 1];
+                            if (v1 === null || v2 === null) continue;
+                            const crossesUp = v1 < HEATING_THRESHOLD_C && v2 >= HEATING_THRESHOLD_C;
+                            const crossesDown = v1 >= HEATING_THRESHOLD_C && v2 < HEATING_THRESHOLD_C;
+                            if ((isHeatingSeason && crossesUp) || (!isHeatingSeason && crossesDown)) {
+                                const frac = (v1 - HEATING_THRESHOLD_C) / (v1 - v2);
+                                const crossDate = new Date(fTimes[i]);
+                                crossDate.setDate(crossDate.getDate() + Math.round(frac));
+                                const label = crossDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+                                forecastNote = `D'après les prévisions actuelles (pas seulement la climatologie), ce basculement est attendu vers le ${label}.`;
+                            }
+                        }
+                    }
+                }
+            } catch (e) { /* affinage optionnel : on garde silencieusement la seule climatologie */ }
+
+            noteEl.innerText = `Climatologie lissée sur ${yearsAvailable} années à cet endroit (Open-Meteo, archive historique). Seuil : ${HEATING_THRESHOLD_C}°C de température moyenne journalière.`;
+            forecastNoteEl.innerText = forecastNote;
+            forecastNoteEl.style.display = forecastNote ? '' : 'none';
+
+            const statusPill = document.getElementById('heating-status-pill');
+            statusPill.classList.remove('heating-on', 'heating-off');
+            statusPill.classList.add(isHeatingSeason ? 'heating-on' : 'heating-off');
+            document.getElementById('heating-status-value').innerText = isHeatingSeason ? 'Chauffage 🔥' : 'Pas de chauffage ☀️';
+            document.getElementById('heating-on-date').innerText = `~ ${doyToDateLabel(onDoy)}`;
+            document.getElementById('heating-off-date').innerText = `~ ${doyToDateLabel(offDoy)}`;
+
+            renderHeatingChart(smoothClim, todayDoy);
+        }
+
+        function renderHeatingChart(smoothClim, todayDoy) {
+            // Échantillonnage tous les 5 jours (73 points) pour un axe lisible, sans perdre la forme
+            // de la courbe déjà lissée en amont.
+            const step = 5;
+            const labels = [];
+            const climPoints = [];
+            const thresholdPoints = [];
+            const forecastPoints = [];
+
+            const hasForecast = weatherData && weatherData.daily && weatherData.daily.time && weatherData.daily.temperature_2m_max && weatherData.daily.temperature_2m_min;
+            const forecastByDoy = new Map();
+            if (hasForecast) {
+                weatherData.daily.time.forEach((dateStr, i) => {
+                    const tmax = weatherData.daily.temperature_2m_max[i];
+                    const tmin = weatherData.daily.temperature_2m_min[i];
+                    if (typeof tmax === 'number' && typeof tmin === 'number') {
+                        forecastByDoy.set(dayOfYear365(new Date(dateStr)), (tmax + tmin) / 2);
+                    }
+                });
+            }
+
+            for (let doy = 1; doy <= 365; doy += step) {
+                labels.push(doyToDateLabel(doy));
+                climPoints.push(smoothClim[doy - 1]);
+                thresholdPoints.push(HEATING_THRESHOLD_C);
+                // Ne place un point de prévision que sur les jours effectivement couverts (les 16
+                // prochains jours réels) — jamais d'extrapolation au-delà.
+                let nearestForecast = null;
+                for (let d = doy; d < doy + step; d++) {
+                    if (forecastByDoy.has(d)) { nearestForecast = forecastByDoy.get(d); break; }
+                }
+                forecastPoints.push(nearestForecast);
+            }
+
+            const ctx = document.getElementById('heatingChart').getContext('2d');
+            if (heatingChart) heatingChart.destroy();
+            heatingChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: 'Température moyenne journalière (normale lissée)',
+                            data: climPoints,
+                            borderColor: '#3b6e61',
+                            backgroundColor: 'rgba(59, 110, 97, 0.08)',
+                            borderWidth: 2,
+                            tension: 0.35,
+                            pointRadius: 0,
+                            fill: true
+                        },
+                        {
+                            label: `Seuil (${HEATING_THRESHOLD_C}°C)`,
+                            data: thresholdPoints,
+                            borderColor: 'rgba(211, 47, 47, 0.55)',
+                            borderWidth: 1.5,
+                            borderDash: [5, 4],
+                            pointRadius: 0,
+                            tension: 0
+                        },
+                        {
+                            label: 'Prévisions actuelles',
+                            data: forecastPoints,
+                            borderColor: '#2b6cb0',
+                            backgroundColor: '#2b6cb0',
+                            borderWidth: 2.5,
+                            pointRadius: 3,
+                            spanGaps: false,
+                            tension: 0.2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { font: { size: 9 }, color: '#5e706a', maxRotation: 0, autoSkip: true, maxTicksLimit: 8 } },
+                        y: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 9 }, color: '#5e706a', callback: v => `${Math.round(v)}°` } }
+                    }
+                }
+            });
+        }
+
         // ---- Pollution & pollens sur 7 jours (données réelles Open-Meteo Air Quality / CAMS) ----
-        // La pollution générale (PM2.5, PM10, indice de qualité de l'air) est prévue jusqu'à ~7 jours,
         // mais les pollens (modèle CAMS Europe) ne sont fiables que sur environ 4 jours : au-delà, on
         // laisse simplement l'absence de donnée (pas de valeur inventée pour compléter la semaine).
         const MOIS_COURT_FR = ['', 'janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
