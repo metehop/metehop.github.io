@@ -3042,7 +3042,7 @@
                     <i class="fa-brands fa-android"></i>
                 </button>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 05/09/2026 - 25</div>
+            <div class="footer-last-update">Dernière mise à jour : 05/09/2026 - 32</div>
         </footer>
 
     </div>
@@ -3800,14 +3800,104 @@
             );
         }
 
+        // Normalise un nom de lieu pour comparaison stricte : accents retirés, TOUT caractère non
+        // alphanumérique (tiret ASCII ou typographique, apostrophe droite ou courbe, espace
+        // insécable, etc.) traité comme un simple séparateur de mots, casse uniformisée.
+        function normalizeVille(s) {
+            return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                .toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+        }
+
+        // Génère toutes les combinaisons possibles espace/tiret entre les mots de la requête,
+        // reconstruites en chaînes COMPLÈTES (pas des préfixes tronqués). Intérêt, découvert après
+        // plusieurs échecs : chercher avec un préfixe court et générique ("La Roche") renvoie des
+        // centaines d'homonymes dans un ordre qui n'est PAS trié par pertinence/population — une
+        // grande ville comme "La Roche-sur-Yon" peut ne même pas apparaître dans les 100 premiers
+        // résultats, noyée parmi des dizaines de communes appelées juste "La Roche". En revanche,
+        // une requête complète et spécifique ("La Roche-sur-Yon") ne peut correspondre qu'à très
+        // peu d'entrées, donc la bonne ville est quasi certaine d'apparaître si on devine la bonne
+        // combinaison d'espaces/tirets. Pour "La roche sur yon" (3 séparateurs), on essaie donc
+        // les 2³ = 8 variantes : "La roche sur yon", "La roche sur-yon", "La roche-sur yon", "La
+        // roche-sur-yon", etc. — jusqu'à ce que l'une d'elles matche exactement le nom réel.
+        function separatorCombinations(query) {
+            const mots = query.split(/[\s-]+/).filter(Boolean);
+            const nbSeparateurs = mots.length - 1;
+            if (nbSeparateurs <= 0) return [query];
+            const maxSeparateurs = Math.min(nbSeparateurs, 6); // limite raisonnable (64 combinaisons max)
+            const combinaisons = [];
+            const total = 1 << maxSeparateurs;
+            for (let masque = 0; masque < total; masque++) {
+                let s = mots[0];
+                for (let i = 1; i < mots.length; i++) {
+                    const tiret = i <= maxSeparateurs && ((masque >> (i - 1)) & 1);
+                    s += (tiret ? '-' : ' ') + mots[i];
+                }
+                combinaisons.push(s);
+            }
+            return combinaisons;
+        }
+
+        // Génère les préfixes de la requête tronqués juste avant chaque séparateur, du plus long
+        // au plus court — utilisé seulement en dernier recours si aucune combinaison complète
+        // n'a donné de correspondance exacte (voir geocodeVilleTolerant).
+        function truncatedPrefixes(query) {
+            const mots = [...query.matchAll(/[^\s-]+/g)];
+            const prefixes = [];
+            for (let i = mots.length; i >= 1; i--) {
+                const fin = mots[i - 1].index + mots[i - 1][0].length;
+                prefixes.push(query.slice(0, fin));
+            }
+            return prefixes;
+        }
+
+        // Recherche de lieu tolérante aux espaces/tirets. Deux passes :
+        // 1) On essaie toutes les combinaisons espace/tiret de la requête COMPLÈTE (voir
+        //    separatorCombinations) : chacune est une requête spécifique, donc peu de résultats,
+        //    et on retient la première qui matche exactement le nom recherché (accents/casse/
+        //    ponctuation ignorés).
+        // 2) Si aucune combinaison complète ne matche (vraie faute de frappe, pas juste un
+        //    problème d'espace/tiret), on retombe sur les préfixes tronqués génériques comme
+        //    filet de sécurité, en prenant le premier résultat obtenu — moins fiable, mais mieux
+        //    que rien.
+        async function geocodeVilleTolerant(query) {
+            const cible = normalizeVille(query);
+
+            for (const candidat of separatorCombinations(query)) {
+                try {
+                    const res = await fetchWithTimeout(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(candidat)}&count=10&language=fr&format=json`, { timeout: 5000 });
+                    const data = await res.json();
+                    console.log('[geocodeVilleTolerant] combinaison complète', { candidat, nbResultats: data.results ? data.results.length : 0, noms: data.results ? data.results.map(r => r.name) : [] });
+                    if (data.results) {
+                        const exact = data.results.find(r => normalizeVille(r.name) === cible);
+                        if (exact) { console.log('[geocodeVilleTolerant] correspondance exacte trouvée:', exact.name); return exact; }
+                    }
+                } catch (e) {
+                    // combinaison infructueuse (timeout, réseau, aucun résultat) : on continue
+                }
+            }
+
+            console.log('[geocodeVilleTolerant] aucune combinaison complète n\'a matché, repli sur préfixe générique');
+            let repli = null;
+            for (const prefix of truncatedPrefixes(query)) {
+                try {
+                    const res = await fetchWithTimeout(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(prefix)}&count=20&language=fr&format=json`, { timeout: 5000 });
+                    const data = await res.json();
+                    if (data.results && data.results.length > 0) { repli = data.results[0]; break; }
+                } catch (e) {
+                    // préfixe infructueux : on continue avec le suivant, plus court
+                }
+            }
+            console.log('[geocodeVilleTolerant] repli utilisé:', repli && repli.name);
+            return repli;
+        }
+
         async function searchCity() {
             const city = document.getElementById('city').value.trim();
             if (!city) return;
             try {
-                const res = await fetchWithTimeout(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=fr&format=json`);
-                const data = await res.json();
-                if (data.results && data.results.length > 0) {
-                    const { latitude, longitude, name, population } = data.results[0];
+                const best = await geocodeVilleTolerant(city);
+                if (best) {
+                    const { latitude, longitude, name, population } = best;
                     await fetchWeather(latitude, longitude, name, typeof population === 'number' ? population : null);
                 } else {
                     alert("Ville non trouvée.");
@@ -3826,10 +3916,8 @@
             const query = document.getElementById(inputId).value.trim();
             if (!query) return;
             try {
-                const res = await fetchWithTimeout(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=fr&format=json`);
-                const data = await res.json();
-                if (!data.results || !data.results.length) { alert("Lieu non trouvé."); return; }
-                const r = data.results[0];
+                const r = await geocodeVilleTolerant(query);
+                if (!r) { alert("Lieu non trouvé."); return; }
                 const point = { lat: r.latitude, lon: r.longitude, name: r.name + (r.country ? `, ${r.country}` : '') };
                 if (which === 'from') trajetFrom = point; else trajetTo = point;
                 document.getElementById(inputId).value = point.name;
