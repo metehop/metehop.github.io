@@ -1540,11 +1540,11 @@
             <button type="button" class="group-tab active" data-group="general" onclick="setGroup('general')" title="Général">
                 <span class="group-tab-icon">🐸</span>
             </button>
-            <button type="button" class="group-tab" data-group="ski" onclick="setGroup('ski')" title="Neige et Ski">
-                <span class="group-tab-icon">❄️</span>
-            </button>
             <button type="button" class="group-tab" data-group="leisure" onclick="setGroup('leisure')" title="Loisir">
                 <span class="group-tab-icon">⛱️</span>
+            </button>
+            <button type="button" class="group-tab" data-group="ski" onclick="setGroup('ski')" title="Ski">
+                <span class="group-tab-icon">⛷️</span>
             </button>
             <button type="button" class="group-tab" data-group="astrogarden" onclick="setGroup('astrogarden')" title="Hobby">
                 <span class="group-tab-icon">🔭 🌱</span>
@@ -2033,103 +2033,6 @@
             <div class="card-sage-sub" style="margin-top: 6px;">Pour plus de précision sur la neige et le gel ici (fond de vallée, altitude), active le micro-climat. Réglage synchronisé avec l'onglet Général.</div>
         </div>
 
-        <!-- Graphique : Température & Risques de Neige / Givre -->
-        <div class="chart-card" data-groups="ski" style="display:none;">
-            <div class="chart-header">
-                <div>
-                    <div class="card-sage-title">
-                        <i class="fa-solid fa-temperature-three-quarters" style="color: var(--accent-orange); margin-right: 6px;"></i> 
-                        Température & risques de neige
-                    </div>
-                    <div class="card-sage-sub" id="pressure-chart-sub">Évolution sur 24h pour le jour sélectionné</div>
-                </div>
-                <div class="astro-legend">
-                    <span class="astro-legend-item"><span class="legend-dot" style="background: #d97736;"></span> Température</span>
-                    <span class="astro-legend-item"><span class="legend-dot" style="background: #a2d2ff;"></span> <i class="fa-solid fa-snowflake" style="color: #a2d2ff; font-size: 0.75rem;"></i> Risque de neige (proba. précip. si neige prévue)</span>
-                    <span class="astro-legend-item"><i class="fa-solid fa-icicles" style="color: #00b4d8; font-size: 0.85rem;"></i> Condition de givre</span>
-                </div>
-            </div>
-
-            <div class="chart-container">
-                <canvas id="pressureChart"></canvas>
-            </div>
-
-            <div class="frost-icons-row" id="frost-icons-row"></div>
-        </div>
-
-        <!-- Graphique : Limite pluie/neige heure par heure — ajouté le 05/09/2026. Voir
-             updateSnowLimitChart(). Isotherme 0°C (freezing_level_height, vraie valeur Open-Meteo)
-             comme référence solide ; limite pluie/neige elle-même ESTIMÉE (isotherme - 300m,
-             fourchette usuelle 200-400m en météorologie de montagne pour l'effet de fonte/évaporation
-             du manteau neigeux qui refroidit l'air sous l'isotherme) — jamais présentée comme une
-             mesure exacte. -->
-        <div class="chart-card" data-groups="ski" style="display:none;">
-            <div class="chart-header">
-                <div>
-                    <div class="card-sage-title">
-                        <i class="fa-solid fa-arrows-up-down" style="color: var(--accent-blue); margin-right: 6px;"></i>
-                        Limite pluie/neige heure par heure
-                    </div>
-                    <div class="card-sage-sub">Altitude à laquelle les précipitations basculent entre pluie et neige, pour le jour sélectionné</div>
-                </div>
-                <div class="astro-legend">
-                    <span class="astro-legend-item"><span class="legend-dot" style="background: #d97736;"></span> Isotherme 0°C</span>
-                    <span class="astro-legend-item"><span class="legend-dot" style="background: #2b6cb0;"></span> Limite pluie/neige (estimée)</span>
-                    <span class="astro-legend-item"><span class="legend-dot" style="background: #7d8f89;"></span> Altitude du lieu</span>
-                </div>
-            </div>
-
-            <div class="chart-container">
-                <canvas id="snowLimitChart"></canvas>
-            </div>
-
-            <div class="snow-avalanche-note">
-                <i class="fa-solid fa-circle-info"></i>
-                <span>La limite pluie/neige n'est pas mesurée directement par les modèles météo : elle est estimée ici à 300m sous l'isotherme 0°C (fourchette usuelle 200-400m selon l'humidité de l'air), un ordre de grandeur qui peut varier localement — l'isotherme 0°C lui-même est en revanche une vraie sortie du modèle.</span>
-            </div>
-        </div>
-
-        <!-- DÉTECTION AUTOMATIQUE D'ÉPISODE NEIGEUX — calculée côté client à partir des données
-             déjà chargées (weatherData.hourly.snowfall/weather_code), aucun appel API dédié. Voir
-             detectSnowEpisode() / updateSnowEpisodeCard(). Ajouté le 05/09/2026. -->
-        <div class="chart-card" data-groups="ski" id="snow-episode-card" style="display:none;">
-            <div class="chart-header">
-                <div>
-                    <div class="card-sage-title">
-                        <i class="fa-solid fa-snowflake" style="color: var(--accent-snow); margin-right: 6px;"></i>
-                        Prochain épisode neigeux
-                    </div>
-                    <div class="card-sage-sub" id="snow-episode-sub">Recherche du prochain épisode...</div>
-                </div>
-            </div>
-
-            <div id="snow-episode-none-msg" style="display:none; text-align:center; padding: 18px 10px; color: var(--text-muted); font-size: 0.8rem;">
-                <i class="fa-solid fa-sun" style="font-size: 1.4rem; color: var(--accent-snow); display:block; margin-bottom: 8px;"></i>
-                Aucun épisode neigeux détecté dans les 16 prochains jours pour ce lieu.
-            </div>
-
-            <div id="snow-episode-content" style="display:none;">
-                <div class="snow-grid">
-                    <div class="snow-main-item">
-                        <div class="snow-alt-label">Cumul estimé</div>
-                        <div class="snow-cm-value" id="snow-episode-cumul">--</div>
-                        <div class="snow-cm-unit">cm</div>
-                        <div class="snow-alt-sub" id="snow-episode-period">--</div>
-                    </div>
-                    <div class="snow-main-item">
-                        <div class="snow-alt-label">Intensité max.</div>
-                        <div class="snow-cm-value" id="snow-episode-max-hourly">--</div>
-                        <div class="snow-cm-unit">cm/h</div>
-                        <div class="snow-alt-sub">Sur une heure</div>
-                    </div>
-                </div>
-                <div class="snow-avalanche-note">
-                    <i class="fa-solid fa-circle-info"></i>
-                    <span>Détection automatique à partir des prévisions horaires (cumul de neige + code météo) pour ce lieu précis — un ordre de grandeur indicatif qui peut encore évoluer à l'approche de l'échéance, surtout au-delà de 5-6 jours.</span>
-                </div>
-            </div>
-        </div>
-
         <!-- CARTE DES STATIONS DE SKI COLORÉE PAR CUMUL DE NEIGE PRÉVU — ajoutée le 05/09/2026.
              Chargée UNE SEULE FOIS par session (indépendante du lieu recherché — c'est une vue
              d'ensemble des 181 stations connues, pas une donnée locale), via un unique appel batch
@@ -2189,6 +2092,103 @@
                 <canvas id="skiCompareChart"></canvas>
             </div>
             <div class="card-sage-sub" id="ski-compare-totals" style="margin-top: 8px;"></div>
+        </div>
+
+        <!-- DÉTECTION AUTOMATIQUE D'ÉPISODE NEIGEUX — calculée côté client à partir des données
+             déjà chargées (weatherData.hourly.snowfall/weather_code), aucun appel API dédié. Voir
+             detectSnowEpisode() / updateSnowEpisodeCard(). Ajouté le 05/09/2026. -->
+        <div class="chart-card" data-groups="ski" id="snow-episode-card" style="display:none;">
+            <div class="chart-header">
+                <div>
+                    <div class="card-sage-title">
+                        <i class="fa-solid fa-snowflake" style="color: var(--accent-snow); margin-right: 6px;"></i>
+                        Prochain épisode neigeux
+                    </div>
+                    <div class="card-sage-sub" id="snow-episode-sub">Recherche du prochain épisode...</div>
+                </div>
+            </div>
+
+            <div id="snow-episode-none-msg" style="display:none; text-align:center; padding: 18px 10px; color: var(--text-muted); font-size: 0.8rem;">
+                <i class="fa-solid fa-sun" style="font-size: 1.4rem; color: var(--accent-snow); display:block; margin-bottom: 8px;"></i>
+                Aucun épisode neigeux détecté dans les 16 prochains jours pour ce lieu.
+            </div>
+
+            <div id="snow-episode-content" style="display:none;">
+                <div class="snow-grid">
+                    <div class="snow-main-item">
+                        <div class="snow-alt-label">Cumul estimé</div>
+                        <div class="snow-cm-value" id="snow-episode-cumul">--</div>
+                        <div class="snow-cm-unit">cm</div>
+                        <div class="snow-alt-sub" id="snow-episode-period">--</div>
+                    </div>
+                    <div class="snow-main-item">
+                        <div class="snow-alt-label">Intensité max.</div>
+                        <div class="snow-cm-value" id="snow-episode-max-hourly">--</div>
+                        <div class="snow-cm-unit">cm/h</div>
+                        <div class="snow-alt-sub">Sur une heure</div>
+                    </div>
+                </div>
+                <div class="snow-avalanche-note">
+                    <i class="fa-solid fa-circle-info"></i>
+                    <span>Détection automatique à partir des prévisions horaires (cumul de neige + code météo) pour ce lieu précis — un ordre de grandeur indicatif qui peut encore évoluer à l'approche de l'échéance, surtout au-delà de 5-6 jours.</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Graphique : Température & Risques de Neige / Givre -->
+        <div class="chart-card" data-groups="ski" style="display:none;">
+            <div class="chart-header">
+                <div>
+                    <div class="card-sage-title">
+                        <i class="fa-solid fa-temperature-three-quarters" style="color: var(--accent-orange); margin-right: 6px;"></i> 
+                        Température & risques de neige
+                    </div>
+                    <div class="card-sage-sub" id="pressure-chart-sub">Évolution sur 24h pour le jour sélectionné</div>
+                </div>
+                <div class="astro-legend">
+                    <span class="astro-legend-item"><span class="legend-dot" style="background: #d97736;"></span> Température</span>
+                    <span class="astro-legend-item"><span class="legend-dot" style="background: #a2d2ff;"></span> <i class="fa-solid fa-snowflake" style="color: #a2d2ff; font-size: 0.75rem;"></i> Risque de neige (proba. précip. si neige prévue)</span>
+                    <span class="astro-legend-item"><i class="fa-solid fa-icicles" style="color: #00b4d8; font-size: 0.85rem;"></i> Condition de givre</span>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <canvas id="pressureChart"></canvas>
+            </div>
+
+            <div class="frost-icons-row" id="frost-icons-row"></div>
+        </div>
+
+        <!-- Graphique : Limite pluie/neige heure par heure — ajouté le 05/09/2026. Voir
+             updateSnowLimitChart(). Isotherme 0°C (freezing_level_height, vraie valeur Open-Meteo)
+             comme référence solide ; limite pluie/neige elle-même ESTIMÉE (isotherme - 300m,
+             fourchette usuelle 200-400m en météorologie de montagne pour l'effet de fonte/évaporation
+             du manteau neigeux qui refroidit l'air sous l'isotherme) — jamais présentée comme une
+             mesure exacte. -->
+        <div class="chart-card" data-groups="ski" style="display:none;">
+            <div class="chart-header">
+                <div>
+                    <div class="card-sage-title">
+                        <i class="fa-solid fa-arrows-up-down" style="color: var(--accent-blue); margin-right: 6px;"></i>
+                        Limite pluie/neige heure par heure
+                    </div>
+                    <div class="card-sage-sub">Altitude à laquelle les précipitations basculent entre pluie et neige, pour le jour sélectionné</div>
+                </div>
+                <div class="astro-legend">
+                    <span class="astro-legend-item"><span class="legend-dot" style="background: #d97736;"></span> Isotherme 0°C</span>
+                    <span class="astro-legend-item"><span class="legend-dot" style="background: #2b6cb0;"></span> Limite pluie/neige (estimée)</span>
+                    <span class="astro-legend-item"><span class="legend-dot" style="background: #7d8f89;"></span> Altitude du lieu</span>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <canvas id="snowLimitChart"></canvas>
+            </div>
+
+            <div class="snow-avalanche-note">
+                <i class="fa-solid fa-circle-info"></i>
+                <span>La limite pluie/neige n'est pas mesurée directement par les modèles météo : elle est estimée ici à 300m sous l'isotherme 0°C (fourchette usuelle 200-400m selon l'humidité de l'air), un ordre de grandeur qui peut varier localement — l'isotherme 0°C lui-même est en revanche une vraie sortie du modèle.</span>
+            </div>
         </div>
 
         <!-- TABLEAU : STATION DE SKI LA PLUS PROCHE (déplacé depuis l'ancien tableau combiné
@@ -2732,7 +2732,7 @@
                 <a class="footer-icon-btn" href="mailto:stridemetric@proton.me" title="Contact">✉️</a>
                 <button type="button" class="footer-icon-btn" onclick="openSourcesModal()" title="Sources et modèles utilisés">💡</button>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 05/09/2026 - 17</div>
+            <div class="footer-last-update">Dernière mise à jour : 05/09/2026 - 16</div>
         </footer>
 
     </div>
