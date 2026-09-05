@@ -1142,6 +1142,43 @@
             justify-content: center;
         }
 
+        /* Classement des meilleures nuits d'observation (onglet Hobby/Astronomie) */
+        .astro-nights-strip {
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            padding: 6px 2px;
+            margin-top: 4px;
+            -webkit-overflow-scrolling: touch;
+        }
+        .astro-night-pill {
+            flex: 0 0 auto;
+            min-width: 60px;
+            border-radius: var(--radius-medium);
+            padding: 6px 8px;
+            background: var(--card-inner-bg);
+            text-align: center;
+            border: 2px solid transparent;
+            cursor: pointer;
+        }
+        .astro-night-pill.best { border-color: #7048e8; }
+        .astro-night-pill .night-date {
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .astro-night-pill .night-score {
+            font-size: 0.95rem;
+            font-weight: 800;
+            margin-top: 2px;
+        }
+        .astro-night-pill .night-detail {
+            font-size: 0.56rem;
+            color: var(--text-muted);
+            margin-top: 1px;
+        }
+
         /* Tableau Complémentaire avec Stations Officielles et Distances */
         .extra-table {
             width: 100%;
@@ -1965,6 +2002,47 @@
             </div>
         </div>
 
+        <!-- Bilan hydrique du jardin : pluie prévue vs évapotranspiration de référence (ET0 FAO
+             Penman-Monteith), sur les 16 jours de prévision. Gatée par bouton comme le graphique
+             sol/air ci-dessus (appel API dédié, non inclus dans fetchWeather principal). -->
+        <div class="chart-card" id="water-balance-card" data-groups="astrogarden" style="display:none;">
+            <div class="chart-header">
+                <div>
+                    <div class="card-sage-title">
+                        <i class="fa-solid fa-droplet-slash" style="color: #2b6cb0; margin-right: 6px;"></i>
+                        Bilan hydrique du jardin — 16 jours
+                    </div>
+                    <div class="card-sage-sub" id="water-balance-note">Pluie prévue vs évapotranspiration de référence — chargé à la demande.</div>
+                </div>
+            </div>
+            <button type="button" class="btn-load-data" id="water-balance-load-btn" onclick="triggerLoadWaterBalance()">Charger les données</button>
+            <div id="water-balance-content" style="display:none;">
+                <div class="heating-status-row">
+                    <div class="heating-status-pill">
+                        <div class="heating-pill-label">Pluie cumulée</div>
+                        <div class="heating-pill-value" id="wb-precip-total">--</div>
+                    </div>
+                    <div class="heating-status-pill">
+                        <div class="heating-pill-label">Évapotranspiration</div>
+                        <div class="heating-pill-value" id="wb-et0-total">--</div>
+                    </div>
+                    <div class="heating-status-pill" id="wb-balance-pill">
+                        <div class="heating-pill-label">Bilan net</div>
+                        <div class="heating-pill-value" id="wb-balance-total">--</div>
+                    </div>
+                </div>
+                <div class="chart-container" style="height: 200px;">
+                    <canvas id="waterBalanceChart"></canvas>
+                </div>
+                <div class="astro-legend" style="margin-top:6px;">
+                    <span class="astro-legend-item"><span class="legend-dot" style="background:#2b6cb0;"></span> Pluie du jour</span>
+                    <span class="astro-legend-item"><span class="legend-dot" style="background:#d97736;"></span> Évapotranspiration (ET0)</span>
+                    <span class="astro-legend-item"><span class="legend-dash" style="border-color:#3b6e61;"></span> Bilan cumulé (axe droit)</span>
+                </div>
+                <div class="card-sage-sub" style="margin-top:6px; font-size:0.65rem;" id="water-balance-caveat">ET0 (FAO Penman-Monteith) : référence pour une pelouse de référence bien alimentée en eau — pas ajustée selon le type de plante (coefficient cultural propre à chaque culture non appliqué ici). Indicatif pour repérer une tendance de déficit ou d'excédent, pas une consigne d'arrosage précise.</div>
+            </div>
+        </div>
+
         <!-- Tableau 16 jours Compact -->
         <div class="table-card" data-groups="general">
             <div class="section-header">
@@ -2017,6 +2095,13 @@
             <div class="card-sage-sub" id="dew-row-note" style="margin-top: 4px; font-size: 0.65rem; display: none;">
                 <i class="fa-solid fa-droplet" style="color: #4fa8d8; font-size: 0.7rem;"></i> Point de rosée atteint (air proche de la saturation — brouillard/rosée possible)
             </div>
+
+            <!-- Classement des meilleures nuits d'observation à venir : recalculé à partir des
+                 données déjà chargées (nébulosité, seeing estimé, lune) — aucun appel réseau
+                 supplémentaire, contrairement aux cartes "Charger les données" ci-dessus/dessous. -->
+            <div class="card-sage-sub" id="astro-ranking-title" style="margin-top: 12px; font-weight: 700; color: var(--primary-dark); font-size: 0.75rem;">Meilleures nuits à venir</div>
+            <div class="astro-nights-strip" id="astro-nights-strip"></div>
+            <div class="card-sage-sub" id="astro-ranking-note" style="margin-top: 4px; font-size: 0.62rem; font-style: italic;">Score indicatif sur 100 (nébulosité, seeing estimé, éclairage lunaire) — pas une prévision de qualité garantie. Touchez une nuit pour l'afficher dans le graphique ci-dessus.</div>
         </div>
 
         <!-- Stations météo à proximité (relevés réels, pas des prévisions) — zone commune en bas de
@@ -2920,7 +3005,7 @@
                     <i class="fa-brands fa-android"></i>
                 </button>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 05/09/2026 - 23</div>
+            <div class="footer-last-update">Dernière mise à jour : 05/09/2026 - 24</div>
         </footer>
 
     </div>
@@ -3265,6 +3350,8 @@
         let skiCompareChart = null;
         let hydroDataLoaded = false; // données de l'onglet Eau (stations hydrométriques, vigilance crues)
         let plantationLoaded = false;     // données Jardinage (température sol/air)
+        let waterBalanceLoaded = false;   // bilan hydrique jardin (pluie vs ET0)
+        let waterBalanceChart = null;
         let seasonalTrendsLoaded = false; // tendances saisonnières (bouton "Charger les données")
         let heatingLoaded = false;        // estimation chauffage (bouton "Charger les données")
         let lastHeatingResult = null;     // { onDoy, offDoy, climByDoy, ... } pour éviter de recalculer au resize
@@ -3953,6 +4040,9 @@
                 synopStationLoaded = true;
                 loadSynopStation(currentLat, currentLon).catch(() => {});
             }
+            if (group === 'astrogarden' && weatherData) {
+                renderAstroNightsRanking();
+            }
 
             resizeGroupCharts(group);
         }
@@ -3968,6 +4058,7 @@
                 if (group === 'astrogarden' && astroChart) astroChart.resize();
                 if (group === 'astrogarden' && plantTempChart) plantTempChart.resize();
                 if (group === 'astrogarden' && heatingChart) heatingChart.resize();
+                if (group === 'astrogarden' && waterBalanceChart) waterBalanceChart.resize();
                 if (group === 'eau' && hydroChart) hydroChart.resize();
                 if (group === 'eau' && tempEauChart) tempEauChart.resize();
                 if (group === 'eau' && nappesChart) nappesChart.resize();
@@ -4049,6 +4140,27 @@
             document.getElementById('plant-temp-chart-container').style.display = 'none';
             document.getElementById('plant-temp-legend').style.display = 'none';
             document.getElementById('plant-temp-note').innerText = 'Prévisions sol/air et moyennes historiques du lieu — chargées à la demande.';
+        }
+
+        // ---- Bilan hydrique du jardin : chargé uniquement au clic (appel API dédié pour ET0 et
+        // cumul de pluie, non inclus dans le forecast principal) ----
+        function triggerLoadWaterBalance() {
+            if (waterBalanceLoaded || currentLat === null) return;
+            waterBalanceLoaded = true;
+            document.getElementById('water-balance-load-btn').style.display = 'none';
+            document.getElementById('water-balance-content').style.display = '';
+            document.getElementById('water-balance-note').innerText = 'Chargement des données de pluie et d\'évapotranspiration...';
+            loadWaterBalance(currentLat, currentLon).catch(() => {
+                document.getElementById('water-balance-note').innerText = 'Données indisponibles pour le moment.';
+            });
+        }
+
+        function resetWaterBalanceGate() {
+            waterBalanceLoaded = false;
+            document.getElementById('water-balance-load-btn').style.display = '';
+            document.getElementById('water-balance-content').style.display = 'none';
+            document.getElementById('water-balance-note').innerText = 'Pluie prévue vs évapotranspiration de référence — chargé à la demande.';
+            if (waterBalanceChart) { waterBalanceChart.destroy(); waterBalanceChart = null; }
         }
 
         // ---- Station météo personnelle à proximité (Tencin, ITENCI3) : Weather Underground PWS ----
@@ -4293,6 +4405,7 @@
                 hydroDataLoaded = (currentGroup === 'eau');
                 if (hydroDataLoaded) loadHydroCard(lat, lon).catch(() => {});
                 resetPlantationGate();
+                resetWaterBalanceGate();
                 resetSeasonalTrendsGate();
                 resetHeatingGate();
                 // Station météo à proximité (Tencin) : visible seulement si le lieu consulté est à
@@ -4313,6 +4426,9 @@
                 // même lointain (avertissement géré dans loadSynopStation() lui-même).
                 synopStationLoaded = (currentGroup === 'astrogarden');
                 if (synopStationLoaded) loadSynopStation(lat, lon).catch(() => {});
+                // Classement des meilleures nuits : purement calculé (pas d'appel réseau), donc
+                // recalculé immédiatement si l'onglet Astronomie est déjà actif au changement de lieu.
+                if (currentGroup === 'astrogarden') renderAstroNightsRanking();
                 // Réinitialiser la grille de prévisions si on change de position
                 if (forecastGridLayer) {
                     map.removeLayer(forecastGridLayer);
@@ -6813,6 +6929,112 @@
                 }
             });
         }
+
+        // ============================================================================
+        // CLASSEMENT DES MEILLEURES NUITS D'OBSERVATION (onglet Hobby/Astronomie) — 05/09/2026
+        // ============================================================================
+        // Aucune donnée nouvelle : reprend, pour CHAQUE nuit des 16 jours de prévision, exactement
+        // les mêmes ingrédients que le graphique Astronomie ci-dessus (nébulosité horaire, seeing
+        // estimé à partir du vent 200hPa, éclairage lunaire visible via SunCalc) déjà présents dans
+        // weatherData. Score volontairement simple (moyenne de 3 sous-scores 0-100) et présenté
+        // comme indicatif — jamais comme une prévision de qualité de ciel garantie.
+        function computeAstroNightScore(dayIdx) {
+            if (!weatherData || !weatherData.daily || !weatherData.hourly) return null;
+            const dailyLen = weatherData.daily.time ? weatherData.daily.time.length : 0;
+            if (dayIdx < 0 || dayIdx + 1 >= dailyLen) return null;
+
+            let sunsetHour = 21, sunriseHour = 6;
+            if (weatherData.daily.sunset && weatherData.daily.sunset[dayIdx]) sunsetHour = parseInt(weatherData.daily.sunset[dayIdx].split('T')[1].substring(0, 2));
+            if (weatherData.daily.sunrise && weatherData.daily.sunrise[dayIdx + 1]) sunriseHour = parseInt(weatherData.daily.sunrise[dayIdx + 1].split('T')[1].substring(0, 2));
+
+            const startIdx = (dayIdx * 24) + sunsetHour;
+            const endIdx = ((dayIdx + 1) * 24) + sunriseHour + 1;
+            const nightTimes = weatherData.hourly.time.slice(startIdx, endIdx);
+            if (!nightTimes.length) return null;
+
+            const clouds = weatherData.hourly.cloud_cover ? weatherData.hourly.cloud_cover.slice(startIdx, endIdx).filter(v => typeof v === 'number') : [];
+            const avgCloud = clouds.length ? average(clouds) : null;
+
+            const jetWind200 = weatherData.hourly.wind_speed_200hPa ? weatherData.hourly.wind_speed_200hPa.slice(startIdx, endIdx).filter(v => typeof v === 'number') : [];
+            const seeingVals = jetWind200.map(w => Math.min(5, Math.max(0.5, 0.5 + w * 0.018)));
+            const avgSeeing = seeingVals.length ? average(seeingVals) : null;
+
+            let avgMoon = null;
+            if (typeof SunCalc !== 'undefined' && currentLat !== null) {
+                const moonVals = nightTimes.map(timeStr => {
+                    const date = new Date(timeStr);
+                    const moonPos = SunCalc.getMoonPosition(date, currentLat, currentLon);
+                    const moonIll = SunCalc.getMoonIllumination(date);
+                    const illumination = (moonIll.fraction || 0) * 100;
+                    return (moonPos.altitude * 180 / Math.PI) > 0 ? illumination : 0;
+                });
+                avgMoon = average(moonVals);
+            }
+
+            const subScores = [];
+            if (avgCloud !== null) subScores.push(100 - avgCloud);
+            if (avgSeeing !== null) subScores.push(100 - ((avgSeeing - 0.5) / 4.5) * 100);
+            if (avgMoon !== null) subScores.push(100 - avgMoon);
+            if (!subScores.length) return null;
+
+            const score = Math.round(Math.max(0, Math.min(100, average(subScores))));
+            return { dayIdx, score, avgCloud: avgCloud !== null ? Math.round(avgCloud) : null, avgMoon: avgMoon !== null ? Math.round(avgMoon) : null };
+        }
+
+        function renderAstroNightsRanking() {
+            const container = document.getElementById('astro-nights-strip');
+            if (!container || !weatherData || !weatherData.daily || !weatherData.daily.time) return;
+
+            const dailyLen = weatherData.daily.time.length;
+            const results = [];
+            for (let i = 0; i < dailyLen - 1; i++) {
+                const r = computeAstroNightScore(i);
+                if (r) results.push(r);
+            }
+            if (!results.length) {
+                container.innerHTML = '<div class="card-sage-sub" style="font-size:0.68rem;">Classement indisponible pour ce lieu.</div>';
+                return;
+            }
+
+            const bestScore = Math.max(...results.map(r => r.score));
+            container.innerHTML = '';
+            results.forEach(r => {
+                const d = new Date(weatherData.daily.time[r.dayIdx] + 'T00:00:00');
+                const dateLabel = d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+                const color = r.score >= 70 ? '#3b6e61' : (r.score >= 40 ? '#d97736' : '#94a3b8');
+
+                const pill = document.createElement('div');
+                pill.className = 'astro-night-pill' + (r.score === bestScore ? ' best' : '');
+                pill.onclick = () => jumpToNight(r.dayIdx);
+
+                const detailParts = [];
+                if (r.avgCloud !== null) detailParts.push(`☁️${r.avgCloud}%`);
+                if (r.avgMoon !== null) detailParts.push(`🌙${r.avgMoon}%`);
+
+                pill.innerHTML = `
+                    <div class="night-date">${dateLabel}</div>
+                    <div class="night-score" style="color:${color};">${r.score}</div>
+                    <div class="night-detail">${detailParts.join(' ')}</div>
+                `;
+                container.appendChild(pill);
+            });
+        }
+
+        // Fait défiler jusqu'à la nuit choisie dans le classement : réutilise le même sélecteur de
+        // jour que le reste de l'app (onglets #days-carousel .day-tab) pour rester cohérent avec un
+        // clic manuel sur ce jour, plutôt que de dupliquer la logique d'affichage.
+        function jumpToNight(dayIdx) {
+            const tabs = document.querySelectorAll('#days-carousel .day-tab');
+            if (tabs[dayIdx]) {
+                tabs.forEach(t => t.classList.remove('active'));
+                tabs[dayIdx].classList.add('active');
+                tabs[dayIdx].scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+            }
+            updateDayView(dayIdx);
+            const chartEl = document.getElementById('astroChart');
+            if (chartEl) chartEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
         // ============================================================================
         // DÉTECTION AUTOMATIQUE D'ÉPISODE NEIGEUX (onglet Ski) — 05/09/2026
         // ============================================================================
@@ -9099,6 +9321,141 @@ function updatePressureChart(dayIdx) {
                         }
                     }
                 });
+
+            } catch (err) {
+                showUnavailable();
+            }
+        }
+
+        // ============================================================================
+        // BILAN HYDRIQUE DU JARDIN (onglet Hobby/Jardinage) — 05/09/2026
+        // ============================================================================
+        // Compare la pluie prévue au cumul d'évapotranspiration de référence (ET0, formule FAO
+        // Penman-Monteith fournie directement par Open-Meteo) sur les 16 jours de prévision.
+        // Appel API dédié : ces deux variables ne font pas partie du "daily" déjà récupéré par
+        // fetchWeather() (voir contexte.txt) — un seul appel supplémentaire, gaté par bouton comme
+        // le graphique sol/air juste au-dessus.
+        // IMPORTANT (honnêteté des données) : l'ET0 FAO est calculée pour une pelouse de référence
+        // bien alimentée en eau, PAS pour une culture particulière (tomate, salade...). L'appliquer
+        // tel quel à un potager précis nécessiterait un coefficient cultural (Kc) par plante, que
+        // nous n'avons pas — c'est pourquoi ce bilan reste qualifié d'indicatif, jamais présenté
+        // comme une consigne d'arrosage exacte en litres/m².
+        async function loadWaterBalance(lat, lon) {
+            const noteEl = document.getElementById('water-balance-note');
+            const caveatEl = document.getElementById('water-balance-caveat');
+
+            function showUnavailable(msg) {
+                noteEl.innerText = msg || 'Données indisponibles pour le moment.';
+                document.getElementById('wb-precip-total').innerText = '--';
+                document.getElementById('wb-et0-total').innerText = '--';
+                document.getElementById('wb-balance-total').innerText = '--';
+                if (waterBalanceChart) { waterBalanceChart.destroy(); waterBalanceChart = null; }
+            }
+
+            try {
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=precipitation_sum,et0_fao_evapotranspiration&timezone=auto&forecast_days=16`;
+                const res = await fetchWithTimeout(url, { timeout: 12000 });
+                if (!res.ok) throw new Error('Réponse API invalide');
+                const data = await res.json();
+                if (!data.daily || !data.daily.time || !data.daily.precipitation_sum || !data.daily.et0_fao_evapotranspiration) {
+                    throw new Error('Données incomplètes');
+                }
+
+                const dayList = data.daily.time;
+                const precip = dayList.map((_, i) => {
+                    const v = data.daily.precipitation_sum[i];
+                    return typeof v === 'number' ? v : null;
+                });
+                const et0 = dayList.map((_, i) => {
+                    const v = data.daily.et0_fao_evapotranspiration[i];
+                    return typeof v === 'number' ? v : null;
+                });
+
+                const validMask = dayList.map((_, i) => typeof precip[i] === 'number' && typeof et0[i] === 'number');
+                if (!validMask.some(Boolean)) throw new Error('Aucune donnée exploitable');
+
+                const dailyBalance = dayList.map((_, i) => validMask[i] ? (precip[i] - et0[i]) : null);
+                let running = 0;
+                const cumulativeBalance = dailyBalance.map(v => {
+                    if (v === null) return running;
+                    running += v;
+                    return Math.round(running * 10) / 10;
+                });
+
+                const totalPrecip = precip.reduce((a, v) => a + (typeof v === 'number' ? v : 0), 0);
+                const totalEt0 = et0.reduce((a, v) => a + (typeof v === 'number' ? v : 0), 0);
+                const netBalance = Math.round((totalPrecip - totalEt0) * 10) / 10;
+
+                document.getElementById('wb-precip-total').innerText = `${Math.round(totalPrecip * 10) / 10} mm`;
+                document.getElementById('wb-et0-total').innerText = `${Math.round(totalEt0 * 10) / 10} mm`;
+                const balanceEl = document.getElementById('wb-balance-total');
+                balanceEl.innerText = `${netBalance > 0 ? '+' : ''}${netBalance} mm`;
+                const pillEl = document.getElementById('wb-balance-pill');
+                pillEl.style.background = netBalance < -5 ? 'rgba(217, 119, 54, 0.12)' : (netBalance > 5 ? 'rgba(43, 108, 176, 0.12)' : 'var(--card-inner-bg)');
+                balanceEl.style.color = netBalance < -5 ? '#d97736' : (netBalance > 5 ? '#2b6cb0' : 'var(--primary-dark)');
+
+                noteEl.innerText = netBalance < -5
+                    ? `Déficit hydrique probable sur la période : la pluie prévue ne couvrirait pas l'évapotranspiration.`
+                    : (netBalance > 5
+                        ? `Excédent de pluie probable sur la période par rapport à l'évapotranspiration.`
+                        : `Bilan globalement équilibré sur la période.`);
+
+                const labels = dayList.map(dateStr => {
+                    const d = new Date(dateStr + 'T00:00:00');
+                    const wd = d.toLocaleDateString('fr-FR', { weekday: 'short' });
+                    const dm = d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+                    return `${wd} ${dm}`;
+                });
+
+                const ctx = document.getElementById('waterBalanceChart').getContext('2d');
+                if (waterBalanceChart) waterBalanceChart.destroy();
+                waterBalanceChart = new Chart(ctx, {
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                type: 'bar',
+                                label: 'Pluie du jour',
+                                data: precip,
+                                backgroundColor: '#2b6cb0',
+                                yAxisID: 'yMm',
+                                order: 2
+                            },
+                            {
+                                type: 'bar',
+                                label: 'Évapotranspiration (ET0)',
+                                data: et0.map(v => (typeof v === 'number' ? -v : null)),
+                                backgroundColor: '#d97736',
+                                yAxisID: 'yMm',
+                                order: 2
+                            },
+                            {
+                                type: 'line',
+                                label: 'Bilan cumulé',
+                                data: cumulativeBalance,
+                                borderColor: '#3b6e61',
+                                borderWidth: 2,
+                                borderDash: [5, 3],
+                                tension: 0.3,
+                                pointRadius: 2,
+                                yAxisID: 'yCumul',
+                                order: 1
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { grid: { display: false }, ticks: { font: { size: 9 }, color: '#5e706a', maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, stacked: true },
+                            yMm: { type: 'linear', position: 'left', grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 9 }, color: '#5e706a', callback: v => `${Math.round(Math.abs(v))}` } },
+                            yCumul: { type: 'linear', position: 'right', grid: { display: false }, ticks: { font: { size: 9 }, color: '#3b6e61', callback: v => `${Math.round(v)}` } }
+                        }
+                    }
+                });
+
+                caveatEl.style.display = '';
 
             } catch (err) {
                 showUnavailable();
