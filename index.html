@@ -651,6 +651,26 @@
             border-radius: var(--radius-medium);
             z-index: 1;
         }
+        #ski-snow-map {
+            height: 340px;
+            width: 100%;
+            border-radius: var(--radius-medium);
+            z-index: 1;
+        }
+        .ski-snow-map-legend {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-top: 10px;
+            font-size: 0.62rem;
+            color: var(--text-muted);
+        }
+        .ski-snow-map-legend-bar {
+            flex: 1;
+            height: 8px;
+            border-radius: 4px;
+            background: linear-gradient(to right, #e9eef2, #a2d2ff, #2b6cb0, #4c1d95);
+        }
         .trajet-hour-label {
             background: var(--primary-dark) !important;
             color: #ffffff !important;
@@ -1017,6 +1037,28 @@
             max-width: 100%;
             outline: none;
         }
+        .ski-compare-select {
+            width: 100%;
+            font-size: 0.75rem;
+            font-weight: 700;
+            background: #ffffff;
+            border: 1px solid rgba(0,0,0,0.08);
+            border-radius: 8px;
+            padding: 8px 8px;
+            outline: none;
+        }
+        .ski-compare-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .ski-compare-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
         .station-name {
             font-size: 0.68rem;
             color: var(--text-muted);
@@ -1362,6 +1404,17 @@
         }
         .snow-avalanche-note i { color: var(--accent-orange); margin-top: 2px; }
         .snow-avalanche-note a { color: var(--accent-blue); font-weight: 700; text-decoration: none; white-space: nowrap; }
+        .snow-quality-badge {
+            border-radius: var(--radius-medium);
+            padding: 10px 12px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .snow-quality-icon { font-size: 1.6rem; line-height: 1; }
+        .snow-quality-label { font-weight: 700; font-size: 0.82rem; color: var(--primary-dark); }
+        .snow-quality-desc { font-size: 0.68rem; color: var(--text-muted); margin-top: 2px; }
         .seasonal-table {
             width: 100%;
             border-collapse: collapse;
@@ -1389,7 +1442,7 @@
             color: var(--primary-dark);
         }
 
-        /* Encart Webcams à proximité (onglet Loisir) */
+        /* Encarts Webcams à proximité (onglets Ski et Loisir) */
         .webcam-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
@@ -1487,8 +1540,11 @@
             <button type="button" class="group-tab active" data-group="general" onclick="setGroup('general')" title="Général">
                 <span class="group-tab-icon">🐸</span>
             </button>
+            <button type="button" class="group-tab" data-group="ski" onclick="setGroup('ski')" title="Neige et Ski">
+                <span class="group-tab-icon">❄️</span>
+            </button>
             <button type="button" class="group-tab" data-group="leisure" onclick="setGroup('leisure')" title="Loisir">
-                <span class="group-tab-icon">⛱️ ⛷️</span>
+                <span class="group-tab-icon">⛱️</span>
             </button>
             <button type="button" class="group-tab" data-group="astrogarden" onclick="setGroup('astrogarden')" title="Hobby">
                 <span class="group-tab-icon">🔭 🌱</span>
@@ -1821,29 +1877,62 @@
             </div>
         </div>
 
-        <!-- Station météo personnelle à proximité : n'apparaît que si le lieu affiché est à moins
-             de NEARBY_STATION.maxDistanceKm de Tencin. Source : Weather Underground PWS (station
-             personnelle ITENCI3), pas Open-Meteo — voir loadNearbyStation(). -->
-        <div class="chart-card" id="nearby-station-card" style="display:none;">
+        <!-- Stations météo à proximité (relevés réels, pas des prévisions) — zone commune en bas de
+             l'onglet Astronomie, fusionnant 2 sources indépendantes :
+             1) Station personnelle Weather Underground (ITENCI3, Tencin) : n'apparaît que si le
+                lieu affiché est à moins de NEARBY_STATION.maxDistanceKm de Tencin — voir
+                loadNearbyStation() et le calcul nearbyStationInRange dans fetchWeather().
+             2) Relevé officiel Météo-France le plus proche (réseau SYNOP, source Opendatasoft) :
+                toujours recherché quel que soit le lieu (couverture nationale), avec avertissement
+                si trop ancien/lointain, ou message d'indisponibilité si le relevé disponible est
+                trop ancien pour être fiable du tout — voir loadSynopStation().
+             Carte entière gatée par data-groups="astrogarden" (seulement chargée/visible sur cet
+             onglet, chargement différé via setGroup()/fetchWeather() comme les autres onglets). -->
+        <div class="chart-card" id="nearby-stations-card" data-groups="astrogarden" style="display:none;">
             <div class="chart-header">
                 <div>
-                    <div class="card-sage-title"><i class="fa-solid fa-house-signal" style="color: var(--accent-blue); margin-right: 6px;"></i> Station météo à proximité</div>
-                    <div class="card-sage-sub">Station personnelle Weather Underground — ITENCI3, Tencin</div>
+                    <div class="card-sage-title"><i class="fa-solid fa-house-signal" style="color: var(--accent-blue); margin-right: 6px;"></i> Stations météo à proximité</div>
+                    <div class="card-sage-sub">Relevés réels de terrain (pas des prévisions)</div>
                 </div>
             </div>
 
-            <div id="nearby-station-loading" style="text-align:center; padding: 14px 10px; color: var(--text-muted); font-size: 0.8rem;">
-                Chargement des relevés...
+            <!-- Sous-section 1 : station personnelle Tencin (masquée si hors zone, voir JS) -->
+            <div id="nearby-station-card" style="display:none;">
+                <div class="card-sage-sub" style="font-weight:700; margin-bottom:6px;">Station personnelle — ITENCI3, Tencin</div>
+
+                <div id="nearby-station-loading" style="text-align:center; padding: 10px; color: var(--text-muted); font-size: 0.8rem;">
+                    Chargement des relevés...
+                </div>
+
+                <div id="nearby-station-error" style="display:none; text-align:center; padding: 10px; color: var(--text-muted); font-size: 0.78rem;">
+                    <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-orange); display:block; margin-bottom:6px; font-size:1.1rem;"></i>
+                    <span id="nearby-station-error-text">Relevés indisponibles pour le moment.</span>
+                </div>
+
+                <div id="nearby-station-content" style="display:none;">
+                    <div class="snow-details-row" id="nearby-station-pills"></div>
+                    <div class="card-sage-sub" id="nearby-station-updated" style="margin-top:6px; font-size:0.62rem;"></div>
+                </div>
             </div>
 
-            <div id="nearby-station-error" style="display:none; text-align:center; padding: 14px 10px; color: var(--text-muted); font-size: 0.78rem;">
-                <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-orange); display:block; margin-bottom:6px; font-size:1.1rem;"></i>
-                <span id="nearby-station-error-text">Relevés indisponibles pour le moment.</span>
-            </div>
+            <!-- Sous-section 2 : relevé officiel SYNOP le plus proche (toujours affiché) -->
+            <div id="synop-station-section" style="margin-top:14px; padding-top:12px; border-top:1px solid rgba(0,0,0,0.06);">
+                <div class="card-sage-sub" id="synop-station-sub" style="font-weight:700; margin-bottom:6px;">Réseau SYNOP Météo-France</div>
 
-            <div id="nearby-station-content" style="display:none;">
-                <div class="snow-details-row" id="nearby-station-pills"></div>
-                <div class="card-sage-sub" id="nearby-station-updated" style="margin-top:6px; font-size:0.62rem;"></div>
+                <div id="synop-station-loading" style="text-align:center; padding: 10px; color: var(--text-muted); font-size: 0.8rem;">
+                    Chargement des relevés...
+                </div>
+
+                <div id="synop-station-error" style="display:none; text-align:center; padding: 10px; color: var(--text-muted); font-size: 0.78rem;">
+                    <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-orange); display:block; margin-bottom:6px; font-size:1.1rem;"></i>
+                    <span id="synop-station-error-text">Relevés indisponibles pour le moment.</span>
+                </div>
+
+                <div id="synop-station-content" style="display:none;">
+                    <div class="snow-details-row" id="synop-station-pills"></div>
+                    <div class="card-sage-sub" id="synop-station-warning" style="display:none; margin-top:6px; font-size:0.68rem; color: var(--accent-orange); font-weight:700;"></div>
+                    <div class="card-sage-sub" id="synop-station-updated" style="margin-top:6px; font-size:0.62rem;"></div>
+                </div>
             </div>
         </div>
 
@@ -1926,8 +2015,26 @@
             </div>
         </div>
 
+        <!-- INTERRUPTEUR MICRO-CLIMAT (copie synchronisée de celui de l'onglet Général) — ajouté
+             le 05/09/2026 : les cumuls de neige et la limite pluie/neige bénéficient particulièrement
+             de la correction relief (fond de vallée = air froid plus persistant, neige qui tient
+             plus bas). Même variable microClimateEnabled, mêmes fonctions onMicroClimateToggleChange()
+             / updateMicroClimateToggleUI() que l'original — voir ces fonctions pour la synchronisation. -->
+        <div class="chart-card" data-groups="ski" id="ski-microclimate-toggle-card" style="display:none;">
+            <div class="local-effects-header-row" style="margin-bottom:0;">
+                <div class="local-effects-header" style="font-size:0.8rem;">
+                    <i class="fa-solid fa-mountain-sun"></i> Micro-climat
+                </div>
+                <label class="micro-toggle-switch" title="Activer/désactiver l'analyse micro-climat (relief, bâti, cours d'eau)">
+                    <input type="checkbox" id="micro-climate-toggle-ski" onchange="onMicroClimateToggleChange('micro-climate-toggle-ski')">
+                    <span class="micro-toggle-slider"></span>
+                </label>
+            </div>
+            <div class="card-sage-sub" style="margin-top: 6px;">Pour plus de précision sur la neige et le gel ici (fond de vallée, altitude), active le micro-climat. Réglage synchronisé avec l'onglet Général.</div>
+        </div>
+
         <!-- Graphique : Température & Risques de Neige / Givre -->
-        <div class="chart-card" data-groups="leisure" style="display:none;">
+        <div class="chart-card" data-groups="ski" style="display:none;">
             <div class="chart-header">
                 <div>
                     <div class="card-sage-title">
@@ -1950,12 +2057,148 @@
             <div class="frost-icons-row" id="frost-icons-row"></div>
         </div>
 
-        <!-- TABLEAU COMPLÉMENTAIRE : STATIONS OFFICIELLES & PLAGES STRICTES -->
-        <div class="table-card" data-groups="leisure" style="display:none;">
+        <!-- Graphique : Limite pluie/neige heure par heure — ajouté le 05/09/2026. Voir
+             updateSnowLimitChart(). Isotherme 0°C (freezing_level_height, vraie valeur Open-Meteo)
+             comme référence solide ; limite pluie/neige elle-même ESTIMÉE (isotherme - 300m,
+             fourchette usuelle 200-400m en météorologie de montagne pour l'effet de fonte/évaporation
+             du manteau neigeux qui refroidit l'air sous l'isotherme) — jamais présentée comme une
+             mesure exacte. -->
+        <div class="chart-card" data-groups="ski" style="display:none;">
+            <div class="chart-header">
+                <div>
+                    <div class="card-sage-title">
+                        <i class="fa-solid fa-arrows-up-down" style="color: var(--accent-blue); margin-right: 6px;"></i>
+                        Limite pluie/neige heure par heure
+                    </div>
+                    <div class="card-sage-sub">Altitude à laquelle les précipitations basculent entre pluie et neige, pour le jour sélectionné</div>
+                </div>
+                <div class="astro-legend">
+                    <span class="astro-legend-item"><span class="legend-dot" style="background: #d97736;"></span> Isotherme 0°C</span>
+                    <span class="astro-legend-item"><span class="legend-dot" style="background: #2b6cb0;"></span> Limite pluie/neige (estimée)</span>
+                    <span class="astro-legend-item"><span class="legend-dot" style="background: #7d8f89;"></span> Altitude du lieu</span>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <canvas id="snowLimitChart"></canvas>
+            </div>
+
+            <div class="snow-avalanche-note">
+                <i class="fa-solid fa-circle-info"></i>
+                <span>La limite pluie/neige n'est pas mesurée directement par les modèles météo : elle est estimée ici à 300m sous l'isotherme 0°C (fourchette usuelle 200-400m selon l'humidité de l'air), un ordre de grandeur qui peut varier localement — l'isotherme 0°C lui-même est en revanche une vraie sortie du modèle.</span>
+            </div>
+        </div>
+
+        <!-- DÉTECTION AUTOMATIQUE D'ÉPISODE NEIGEUX — calculée côté client à partir des données
+             déjà chargées (weatherData.hourly.snowfall/weather_code), aucun appel API dédié. Voir
+             detectSnowEpisode() / updateSnowEpisodeCard(). Ajouté le 05/09/2026. -->
+        <div class="chart-card" data-groups="ski" id="snow-episode-card" style="display:none;">
+            <div class="chart-header">
+                <div>
+                    <div class="card-sage-title">
+                        <i class="fa-solid fa-snowflake" style="color: var(--accent-snow); margin-right: 6px;"></i>
+                        Prochain épisode neigeux
+                    </div>
+                    <div class="card-sage-sub" id="snow-episode-sub">Recherche du prochain épisode...</div>
+                </div>
+            </div>
+
+            <div id="snow-episode-none-msg" style="display:none; text-align:center; padding: 18px 10px; color: var(--text-muted); font-size: 0.8rem;">
+                <i class="fa-solid fa-sun" style="font-size: 1.4rem; color: var(--accent-snow); display:block; margin-bottom: 8px;"></i>
+                Aucun épisode neigeux détecté dans les 16 prochains jours pour ce lieu.
+            </div>
+
+            <div id="snow-episode-content" style="display:none;">
+                <div class="snow-grid">
+                    <div class="snow-main-item">
+                        <div class="snow-alt-label">Cumul estimé</div>
+                        <div class="snow-cm-value" id="snow-episode-cumul">--</div>
+                        <div class="snow-cm-unit">cm</div>
+                        <div class="snow-alt-sub" id="snow-episode-period">--</div>
+                    </div>
+                    <div class="snow-main-item">
+                        <div class="snow-alt-label">Intensité max.</div>
+                        <div class="snow-cm-value" id="snow-episode-max-hourly">--</div>
+                        <div class="snow-cm-unit">cm/h</div>
+                        <div class="snow-alt-sub">Sur une heure</div>
+                    </div>
+                </div>
+                <div class="snow-avalanche-note">
+                    <i class="fa-solid fa-circle-info"></i>
+                    <span>Détection automatique à partir des prévisions horaires (cumul de neige + code météo) pour ce lieu précis — un ordre de grandeur indicatif qui peut encore évoluer à l'approche de l'échéance, surtout au-delà de 5-6 jours.</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- CARTE DES STATIONS DE SKI COLORÉE PAR CUMUL DE NEIGE PRÉVU — ajoutée le 05/09/2026.
+             Chargée UNE SEULE FOIS par session (indépendante du lieu recherché — c'est une vue
+             d'ensemble des 181 stations connues, pas une donnée locale), via un unique appel batch
+             Open-Meteo (une requête multi-lieux, PAS 181 requêtes séparées — voir loadSkiSnowMap()).
+             Voir SKI_STATIONS pour la liste des stations (définie plus bas dans ce fichier). -->
+        <div class="chart-card" data-groups="ski" id="ski-snow-map-card" style="display:none;">
+            <div class="chart-header">
+                <div>
+                    <div class="card-sage-title">
+                        <i class="fa-solid fa-map-location-dot" style="color: var(--accent-blue); margin-right: 6px;"></i>
+                        Où va-t-il neiger le plus ?
+                    </div>
+                    <div class="card-sage-sub" id="ski-snow-map-sub">Chargement des cumuls prévus sur les 181 stations...</div>
+                </div>
+            </div>
+
+            <div id="ski-snow-map"></div>
+            <div class="ski-snow-map-legend">
+                <span>0 cm</span>
+                <div class="ski-snow-map-legend-bar"></div>
+                <span id="ski-snow-map-legend-max">150+ cm</span>
+            </div>
+            <div class="card-sage-sub" style="margin-top: 8px; font-size: 0.6rem; font-style: italic;">
+                Cumul de neige prévu sur les 7 prochains jours, station par station (source : Open-Meteo, requête groupée). Touchez une station pour le détail.
+            </div>
+        </div>
+
+        <!-- COMPARATEUR MULTI-STATIONS — ajouté le 05/09/2026. Réutilise skiSnowMapResults (déjà
+             chargé par loadSkiSnowMap() ci-dessus) : aucun appel réseau supplémentaire au
+             changement de sélection, seulement au premier chargement de la carte. Voir
+             populateSkiCompareSelects() / updateSkiCompareChart(). -->
+        <div class="chart-card" data-groups="ski" id="ski-compare-card" style="display:none;">
+            <div class="chart-header">
+                <div>
+                    <div class="card-sage-title">
+                        <i class="fa-solid fa-scale-balanced" style="color: var(--accent-blue); margin-right: 6px;"></i>
+                        Comparateur de stations
+                    </div>
+                    <div class="card-sage-sub">Cumul de neige jour par jour, jusqu'à 3 stations en parallèle</div>
+                </div>
+            </div>
+
+            <div class="ski-compare-row">
+                <span class="ski-compare-dot" style="background:#d97736;"></span>
+                <select class="ski-compare-select" id="ski-compare-select-0" onchange="updateSkiCompareChart()"></select>
+            </div>
+            <div class="ski-compare-row">
+                <span class="ski-compare-dot" style="background:#2b6cb0;"></span>
+                <select class="ski-compare-select" id="ski-compare-select-1" onchange="updateSkiCompareChart()"></select>
+            </div>
+            <div class="ski-compare-row">
+                <span class="ski-compare-dot" style="background:#7048e8;"></span>
+                <select class="ski-compare-select" id="ski-compare-select-2" onchange="updateSkiCompareChart()"></select>
+            </div>
+
+            <div class="chart-container">
+                <canvas id="skiCompareChart"></canvas>
+            </div>
+            <div class="card-sage-sub" id="ski-compare-totals" style="margin-top: 8px;"></div>
+        </div>
+
+        <!-- TABLEAU : STATION DE SKI LA PLUS PROCHE (déplacé depuis l'ancien tableau combiné
+             Loisir lors de la création de l'onglet Ski dédié, le 05/09/2026 — ids inchangés pour
+             ne rien casser côté JS). -->
+        <div class="table-card" data-groups="ski" style="display:none;">
             <div class="section-header">
                 <div>
-                    <div class="card-sage-title"><i class="fa-solid fa-compass" style="color: var(--accent-blue); margin-right: 6px;"></i> Station de ski & Station balnéaire les plus proches</div>
-                    <div class="card-sage-sub">Recherche explicite des stations les plus proches avec calcul de distance depuis le point de recherche</div>
+                    <div class="card-sage-title"><i class="fa-solid fa-compass" style="color: var(--accent-blue); margin-right: 6px;"></i> Station de ski la plus proche</div>
+                    <div class="card-sage-sub">Recherche explicite de la station la plus proche avec calcul de distance depuis le point de recherche</div>
                 </div>
             </div>
             <div class="table-responsive">
@@ -1977,6 +2220,30 @@
                             <td><span class="badge-dist" id="extra-snow-dist">-- km</span></td>
                             <td><strong id="extra-snow-val">--</strong></td>
                         </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- TABLEAU : STATION BALNÉAIRE LA PLUS PROCHE (reste dans l'onglet Loisir, ids inchangés) -->
+        <div class="table-card" data-groups="leisure" style="display:none;">
+            <div class="section-header">
+                <div>
+                    <div class="card-sage-title"><i class="fa-solid fa-compass" style="color: var(--accent-blue); margin-right: 6px;"></i> Station balnéaire la plus proche</div>
+                    <div class="card-sage-sub">Recherche explicite de la station la plus proche avec calcul de distance depuis le point de recherche</div>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="extra-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 20%;">Type de station</th>
+                            <th style="width: 42%;">Nom explicite de la station</th>
+                            <th style="width: 18%;">Distance</th>
+                            <th style="width: 20%;">Valeur mesurée</th>
+                        </tr>
+                    </thead>
+                    <tbody>
                         <tr>
                             <td><i class="fa-solid fa-water" style="color: var(--accent-blue); margin-right: 6px;"></i> <strong>Station balnéaire</strong><br><span style="font-size:0.65rem;color:var(--text-muted)">Température de l'eau</span></td>
                             <td>
@@ -2110,6 +2377,17 @@
                     </div>
                 </div>
 
+                <!-- CUMUL DEPUIS LE DÉBUT DE LA SAISON — ajouté le 05/09/2026. Voir
+                     loadSeasonSnowCumul(). Source : Open-Meteo Archive API (réanalyse ERA5, données
+                     réelles passées) — jamais une prévision. Hors saison (mai-oct.), affiche le
+                     total de la dernière saison complète pour référence plutôt que rien. -->
+                <div class="snow-main-item" id="snow-season-box" style="margin-bottom:12px; display:none;">
+                    <div class="snow-alt-label" id="snow-season-label">Cumul saison</div>
+                    <div class="snow-cm-value" id="snow-season-cumul">--</div>
+                    <div class="snow-cm-unit">cm</div>
+                    <div class="snow-alt-sub" id="snow-season-sub">--</div>
+                </div>
+
                 <div class="snow-details-row">
                     <div class="snow-detail-pill">
                         <i class="fa-solid fa-temperature-half"></i>
@@ -2118,6 +2396,18 @@
                     <div class="snow-detail-pill">
                         <i class="fa-solid fa-wind"></i>
                         <span id="snow-wind-now">--</span>
+                    </div>
+                </div>
+
+                <!-- ESTIMATION QUALITÉ DE NEIGE — ajoutée le 05/09/2026. Voir estimateSnowQuality().
+                     Heuristique indicative (température + vent + chutes récentes), pas une mesure :
+                     aucun capteur ne mesure la texture de la neige, seule une observation sur place
+                     ou un bulletin officiel peut confirmer. -->
+                <div class="snow-quality-badge" id="snow-quality-badge" style="display:none;">
+                    <span class="snow-quality-icon" id="snow-quality-icon">❄️</span>
+                    <div>
+                        <div class="snow-quality-label" id="snow-quality-label">--</div>
+                        <div class="snow-quality-desc" id="snow-quality-desc">--</div>
                     </div>
                 </div>
 
@@ -2135,20 +2425,24 @@
             </div>
         </div>
 
-        <!-- ENCART WEBCAMS À PROXIMITÉ — le tag OpenStreetMap contact:webcam=* envisagé initialement
-             s'est révélé bien trop rare en pratique (voir commentaire détaillé sur
+        <!-- ENCART WEBCAMS SKI À PROXIMITÉ — le tag OpenStreetMap contact:webcam=* envisagé
+             initialement s'est révélé bien trop rare en pratique (voir commentaire détaillé sur
              loadWebcamsNearby() : ~1150 usages dans le MONDE ENTIER selon Taginfo, quasiment pas
              utilisé pour les webcams de stations de ski/plage françaises). Stratégie retenue :
              tuiles de recherche fiables vers les vrais annuaires de webcams (Skiinfo, etc.) pour
-             les stations de ski/plage déjà connues de l'app, + bonus OpenStreetMap/Overpass
-             (gratuit, sans clé) quand un nœud référence vraiment une webcam à proximité — dans ce
-             cas rare, l'image est incrustée directement plutôt qu'un simple lien. -->
-        <div class="chart-card" data-groups="leisure" id="webcam-card" style="display:none;">
+             les stations de ski déjà connues de l'app, + bonus OpenStreetMap/Overpass (gratuit,
+             sans clé, non classable par domaine donc partagé avec la carte webcams plage
+             ci-dessous) quand un nœud référence vraiment une webcam à proximité — dans ce cas
+             rare, l'image est incrustée directement plutôt qu'un simple lien. Carte déplacée
+             depuis l'onglet Loisir vers le nouvel onglet Ski dédié le 05/09/2026 (ids inchangés
+             pour ne rien casser côté JS) ; scindée en deux cartes (ski / plage), voir
+             loadWebcamsNearby(). -->
+        <div class="chart-card" data-groups="ski" id="webcam-card" style="display:none;">
             <div class="chart-header">
                 <div>
                     <div class="card-sage-title">
                         <i class="fa-solid fa-video" style="color: var(--accent-blue); margin-right: 6px;"></i>
-                        Webcams à proximité
+                        Webcams stations de ski à proximité
                     </div>
                     <div class="card-sage-sub" id="webcam-note">Recherche des webcams publiques...</div>
                 </div>
@@ -2162,7 +2456,33 @@
             <div class="webcam-grid" id="webcam-grid"></div>
 
             <div class="card-sage-sub" style="margin-top: 10px; font-size: 0.6rem; font-style: italic;">
-                Aucune base de données de webcams publique, gratuite et sans clé d'API ne couvre correctement les stations de ski/plage françaises : les tuiles "Rechercher" ouvrent une recherche ciblée sur ce lieu ; seules les tuiles "LIVE" (rares, via OpenStreetMap) affichent une image incrustée en direct.
+                Aucune base de données de webcams publique, gratuite et sans clé d'API ne couvre correctement les stations de ski françaises : les tuiles "Rechercher" ouvrent une recherche ciblée sur ce lieu ; seules les tuiles "LIVE" (rares, via OpenStreetMap) affichent une image incrustée en direct.
+            </div>
+        </div>
+
+        <!-- ENCART WEBCAMS PLAGE À PROXIMITÉ — carte sœur de celle ci-dessus, créée le 05/09/2026
+             lors de la scission ski/plage. Voir loadWebcamsNearby() pour la logique de répartition
+             des tuiles entre les deux grilles. -->
+        <div class="chart-card" data-groups="leisure" id="webcam-card-beach" style="display:none;">
+            <div class="chart-header">
+                <div>
+                    <div class="card-sage-title">
+                        <i class="fa-solid fa-video" style="color: var(--accent-blue); margin-right: 6px;"></i>
+                        Webcams stations balnéaires à proximité
+                    </div>
+                    <div class="card-sage-sub" id="webcam-note-beach">Recherche des webcams publiques...</div>
+                </div>
+            </div>
+
+            <div id="webcam-no-data-msg-beach" style="display:none; text-align:center; padding: 18px 10px; color: var(--text-muted); font-size: 0.8rem;">
+                <i class="fa-solid fa-video-slash" style="font-size: 1.4rem; color: var(--accent-blue); display:block; margin-bottom: 8px;"></i>
+                Aucune webcam publique référencée dans OpenStreetMap n'a été trouvée à proximité de ce lieu.
+            </div>
+
+            <div class="webcam-grid" id="webcam-grid-beach"></div>
+
+            <div class="card-sage-sub" style="margin-top: 10px; font-size: 0.6rem; font-style: italic;">
+                Aucune base de données de webcams publique, gratuite et sans clé d'API ne couvre correctement les stations balnéaires françaises : les tuiles "Rechercher" ouvrent une recherche ciblée sur ce lieu ; seules les tuiles "LIVE" (rares, via OpenStreetMap) affichent une image incrustée en direct.
             </div>
         </div>
 
@@ -2412,7 +2732,7 @@
                 <a class="footer-icon-btn" href="mailto:stridemetric@proton.me" title="Contact">✉️</a>
                 <button type="button" class="footer-icon-btn" onclick="openSourcesModal()" title="Sources et modèles utilisés">💡</button>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 04/09/2026 - 3</div>
+            <div class="footer-last-update">Dernière mise à jour : 05/09/2026 - 17</div>
         </footer>
 
     </div>
@@ -2595,6 +2915,7 @@
         let weatherChart = null;
         let astroChart = null;
         let pressureChart = null;
+        let snowLimitChart = null;
         let plantTempChart = null;
         let pollenChart = null;
         let seasonalTrendsChart = null;
@@ -2627,6 +2948,22 @@
         let currentLat = 45.1885;
         let currentLon = 5.7245;
         let currentPopulation = null; // population de la ville recherchée (geocoding Open-Meteo), utilisée pour l'estimation d'îlot de chaleur urbain — null si inconnue (GPS, clic carte)
+        // ---- Relevé officiel Météo-France (réseau SYNOP) le plus proche, via Opendatasoft ----
+        // Seuils au-delà desquels un avertissement est affiché à côté du relevé (voir
+        // loadSynopStation()) : la station SYNOP la plus proche reste souvent lointaine (réseau
+        // d'une soixantaine de stations en France) et le relevé n'est mis à jour que toutes les 3h,
+        // donc ces deux seuils préviennent l'utilisateur plutôt que de laisser croire à un relevé
+        // local et frais.
+        const SYNOP_MAX_DISTANCE_KM = 25;
+        const SYNOP_MAX_AGE_HOURS = 1;
+        // Au-delà de cette ancienneté, on ne considère plus le relevé comme exploitable du tout
+        // (bien au-delà de la cadence normale de 3h + marge de traitement) : plutôt que d'afficher
+        // une valeur qui pourrait dater de plusieurs mois avec un avertissement absurde ("vieux de
+        // 5000h"), on bascule sur le message d'indisponibilité honnête. Constaté en test réel : le
+        // flux renvoyait systématiquement une date figée (15/01/2026) quel que soit le lieu — signe
+        // que la source amont s'est arrêtée (ou que le nom du champ date diffère de celui supposé),
+        // pas une erreur de tri côté app. Voir note contexte.txt du 04/09/2026.
+        const SYNOP_STALE_ERROR_HOURS = 24;
         let gridForecastData = null;
         let isLoadingGrid = false;
         // ---- Sélecteur de groupe (Général / Été / Hiver / Astronomie / Jardinage) ----
@@ -2635,6 +2972,11 @@
         // première activation, pour limiter le nombre de requêtes API.
         let currentGroup = 'general';
         let extraLocalDataLoaded = false; // données Été/Hiver (stations ski/balnéaire, marine)
+        let skiSnowMapLoaded = false; // carte des 181 stations de ski (indépendante du lieu recherché)
+        let skiSnowMap = null; // instance Leaflet de la carte ci-dessus
+        let skiSnowMapResults = []; // { ...station, cumulCm, dailyValues } pour les 181 stations — réutilisé par le comparateur
+        let skiSnowMapDailyLabels = []; // labels de jours (même ordre que dailyValues), partagés par toutes les stations
+        let skiCompareChart = null;
         let hydroDataLoaded = false; // données de l'onglet Eau (stations hydrométriques, vigilance crues)
         let plantationLoaded = false;     // données Jardinage (température sol/air)
         let seasonalTrendsLoaded = false; // tendances saisonnières (bouton "Charger les données")
@@ -2664,6 +3006,7 @@
         };
         let nearbyStationInRange = false; // recalculé à chaque changement de lieu (voir fetchWeather)
         let nearbyStationLoaded = false;  // chargée une seule fois par lieu, à la première activation de l'onglet Hobby
+        let synopStationLoaded = false;  // idem pour le relevé SYNOP le plus proche (même carte, même onglet)
         let gridCenterLat = null;
         let gridCenterLon = null;
 
@@ -3289,9 +3632,18 @@
             // requêtes API envoyées au démarrage. Le Jardinage est en plus gaté derrière un
             // bouton "Charger les données" (comme les tendances saisonnières), pour limiter
             // encore davantage les requêtes tant que l'utilisateur n'en a pas explicitement besoin.
-            if (group === 'leisure' && !extraLocalDataLoaded && currentLat !== null) {
+            if ((group === 'leisure' || group === 'ski') && !extraLocalDataLoaded && currentLat !== null) {
                 extraLocalDataLoaded = true;
                 fetchExtraLocalData(currentLat, currentLon, document.getElementById('title').innerText);
+            }
+            // Carte des stations de ski : indépendante du lieu recherché (vue d'ensemble des 181
+            // stations), donc gatée uniquement sur l'ouverture de l'onglet, pas sur currentLat —
+            // chargée une seule fois par session quel que soit le lieu consulté ensuite.
+            if (group === 'ski' && !skiSnowMapLoaded) {
+                skiSnowMapLoaded = true;
+                loadSkiSnowMap().catch(() => {
+                    document.getElementById('ski-snow-map-sub').innerText = 'Chargement indisponible pour le moment.';
+                });
             }
             if (group === 'eau' && !hydroDataLoaded && currentLat !== null) {
                 hydroDataLoaded = true;
@@ -3300,6 +3652,10 @@
             if (group === 'astrogarden' && !nearbyStationLoaded && nearbyStationInRange && currentLat !== null) {
                 nearbyStationLoaded = true;
                 loadNearbyStation();
+            }
+            if (group === 'astrogarden' && !synopStationLoaded && currentLat !== null) {
+                synopStationLoaded = true;
+                loadSynopStation(currentLat, currentLon).catch(() => {});
             }
 
             resizeGroupCharts(group);
@@ -3310,7 +3666,9 @@
         // une fois le conteneur redevenu visible.
         function resizeGroupCharts(group) {
             setTimeout(() => {
-                if (group === 'leisure' && pressureChart) pressureChart.resize();
+                if (group === 'ski' && pressureChart) pressureChart.resize();
+                if (group === 'ski' && snowLimitChart) snowLimitChart.resize();
+                if (group === 'ski' && skiCompareChart) skiCompareChart.resize();
                 if (group === 'astrogarden' && astroChart) astroChart.resize();
                 if (group === 'astrogarden' && plantTempChart) plantTempChart.resize();
                 if (group === 'eau' && hydroChart) hydroChart.resize();
@@ -3328,7 +3686,7 @@
             const marineCard = document.getElementById('marine-table-card');
             const skiCard = document.getElementById('snow-station-card');
             marineCard.style.display = (currentGroup === 'leisure' && marineCard.classList.contains('visible')) ? 'block' : 'none';
-            skiCard.style.display = (currentGroup === 'leisure' && skiCard.classList.contains('visible')) ? 'block' : 'none';
+            skiCard.style.display = (currentGroup === 'ski' && skiCard.classList.contains('visible')) ? 'block' : 'none';
         }
 
         // ---- Tendances saisonnières : chargées uniquement au clic (optimisation API) ----
@@ -3425,6 +3783,149 @@
             }
         }
 
+        // ---- Relevé officiel Météo-France (réseau SYNOP) le plus proche, via Opendatasoft ----
+        // Source : dataset public "donnees-synop-essentielles-omm" (Opendatasoft), gratuit, sans
+        // clé, alimenté par les bulletins officiels SYNOP/OMM de Météo-France (~60 stations en
+        // France, mise à jour toutes les 3h — pas en continu). On récupère un lot des relevés les
+        // plus récents (toutes stations confondues), on calcule la distance de chacun au lieu
+        // affiché, et on garde le plus proche.
+        //
+        // Le schéma exact des champs géographiques n'a pas pu être vérifié via Swagger officiel
+        // (voir échange avec l'utilisateur) : plusieurs formats plausibles sont donc essayés
+        // (mêmes principes défensifs que fetchTempObservations() pour Hub'Eau ci-dessous), plutôt
+        // que de supposer un seul format au risque d'un échec silencieux. Idem pour les noms de
+        // champs de mesure (t/u/ff, éventuellement pmer/pres pour la pression) : un champ manquant
+        // ou hors plage plausible est simplement omis de l'affichage, jamais remplacé par une
+        // valeur inventée.
+        function extractSynopCoords(rec) {
+            // Essaie plusieurs représentations possibles du point géographique Opendatasoft.
+            const candidates = [rec.coordonnees, rec.geo_point_2d, rec.coordinates];
+            for (const c of candidates) {
+                if (!c) continue;
+                if (typeof c.lat === 'number' && typeof c.lon === 'number') return { lat: c.lat, lon: c.lon };
+                if (typeof c.latitude === 'number' && typeof c.longitude === 'number') return { lat: c.latitude, lon: c.longitude };
+                if (Array.isArray(c) && c.length === 2 && typeof c[0] === 'number' && typeof c[1] === 'number') {
+                    // Format [lon, lat] (GeoJSON) le plus courant pour ce type de champ.
+                    return { lat: c[1], lon: c[0] };
+                }
+                if (typeof c === 'string' && c.includes(',')) {
+                    const parts = c.split(',').map(v => parseFloat(v.trim()));
+                    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) return { lat: parts[0], lon: parts[1] };
+                }
+            }
+            if (typeof rec.latitude === 'number' && typeof rec.longitude === 'number') return { lat: rec.latitude, lon: rec.longitude };
+            return null;
+        }
+
+        async function loadSynopStation(lat, lon) {
+            const loadingEl = document.getElementById('synop-station-loading');
+            const errorEl = document.getElementById('synop-station-error');
+            const errorTextEl = document.getElementById('synop-station-error-text');
+            const contentEl = document.getElementById('synop-station-content');
+            const pillsEl = document.getElementById('synop-station-pills');
+            const warningEl = document.getElementById('synop-station-warning');
+            const updatedEl = document.getElementById('synop-station-updated');
+            const subEl = document.getElementById('synop-station-sub');
+
+            loadingEl.style.display = '';
+            errorEl.style.display = 'none';
+            contentEl.style.display = 'none';
+            warningEl.style.display = 'none';
+
+            try {
+                // Lot des relevés les plus récents (toutes stations) : les ~60 stations SYNOP
+                // françaises rapportent à la même échéance synoptique, donc un lot de 80 couvre
+                // large marge de sécurité même si plusieurs échéances récentes se mélangent.
+                const url = 'https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/donnees-synop-essentielles-omm/records?order_by=date%20desc&limit=80';
+                const res = await fetchWithTimeout(url, { timeout: 8000 });
+                if (!res.ok) throw new Error('http ' + res.status);
+                const data = await res.json();
+                const results = data && Array.isArray(data.results) ? data.results : [];
+                if (results.length === 0) throw new Error('réponse vide');
+
+                let nearest = null;
+                let nearestDist = Infinity;
+                results.forEach(rec => {
+                    const coords = extractSynopCoords(rec);
+                    if (!coords) return;
+                    const dist = calculateDistance(lat, lon, coords.lat, coords.lon);
+                    if (dist < nearestDist) {
+                        nearestDist = dist;
+                        nearest = rec;
+                    }
+                });
+                if (!nearest) throw new Error('aucune coordonnée exploitable');
+
+                // Ancienneté vérifiée AVANT de construire l'affichage : un relevé trop ancien
+                // (au-delà de SYNOP_STALE_ERROR_HOURS) n'est pas exploitable du tout, quelle que
+                // soit la station — on bascule alors sur le message d'indisponibilité honnête
+                // plutôt que d'afficher une valeur potentiellement vieille de plusieurs mois avec
+                // un avertissement absurde (voir constante SYNOP_STALE_ERROR_HOURS ci-dessus).
+                let ageHours = null;
+                let obsDate = null;
+                if (nearest.date) {
+                    obsDate = new Date(nearest.date);
+                    if (!isNaN(obsDate.getTime())) {
+                        ageHours = (Date.now() - obsDate.getTime()) / 3600000;
+                    }
+                }
+                if (ageHours === null) throw new Error('date de relevé absente ou invalide');
+                if (ageHours > SYNOP_STALE_ERROR_HOURS) {
+                    throw new Error(`relevé trop ancien pour être fiable (${Math.round(ageHours / 24)} j) — la source amont semble à l'arrêt`);
+                }
+
+                const pills = [];
+                // Température (Kelvin -> Celsius), plage plausible pour écarter une valeur aberrante.
+                if (typeof nearest.t === 'number' && nearest.t > 200 && nearest.t < 333) {
+                    pills.push(`<div class="station-pill"><i class="fa-solid fa-temperature-half"></i> ${Math.round(nearest.t - 273.15)}°C</div>`);
+                }
+                if (typeof nearest.u === 'number' && nearest.u >= 0 && nearest.u <= 100) {
+                    pills.push(`<div class="station-pill"><i class="fa-solid fa-droplet"></i> ${Math.round(nearest.u)}%</div>`);
+                }
+                // Vent (m/s -> km/h).
+                if (typeof nearest.ff === 'number' && nearest.ff >= 0) {
+                    pills.push(`<div class="station-pill"><i class="fa-solid fa-wind"></i> ${Math.round(nearest.ff * 3.6)} km/h</div>`);
+                }
+                // Pression : champ non confirmé (pmer = pression mer, pres = pression station),
+                // en Pa dans ce dataset -> hPa. On garde la première valeur plausible trouvée.
+                const pressurePa = [nearest.pmer, nearest.pres].find(v => typeof v === 'number' && v > 80000 && v < 110000);
+                if (pressurePa) {
+                    pills.push(`<div class="station-pill"><i class="fa-solid fa-gauge"></i> ${Math.round(pressurePa / 100)} hPa</div>`);
+                }
+
+                if (pills.length === 0) throw new Error('aucune mesure exploitable');
+
+                const stationName = nearest.nom || nearest.libgeo || 'Station inconnue';
+                subEl.innerText = `Réseau SYNOP Météo-France — ${stationName} (${nearestDist} km)`;
+                pillsEl.innerHTML = pills.join('');
+                updatedEl.innerText = `Relevé du ${obsDate.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
+
+                // Avertissements « doux » : distance à la station et ancienneté modérée du relevé
+                // (mise à jour SYNOP toutes les 3h — un relevé "ancien" au sens de ce seuil est donc
+                // fréquent, pas une anomalie ; contrairement au cas SYNOP_STALE_ERROR_HOURS
+                // ci-dessus qui bascule carrément sur l'indisponibilité).
+                const warnings = [];
+                if (nearestDist > SYNOP_MAX_DISTANCE_KM) {
+                    warnings.push(`Station à ${nearestDist} km : peu représentative du lieu affiché.`);
+                }
+                if (ageHours > SYNOP_MAX_AGE_HOURS) {
+                    warnings.push(`Relevé vieux de ${ageHours.toFixed(1)} h (réseau SYNOP mis à jour toutes les 3h).`);
+                }
+                if (warnings.length > 0) {
+                    warningEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ${warnings.join(' ')}`;
+                    warningEl.style.display = '';
+                }
+
+                loadingEl.style.display = 'none';
+                contentEl.style.display = '';
+            } catch (e) {
+                console.error('Erreur relevé SYNOP le plus proche:', e);
+                loadingEl.style.display = 'none';
+                errorTextEl.innerText = "Relevés indisponibles pour le moment (API Opendatasoft injoignable ou réponse inexploitable).";
+                errorEl.style.display = '';
+            }
+        }
+
         async function fetchWeather(lat, lon, locationName, population = null) {
             currentLat = lat;
             currentLon = lon;
@@ -3442,6 +3943,7 @@
                 renderCarousel();
                 updateDayView(0);
                 render16DayTable();
+                updateSnowEpisodeCard();
                 ensembleConfidenceByDay = null; // nouveau lieu : on repart sur l'heuristique le temps du chargement
                 loadEnsembleConfidence(lat, lon).catch(() => {});
                 renderVigilanceBanner().catch(() => {});
@@ -3465,7 +3967,7 @@
                 // données du groupe Été/Hiver/Jardinage/Eau si son onglet est déjà actif ; sinon,
                 // elles seront chargées à la première activation via setGroup(). Les tendances
                 // saisonnières restent, elles, toujours gatées derrière leur bouton dédié.
-                extraLocalDataLoaded = (currentGroup === 'leisure');
+                extraLocalDataLoaded = (currentGroup === 'leisure' || currentGroup === 'ski');
                 if (extraLocalDataLoaded) fetchExtraLocalData(lat, lon, locationName);
                 hydroDataLoaded = (currentGroup === 'eau');
                 if (hydroDataLoaded) loadHydroCard(lat, lon).catch(() => {});
@@ -3483,6 +3985,12 @@
                 }
                 nearbyStationLoaded = (currentGroup === 'astrogarden' && nearbyStationInRange);
                 if (nearbyStationLoaded) loadNearbyStation();
+                // Relevé officiel SYNOP le plus proche : même carte/onglet que la station Tencin
+                // ci-dessus (fusionnées dans la même zone en bas de l'onglet Astronomie), mais pas
+                // de condition de distance ici — le relevé le plus proche est toujours recherché,
+                // même lointain (avertissement géré dans loadSynopStation() lui-même).
+                synopStationLoaded = (currentGroup === 'astrogarden');
+                if (synopStationLoaded) loadSynopStation(lat, lon).catch(() => {});
                 // Réinitialiser la grille de prévisions si on change de position
                 if (forecastGridLayer) {
                     map.removeLayer(forecastGridLayer);
@@ -3607,6 +4115,103 @@
             fetchSnowStationData(s.lat, s.lon, s.name, s.name, false);
         }
 
+        // ============================================================================
+        // CUMUL DEPUIS LE DÉBUT DE LA SAISON (onglet Ski) — 05/09/2026
+        // ============================================================================
+        // Source : Open-Meteo Archive API (réanalyse ERA5, données réelles passées, comme pour les
+        // tendances saisonnières déjà utilisées ailleurs dans l'app) — jamais une prévision.
+        // Convention retenue pour les bornes de saison, faute de définition officielle universelle :
+        // 1er novembre → 30 avril. Si on est actuellement hors de cette fenêtre (mai-octobre), il
+        // n'y a pas de "saison en cours" à afficher : on montre alors le total de la DERNIÈRE saison
+        // complète, clairement étiqueté comme tel, plutôt qu'un cumul à zéro qui laisserait croire
+        // qu'aucune neige n'est encore tombée cette année.
+        function getSkiSeasonWindow(now) {
+            const month = now.getMonth(); // 0=janv ... 11=déc
+            const inSeason = month >= 10 || month <= 3; // nov(10),déc(11),jan(0)..avr(3)
+            let startYear;
+            if (inSeason) {
+                startYear = month >= 10 ? now.getFullYear() : now.getFullYear() - 1;
+            } else {
+                // Hors saison : on référence la dernière saison terminée (celle qui vient de
+                // s'achever fin avril de cette même année civile).
+                startYear = now.getFullYear() - 1;
+            }
+            const start = new Date(startYear, 10, 1); // 1er novembre
+            const end = new Date(startYear + 1, 3, 30); // 30 avril
+            return { start, end, inSeason, label: `${startYear}-${startYear + 1}` };
+        }
+
+        async function loadSeasonSnowCumul(lat, lon) {
+            const box = document.getElementById('snow-season-box');
+            if (!box) return;
+            box.style.display = '';
+            document.getElementById('snow-season-cumul').innerText = '--';
+            document.getElementById('snow-season-sub').innerText = 'Chargement...';
+
+            const now = new Date();
+            const { start, end, inSeason, label } = getSkiSeasonWindow(now);
+            const yesterday = new Date(now);
+            yesterday.setDate(yesterday.getDate() - 1); // l'Archive API a un décalage de quelques jours
+            const effectiveEnd = inSeason ? (yesterday < end ? yesterday : end) : end;
+            const fmt = d => d.toISOString().slice(0, 10);
+
+            try {
+                const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${fmt(start)}&end_date=${fmt(effectiveEnd)}&daily=snowfall_sum&timezone=auto`;
+                const res = await fetchWithTimeout(url, { timeout: 15000 });
+                if (!res.ok) throw new Error('Archive indisponible');
+                const data = await res.json();
+                const values = data.daily && Array.isArray(data.daily.snowfall_sum) ? data.daily.snowfall_sum : [];
+                const total = values.reduce((sum, v) => sum + (typeof v === 'number' ? v : 0), 0);
+
+                document.getElementById('snow-season-cumul').innerText = Math.round(total * 10) / 10;
+                document.getElementById('snow-season-label').innerText = inSeason ? 'Cumul saison en cours' : 'Dernière saison complète';
+                document.getElementById('snow-season-sub').innerText = inSeason
+                    ? `Depuis le 1er nov. ${start.getFullYear()} (saison ${label})`
+                    : `Saison ${label} (1er nov. → 30 avril) — hors saison actuellement`;
+            } catch (e) {
+                document.getElementById('snow-season-cumul').innerText = '--';
+                document.getElementById('snow-season-sub').innerText = 'Historique indisponible pour le moment.';
+            }
+        }
+
+        // ============================================================================
+        // ESTIMATION QUALITÉ DE NEIGE (onglet Ski) — 05/09/2026
+        // ============================================================================
+        // Heuristique indicative à partir de trois valeurs déjà chargées par fetchSnowStationData()
+        // (température, vent, chutes des dernières 24h) : AUCUN capteur ne mesure la texture de la
+        // neige (densité, taille de grain), donc ceci reste une estimation grossière basée sur les
+        // conditions connues pour favoriser tel ou tel type de manteau neigeux, pas une mesure.
+        // Priorité de classification : le vent fort prime sur tout (il reprend/tasse la neige quelle
+        // que soit sa fraîcheur), puis chute récente + froid = poudreuse, puis température proche ou
+        // au-dessus de 0°C = neige humide/lourde, sinon neige tassée/transformée par défaut (cas le
+        // plus fréquent en dehors des jours de chute).
+        function estimateSnowQuality(tempC, windKmh, fresh24hCm) {
+            if (typeof tempC !== 'number' || typeof windKmh !== 'number') return null;
+            const fresh = typeof fresh24hCm === 'number' ? fresh24hCm : 0;
+
+            if (windKmh >= 30) {
+                return { icon: '💨', label: 'Neige soufflée / damée', desc: `Vent fort (${Math.round(windKmh)} km/h) : le vent reprend et tasse la neige en surface, quelle que soit sa fraîcheur.` };
+            }
+            if (fresh >= 2 && tempC <= -3) {
+                return { icon: '❄️', label: 'Poudreuse', desc: `Chute récente (${fresh.toFixed(1)} cm/24h) par temps froid (${Math.round(tempC)}°C) et vent calme : conditions favorables à une neige poudreuse et légère.` };
+            }
+            if (tempC >= 0) {
+                return { icon: '💧', label: 'Neige lourde / humide', desc: `Température proche ou au-dessus de 0°C (${Math.round(tempC)}°C) : la neige tend à être lourde, humide et collante.` };
+            }
+            return { icon: '⛄', label: 'Neige tassée / transformée', desc: `Pas de chute récente significative, température modérément froide (${Math.round(tempC)}°C) : manteau probablement tassé, damé ou regelé en surface.` };
+        }
+
+        function updateSnowQualityBadge(tempC, windKmh, fresh24hCm) {
+            const badge = document.getElementById('snow-quality-badge');
+            if (!badge) return;
+            const q = estimateSnowQuality(tempC, windKmh, fresh24hCm);
+            if (!q) { badge.style.display = 'none'; return; }
+            document.getElementById('snow-quality-icon').innerText = q.icon;
+            document.getElementById('snow-quality-label').innerText = q.label;
+            document.getElementById('snow-quality-desc').innerText = q.desc + ' Estimation indicative, pas une mesure.';
+            badge.style.display = 'flex';
+        }
+
         async function fetchSnowStationData(skiLat, skiLon, stationName, stationDisplayName, isUnavailable) {
             const card = document.getElementById('snow-station-card');
             document.getElementById('snow-station-name').innerText = stationName;
@@ -3617,6 +4222,8 @@
                 document.getElementById('snow-fall-24h').innerText = '--';
                 document.getElementById('snow-temp-now').innerText = 'Température indisponible';
                 document.getElementById('snow-wind-now').innerText = 'Vent indisponible';
+                document.getElementById('snow-season-box').style.display = 'none';
+                document.getElementById('snow-quality-badge').style.display = 'none';
                 card.classList.add('visible');
                 updateSeasonalDisplay();
             }
@@ -3649,6 +4256,8 @@
 
                 card.classList.add('visible');
                 updateSeasonalDisplay();
+                loadSeasonSnowCumul(skiLat, skiLon).catch(() => {});
+                updateSnowQualityBadge(tempVal, windVal, fallVal);
 
             } catch (e) {
                 console.error('Erreur données neige:', e);
@@ -3728,18 +4337,27 @@
             return temps.map((t, i) => t + microClimateDeltaAtHour(hourOffsets[i], forDayIdx).delta);
         }
 
+        // Interrupteur dupliqué dans l'onglet Ski le 05/09/2026 (les cumuls de neige/limite
+        // pluie-neige bénéficient particulièrement de la correction relief) : les deux
+        // interrupteurs pilotent la MÊME variable microClimateEnabled et restent synchronisés en
+        // permanence via cette fonction, quel que soit celui qu'on actionne.
+        const MICRO_CLIMATE_TOGGLE_IDS = ['micro-climate-toggle', 'micro-climate-toggle-ski'];
+
         function updateMicroClimateToggleUI() {
-            const toggle = document.getElementById('micro-climate-toggle');
-            if (toggle) toggle.checked = microClimateEnabled;
+            MICRO_CLIMATE_TOGGLE_IDS.forEach(id => {
+                const toggle = document.getElementById(id);
+                if (toggle) toggle.checked = microClimateEnabled;
+            });
             if (!microClimateEnabled) {
                 document.getElementById('local-effects-note').innerText = MICRO_CLIMATE_DISABLED_TEXT;
                 document.getElementById('local-effects-list').innerHTML = '';
             }
         }
 
-        function onMicroClimateToggleChange() {
-            const toggle = document.getElementById('micro-climate-toggle');
-            microClimateEnabled = toggle.checked;
+        function onMicroClimateToggleChange(sourceId) {
+            const source = document.getElementById(sourceId || 'micro-climate-toggle');
+            microClimateEnabled = source.checked;
+            updateMicroClimateToggleUI(); // répercute immédiatement sur l'autre interrupteur
             try { localStorage.setItem('metehop_microclimate_enabled_v2', String(microClimateEnabled)); } catch (e) { /* tant pis, préférence non persistée */ }
 
             if (microClimateEnabled) {
@@ -3932,14 +4550,42 @@
             // 1. Fond de vallée / inversion thermique matinale
             if (typeof reliefIndex === 'number' && reliefIndex >= 40) {
                 valleyDetected = true;
+                // Ancien seuil binaire (cloudAvg<30 ET windAvg<12 sur 5h-9h) : une prévision de
+                // grille juste un peu trop nuageuse OU un peu trop ventée annulait TOTALEMENT la
+                // correction. Cas observé à Tencin le 05/09/2026 : 15°C réel à 6h vs 21°C modèle
+                // (delta -6°C, exactement le plafond), ciel dégagé et calme constatés sur place,
+                // mais correction nulle — la prévision de nébulosité sur 5h-9h était élevée alors
+                // que le ciel était dégagé. Cause identifiée : le nuage prévu au petit matin dans le
+                // fond de vallée est très probablement du BROUILLARD/DE LA BRUME formé PAR la nappe
+                // d'air froid elle-même (conséquence de l'inversion), pas un obstacle à sa
+                // formation — utiliser la nébulosité de cette même fenêtre comme critère
+                // d'invalidation est donc un paradoxe qui annule le signal par sa propre cause.
+                //
+                // Le critère physique correct pour le refroidissement radiatif nocturne est le ciel
+                // dégagé AVANT l'aube (0h-4h), pas au moment où l'inversion est déjà installée. Le
+                // vent, lui, reste pertinent sur le créneau matinal (5h-9h) : c'est ce qui maintient
+                // ou disperse la nappe d'air froid déjà formée. D'où la séparation des deux
+                // fenêtres : nébulosité sur la nuit, vent sur le matin.
+                const night = hoursConditionsFavorable(0, 4);
                 const morning = hoursConditionsFavorable(5, 9);
-                valleyFavorable = !!(morning && morning.cloudAvg < 30 && morning.windAvg < 12);
+                // Pondération continue (favorabilityFactor 0→1) : la correction se dégrade
+                // progressivement avec le nuage nocturne/vent matinal prévus, au lieu de basculer
+                // tout ou rien. Repères retenus : confiance nulle à partir de 50% de nuage nocturne
+                // ou 20 km/h de vent matinal moyen ; à affiner avec d'autres observations de terrain.
+                let favorabilityFactor = 0;
+                if (night && morning) {
+                    const cloudFactor = Math.max(0, Math.min(1, 1 - night.cloudAvg / 50));
+                    const windFactor = Math.max(0, Math.min(1, 1 - morning.windAvg / 20));
+                    favorabilityFactor = Math.round(cloudFactor * windFactor * 100) / 100;
+                }
+                valleyFavorable = favorabilityFactor > 0.1; // en dessous, signal trop faible pour être affiché
                 // ~0,5 à 1,7°C/100m de relief encaissant selon les études de terrain (voir Sources &
                 // modèles utilisés) ; retenu dans le haut de cette fourchette (0,9°C/100m), plafonné
                 // à -6°C au-delà duquel l'estimation devient trop incertaine pour un chiffre unique.
                 const coeffPer100m = 0.9;
                 const maxDeltaC = 6;
-                valleyDeltaC = valleyFavorable ? -Math.round(Math.min(maxDeltaC, Math.max(1, reliefIndex / 100 * coeffPer100m)) * 10) / 10 : 0;
+                const baseDeltaC = Math.min(maxDeltaC, Math.max(1, reliefIndex / 100 * coeffPer100m));
+                valleyDeltaC = valleyFavorable ? -Math.round(baseDeltaC * favorabilityFactor * 10) / 10 : 0;
             }
 
             // 2. Îlot de chaleur urbain — la POPULATION ADMINISTRATIVE d'une commune française peut
@@ -4081,11 +4727,15 @@
                 showMarineNoData();
             });
 
-            // 3. WEBCAMS PUBLIQUES À PROXIMITÉ (stations connues + bonus OpenStreetMap)
+            // 3. WEBCAMS PUBLIQUES À PROXIMITÉ (stations connues + bonus OpenStreetMap), scindées
+            // en deux grilles (ski / plage) — voir loadWebcamsNearby().
             loadWebcamsNearby(lat, lon).catch(() => {
                 document.getElementById('webcam-grid').style.display = 'none';
                 document.getElementById('webcam-no-data-msg').style.display = 'block';
                 document.getElementById('webcam-note').innerText = 'Recherche de webcams indisponible pour le moment.';
+                document.getElementById('webcam-grid-beach').style.display = 'none';
+                document.getElementById('webcam-no-data-msg-beach').style.display = 'block';
+                document.getElementById('webcam-note-beach').innerText = 'Recherche de webcams indisponible pour le moment.';
             });
         }
 
@@ -4102,7 +4752,7 @@
         //
         // Stratégie retenue, honnête et qui fonctionne réellement :
         // 1. Pour les stations de ski/plage déjà connues et géolocalisées par l'app (mêmes
-        //    listes que le tableau "Station de ski & Station balnéaire" ci-dessus, recherche
+        //    listes que les tableaux "Station de ski" / "Station balnéaire" ci-dessus, recherche
         //    synchrone et gratuite, sans appel réseau), on propose une tuile de recherche vers
         //    un moteur de recherche déjà indexé sur les vrais annuaires de webcams (Skiinfo,
         //    meteo-webcam.net, France Webcams, etc.) — fiable à 100%, jamais de lien mort.
@@ -4125,26 +4775,85 @@
             };
         }
 
-        async function loadWebcamsNearby(lat, lon) {
-            const grid = document.getElementById('webcam-grid');
-            const noDataMsg = document.getElementById('webcam-no-data-msg');
-            const note = document.getElementById('webcam-note');
-            if (webcamRefreshInterval) { clearInterval(webcamRefreshInterval); webcamRefreshInterval = null; }
-            grid.innerHTML = '';
+        // Rendu d'une tuile webcam (extrait en fonction partagée le 05/09/2026 lors de la
+        // scission de l'encart Webcams en deux grilles ski/plage, pour ne pas dupliquer ce balisage).
+        function renderWebcamTile(w) {
+            let host = '';
+            try { host = new URL(w.url).hostname.replace(/^www\./, ''); } catch (e) { host = ''; }
+            const safeName = escapeWebcamText(w.name);
+            const safeUrl = escapeWebcamText(w.url);
+            let thumb, badge, subLabel;
+            if (w.kind === 'image') {
+                const cacheBustedSrc = `${w.url}${w.url.includes('?') ? '&' : '?'}_t=${Date.now()}`;
+                thumb = `<img src="${escapeWebcamText(cacheBustedSrc)}" alt="${safeName}" loading="lazy" data-webcam-refresh="1" data-webcam-src="${safeUrl}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                          <div class="webcam-thumb-placeholder" style="display:none;"><i class="fa-solid fa-video-slash"></i></div>`;
+                badge = '<span class="webcam-live-badge">LIVE</span>';
+                subLabel = host ? escapeWebcamText(host) : 'OpenStreetMap';
+            } else if (w.kind === 'link') {
+                thumb = `<div class="webcam-thumb-placeholder"><i class="fa-solid fa-up-right-from-square"></i></div>`;
+                badge = '';
+                subLabel = host ? escapeWebcamText(host) : 'OpenStreetMap';
+            } else {
+                thumb = `<div class="webcam-thumb-placeholder"><i class="fa-solid fa-magnifying-glass"></i></div>`;
+                badge = '';
+                subLabel = 'Rechercher →';
+            }
+            return `<a class="webcam-tile" href="${safeUrl}" target="_blank" rel="noopener">
+                <div class="webcam-thumb-wrap">
+                    ${badge}
+                    ${thumb}
+                </div>
+                <div class="webcam-info">
+                    <span class="webcam-name">${safeName}</span>
+                    <span class="webcam-dist">${w.dist} km · ${subLabel}</span>
+                </div>
+            </a>`;
+        }
+
+        // Remplit une grille (ski ou plage) avec ses tuiles de recherche propres au domaine +
+        // les webcams OpenStreetMap partagées (non classables par domaine, donc communes aux deux
+        // grilles — voir commentaire sur la carte HTML correspondante).
+        function renderWebcamGrid(gridId, noDataMsgId, noteId, searchTiles, osmWebcams, domainLabel) {
+            const grid = document.getElementById(gridId);
+            const noDataMsg = document.getElementById(noDataMsgId);
+            const note = document.getElementById(noteId);
+            const all = [...osmWebcams, ...searchTiles];
+            if (!all.length) {
+                grid.style.display = 'none';
+                noDataMsg.style.display = 'block';
+                note.innerText = `Aucune station ${domainLabel} connue ni webcam OpenStreetMap à proximité de ce lieu.`;
+                return;
+            }
             grid.style.display = '';
             noDataMsg.style.display = 'none';
-            note.innerText = 'Recherche des webcams à proximité...';
+            note.innerText = osmWebcams.length
+                ? `${osmWebcams.length} webcam${osmWebcams.length > 1 ? 's' : ''} OpenStreetMap à proximité, + recherche ciblée pour les stations connues.`
+                : `Recherche ciblée pour les stations ${domainLabel} connues les plus proches.`;
+            grid.innerHTML = all.map(renderWebcamTile).join('');
+        }
+
+        async function loadWebcamsNearby(lat, lon) {
+            const skiGrid = document.getElementById('webcam-grid');
+            const beachGrid = document.getElementById('webcam-grid-beach');
+            if (webcamRefreshInterval) { clearInterval(webcamRefreshInterval); webcamRefreshInterval = null; }
+            skiGrid.innerHTML = '';
+            beachGrid.innerHTML = '';
+            document.getElementById('webcam-note').innerText = 'Recherche des webcams à proximité...';
+            document.getElementById('webcam-note-beach').innerText = 'Recherche des webcams à proximité...';
+            document.getElementById('webcam-no-data-msg').style.display = 'none';
+            document.getElementById('webcam-no-data-msg-beach').style.display = 'none';
 
             // 1. Stations de ski/plage déjà connues (données synchrones, aucun appel réseau) :
-            // source la plus fiable, on prend les 3 plus proches de chaque type.
+            // source la plus fiable, on prend les 3 plus proches de chaque type, chacune dans sa
+            // propre grille (ski ou plage).
             const nearbySki = (typeof findNearbySkiStations === 'function' ? findNearbySkiStations(lat, lon, 60) : []).slice(0, 3);
             const nearbyBeach = (typeof findNearbyBeachStations === 'function' ? findNearbyBeachStations(lat, lon, 50) : []).slice(0, 3);
-            const searchTiles = [...nearbySki, ...nearbyBeach]
-                .sort((a, b) => a.dist - b.dist)
-                .map(s => buildWebcamSearchTile(s.name, s.dist));
+            const skiSearchTiles = nearbySki.map(s => buildWebcamSearchTile(s.name, s.dist));
+            const beachSearchTiles = nearbyBeach.map(s => buildWebcamSearchTile(s.name, s.dist));
 
             // 2. Bonus OpenStreetMap (Overpass API, gratuit et sans clé) : rare mais quand ça
-            // matche, on incruste directement l'image plutôt qu'un simple lien.
+            // matche, on incruste directement l'image plutôt qu'un simple lien. Un nœud OSM
+            // n'étant pas classable ski/plage, ce bonus est partagé entre les deux grilles.
             let osmWebcams = [];
             try {
                 const query = `[out:json][timeout:20];(node(around:${WEBCAM_OSM_RADIUS_KM * 1000},${lat},${lon})["contact:webcam"];node(around:${WEBCAM_OSM_RADIUS_KM * 1000},${lat},${lon})["surveillance:type"="webcam"];);out body;`;
@@ -4173,55 +4882,13 @@
                 osmWebcams = []; // Overpass indisponible : on garde simplement les tuiles de recherche
             }
 
-            const all = [...osmWebcams, ...searchTiles];
+            renderWebcamGrid('webcam-grid', 'webcam-no-data-msg', 'webcam-note', skiSearchTiles, osmWebcams, 'de ski');
+            renderWebcamGrid('webcam-grid-beach', 'webcam-no-data-msg-beach', 'webcam-note-beach', beachSearchTiles, osmWebcams, 'balnéaire');
 
-            if (!all.length) {
-                grid.style.display = 'none';
-                noDataMsg.style.display = 'block';
-                note.innerText = "Aucune station de ski/plage connue ni webcam OpenStreetMap à proximité de ce lieu.";
-                return;
-            }
-
-            note.innerText = osmWebcams.length
-                ? `${osmWebcams.length} webcam${osmWebcams.length > 1 ? 's' : ''} OpenStreetMap à proximité, + recherche ciblée pour les stations connues.`
-                : "Recherche ciblée pour les stations de ski/plage connues les plus proches.";
-
-            grid.innerHTML = all.map(w => {
-                let host = '';
-                try { host = new URL(w.url).hostname.replace(/^www\./, ''); } catch (e) { host = ''; }
-                const safeName = escapeWebcamText(w.name);
-                const safeUrl = escapeWebcamText(w.url);
-                let thumb, badge, subLabel;
-                if (w.kind === 'image') {
-                    const cacheBustedSrc = `${w.url}${w.url.includes('?') ? '&' : '?'}_t=${Date.now()}`;
-                    thumb = `<img src="${escapeWebcamText(cacheBustedSrc)}" alt="${safeName}" loading="lazy" data-webcam-refresh="1" data-webcam-src="${safeUrl}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                              <div class="webcam-thumb-placeholder" style="display:none;"><i class="fa-solid fa-video-slash"></i></div>`;
-                    badge = '<span class="webcam-live-badge">LIVE</span>';
-                    subLabel = host ? escapeWebcamText(host) : 'OpenStreetMap';
-                } else if (w.kind === 'link') {
-                    thumb = `<div class="webcam-thumb-placeholder"><i class="fa-solid fa-up-right-from-square"></i></div>`;
-                    badge = '';
-                    subLabel = host ? escapeWebcamText(host) : 'OpenStreetMap';
-                } else {
-                    thumb = `<div class="webcam-thumb-placeholder"><i class="fa-solid fa-magnifying-glass"></i></div>`;
-                    badge = '';
-                    subLabel = 'Rechercher →';
-                }
-                return `<a class="webcam-tile" href="${safeUrl}" target="_blank" rel="noopener">
-                    <div class="webcam-thumb-wrap">
-                        ${badge}
-                        ${thumb}
-                    </div>
-                    <div class="webcam-info">
-                        <span class="webcam-name">${safeName}</span>
-                        <span class="webcam-dist">${w.dist} km · ${subLabel}</span>
-                    </div>
-                </a>`;
-            }).join('');
-
-            // Rafraîchissement périodique (toutes les 60s) des images OSM en direct, par cache-busting.
+            // Rafraîchissement périodique (toutes les 60s) des images OSM en direct, par
+            // cache-busting — couvre les deux grilles (mêmes webcams OSM potentiellement dans les deux).
             webcamRefreshInterval = setInterval(() => {
-                document.querySelectorAll('#webcam-grid img[data-webcam-refresh]').forEach(img => {
+                document.querySelectorAll('#webcam-grid img[data-webcam-refresh], #webcam-grid-beach img[data-webcam-refresh]').forEach(img => {
                     const src = img.dataset.webcamSrc;
                     if (!src) return;
                     img.src = `${src}${src.includes('?') ? '&' : '?'}_t=${Date.now()}`;
@@ -4266,7 +4933,9 @@
         }
 
         // Température actuelle au lieu recherché (interpolée depuis les prévisions réelles déjà en
-        // mémoire), utilisée uniquement pour distinguer pluie / neige dans l'analyse radar.
+        // mémoire), utilisée uniquement pour distinguer pluie / neige dans l'analyse radar. Tient
+        // compte de l'ajustement micro-climat lissé (05/09/2026) quand il est actif : une nappe
+        // d'air froid en fond de vallée peut faire basculer la classification pluie → neige.
         function getCurrentTempEstimate() {
             if (!weatherData || !weatherData.hourly || !weatherData.hourly.time) return null;
             const now = new Date();
@@ -4274,7 +4943,10 @@
             let idx = times.findIndex(t => new Date(t) >= now);
             if (idx === -1) idx = times.length - 1;
             const v = weatherData.hourly.temperature_2m ? weatherData.hourly.temperature_2m[idx] : null;
-            return typeof v === 'number' ? v : null;
+            if (typeof v !== 'number') return null;
+            const dayIdxForHour = Math.floor(idx / 24);
+            const hourOfDay = idx % 24;
+            return v + microClimateDeltaAtHour(hourOfDay, dayIdxForHour).delta;
         }
 
         // Classe une tranche de prévision MODÈLE (pas radar) dans les mêmes catégories que Metehop,
@@ -5316,7 +5988,12 @@
             let currentHourIdx = start + 12;
             if (dayIdx === 0) currentHourIdx = start + now.getHours();
 
-            const currentTemp = Math.round(weatherData.hourly.temperature_2m[currentHourIdx] || weatherData.hourly.temperature_2m[start + 12]);
+            // Corrigé le 05/09/2026 : cette valeur, le chiffre principal du bandeau, n'appliquait
+            // pas l'ajustement micro-climat alors que le MIN/MAX juste en dessous (day-tmin/day-tmax,
+            // voir plus bas) l'applique déjà — incohérence entre deux valeurs affichées côte à côte.
+            const rawCurrentTemp = weatherData.hourly.temperature_2m[currentHourIdx] ?? weatherData.hourly.temperature_2m[start + 12];
+            const currentHourOfDay = (dayIdx === 0) ? now.getHours() : 12;
+            const currentTemp = Math.round(rawCurrentTemp + microClimateDeltaAtHour(currentHourOfDay, dayIdx).delta);
             const currentCode = weatherData.hourly.weather_code[currentHourIdx] || 0;
             const cond = wmoMap[currentCode] || wmoMap[0];
             const isDayNow = weatherData.hourly.is_day ? weatherData.hourly.is_day[currentHourIdx] : 1;
@@ -5572,6 +6249,7 @@
             updateChart(dayIdx);
             updateAstroChart(dayIdx);
             updatePressureChart(dayIdx);
+            updateSnowLimitChart(dayIdx);
         }
 
         function updateChart(dayIdx) {
@@ -5813,6 +6491,101 @@
                 }
             });
         }
+        // ============================================================================
+        // DÉTECTION AUTOMATIQUE D'ÉPISODE NEIGEUX (onglet Ski) — 05/09/2026
+        // ============================================================================
+        // Calculée uniquement à partir de weatherData.hourly (déjà chargé pour le lieu recherché,
+        // même source que le graphique "Température & risques de neige" juste en dessous) :
+        // aucun appel API supplémentaire. Repère la prochaine séquence d'heures neigeuses à partir
+        // de MAINTENANT (pas depuis minuit aujourd'hui) sur tout l'horizon de prévision (16 jours).
+        //
+        // Une heure est considérée "neigeuse" si le cumul horaire de neige dépasse un seuil de
+        // bruit numérique (0,05 cm) OU si le code météo Open-Meteo correspond à de la neige
+        // (71/73/75 = neige faible/mod./forte, 77 = grains de neige, 85/86 = averses de neige).
+        // Deux passages neigeux séparés de 2h ou moins sont fusionnés en un seul épisode, pour ne
+        // pas fragmenter artificiellement une même perturbation qui faiblit temporairement.
+        const SNOW_WEATHER_CODES = new Set([71, 73, 75, 77, 85, 86]);
+        const SNOW_EPISODE_NOISE_THRESHOLD_CM = 0.05;
+        const SNOW_EPISODE_MAX_GAP_HOURS = 2;
+
+        function detectSnowEpisode() {
+            if (!weatherData || !weatherData.hourly) return null;
+            const { snowfall, weather_code, time } = weatherData.hourly;
+            if (!Array.isArray(snowfall) || !Array.isArray(time)) return null;
+
+            const isSnowyHour = i => {
+                const cm = typeof snowfall[i] === 'number' ? snowfall[i] : 0;
+                const code = weather_code ? weather_code[i] : null;
+                return cm >= SNOW_EPISODE_NOISE_THRESHOLD_CM || (code !== null && SNOW_WEATHER_CODES.has(code));
+            };
+
+            const buildEpisode = (startI, endI) => {
+                let total = 0, maxHourly = 0;
+                for (let i = startI; i <= endI; i++) {
+                    const cm = typeof snowfall[i] === 'number' ? snowfall[i] : 0;
+                    total += cm;
+                    if (cm > maxHourly) maxHourly = cm;
+                }
+                return {
+                    start: new Date(time[startI]),
+                    end: new Date(time[endI]),
+                    totalCm: Math.round(total * 100) / 100,
+                    maxHourlyCm: Math.round(maxHourly * 100) / 100
+                };
+            };
+
+            const now = new Date();
+            let startIdx = time.findIndex(t => new Date(t) >= now);
+            if (startIdx === -1) return null; // tout l'horizon de prévision est déjà passé (ne devrait pas arriver)
+
+            let episodeStart = null, gap = 0;
+            for (let i = startIdx; i < snowfall.length; i++) {
+                if (isSnowyHour(i)) {
+                    if (episodeStart === null) episodeStart = i;
+                    gap = 0;
+                } else if (episodeStart !== null) {
+                    gap++;
+                    if (gap > SNOW_EPISODE_MAX_GAP_HOURS) {
+                        return buildEpisode(episodeStart, i - gap);
+                    }
+                }
+            }
+            // Épisode qui court jusqu'au bout de l'horizon disponible sans interruption détectée
+            return episodeStart !== null ? buildEpisode(episodeStart, snowfall.length - 1) : null;
+        }
+
+        function updateSnowEpisodeCard() {
+            const contentEl = document.getElementById('snow-episode-content');
+            const noneMsgEl = document.getElementById('snow-episode-none-msg');
+            const subEl = document.getElementById('snow-episode-sub');
+            if (!contentEl || !noneMsgEl || !subEl) return; // carte pas encore dans le DOM
+
+            const ep = detectSnowEpisode();
+            if (!ep) {
+                contentEl.style.display = 'none';
+                noneMsgEl.style.display = 'block';
+                subEl.innerText = "Aucun épisode neigeux dans l'horizon de prévision";
+                return;
+            }
+
+            noneMsgEl.style.display = 'none';
+            contentEl.style.display = '';
+            const now = new Date();
+            const isOngoing = ep.start <= now;
+            const fmtDay = d => d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'short' });
+            const fmtHour = d => d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+            const startLabel = isOngoing ? 'En cours' : `${fmtDay(ep.start)} ${fmtHour(ep.start)}`;
+            const endLabel = `${fmtDay(ep.end)} ${fmtHour(ep.end)}`;
+
+            subEl.innerText = isOngoing ? 'Chute de neige actuellement en cours pour ce lieu' : 'Prochaine chute de neige prévue pour ce lieu';
+            document.getElementById('snow-episode-period').innerText = `${startLabel} → ${endLabel}`;
+            // En dessous du seuil de bruit numérique, on affiche "traces" plutôt qu'un cumul à
+            // zéro ou quasi-nul qui laisserait croire à une mesure précise inexistante.
+            document.getElementById('snow-episode-cumul').innerText = ep.totalCm >= 0.1 ? ep.totalCm.toFixed(1).replace('.', ',') : 'traces';
+            document.getElementById('snow-episode-max-hourly').innerText = ep.maxHourlyCm.toFixed(1).replace('.', ',');
+        }
+
+
 function updatePressureChart(dayIdx) {
             if (typeof Chart === 'undefined') return;
             const start = dayIdx * 24;
@@ -5877,6 +6650,57 @@ function updatePressureChart(dayIdx) {
                         x: { grid: { display: false }, ticks: { font: { size: 9 }, color: '#5e706a' } },
                         yTempRisk: { type: 'linear', position: 'left', grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 9 }, color: '#d97736', callback: v => `${Math.round(v)}°` } },
                         ySnowRisk: { type: 'linear', position: 'right', min: 0, max: 100, grid: { display: false }, ticks: { font: { size: 9 }, color: '#2b6cb0', callback: v => `${v}%` } }
+                    }
+                }
+            });
+        }
+
+        // ============================================================================
+        // LIMITE PLUIE/NEIGE HEURE PAR HEURE (onglet Ski) — 05/09/2026
+        // ============================================================================
+        // L'isotherme 0°C (freezing_level_height) est une vraie sortie du modèle Open-Meteo, déjà
+        // utilisée ailleurs dans l'app (bandeau "Votre météo, maintenant"). La limite pluie/neige
+        // elle-même n'est PAS un champ modèle : c'est une estimation classique en météorologie de
+        // montagne, l'air sous l'isotherme se refroidissant par fonte/évaporation des flocons qui y
+        // pénètrent (effet de "melting layer"). La fourchette usuelle citée est 200-400m sous
+        // l'isotherme selon l'humidité de l'air ; on retient 300m (milieu de fourchette), affiché
+        // comme estimation et jamais comme une mesure — cohérent avec le traitement du coefficient
+        // de fond de vallée (analyzeLocalEffects) documenté de la même façon.
+        const SNOW_LIMIT_OFFSET_M = 300;
+
+        function updateSnowLimitChart(dayIdx) {
+            if (typeof Chart === 'undefined') return;
+            const canvas = document.getElementById('snowLimitChart');
+            if (!canvas) return;
+            const start = dayIdx * 24;
+            const end = start + 24;
+            if (!weatherData.hourly.freezing_level_height) return;
+
+            const hours = weatherData.hourly.time.slice(start, end).map(t => t.split('T')[1].substring(0, 2) + 'h');
+            const isotherme = weatherData.hourly.freezing_level_height.slice(start, end);
+            const snowLimit = isotherme.map(h => (typeof h === 'number') ? Math.max(0, h - SNOW_LIMIT_OFFSET_M) : null);
+            const locationAlt = typeof weatherData.elevation === 'number' ? weatherData.elevation : null;
+            const altLine = locationAlt !== null ? new Array(isotherme.length).fill(locationAlt) : null;
+
+            const datasets = [
+                { label: 'Isotherme 0°C', data: isotherme, borderColor: '#d97736', borderWidth: 2, tension: 0.3, pointRadius: 2, spanGaps: false },
+                { label: 'Limite pluie/neige (estimée)', data: snowLimit, borderColor: '#2b6cb0', borderDash: [6, 4], borderWidth: 2, tension: 0.3, pointRadius: 2, spanGaps: false }
+            ];
+            if (altLine) {
+                datasets.push({ label: 'Altitude du lieu', data: altLine, borderColor: '#7d8f89', borderWidth: 1, borderDash: [2, 3], pointRadius: 0, tension: 0 });
+            }
+
+            if (snowLimitChart) snowLimitChart.destroy();
+            snowLimitChart = new Chart(canvas.getContext('2d'), {
+                type: 'line',
+                data: { labels: hours, datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { font: { size: 9 }, color: '#5e706a' } },
+                        y: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 9 }, color: '#5e706a', callback: v => `${Math.round(v)} m` } }
                     }
                 }
             });
@@ -6349,8 +7173,28 @@ function updatePressureChart(dayIdx) {
         let currentTempStations = [];
         const TEMP_SEARCH_RADIUS_KM = 30;
 
+        // NB : contrairement à d'autres API Hub'Eau (qualité_rivieres, hydrometrie), l'endpoint
+        // /v1/temperature/station NE supporte PAS latitude/longitude/distance — confirmé le
+        // 05/09/2026 par appel réel : les paramètres géo étaient silencieusement ignorés (absents
+        // de l'URL "first" renvoyée) et l'API retournait les 872 stations de France entière, sans
+        // filtrage. Seul code_departement (et code_commune) sont supportés pour restreindre la
+        // recherche : on résout donc le département via la réversion géographique officielle
+        // geo.api.gouv.fr (gratuite, sans clé), puis on filtre/trie par distance côté client comme
+        // avant. Limite connue : une station juste de l'autre côté d'une frontière départementale
+        // ne sera pas trouvée — acceptable au vu des rayons de recherche habituels (~30km).
+        async function resolveCodeDepartement(lat, lon) {
+            const url = `https://geo.api.gouv.fr/communes?lat=${lat}&lon=${lon}&fields=codeDepartement&format=json`;
+            const res = await fetchWithTimeout(url, { timeout: 8000 });
+            if (!res.ok) throw new Error(`Résolution du département indisponible — HTTP ${res.status}`);
+            const data = await res.json();
+            const commune = Array.isArray(data) ? data[0] : null;
+            if (!commune || !commune.codeDepartement) throw new Error('Département introuvable pour ce lieu');
+            return commune.codeDepartement;
+        }
+
         async function findNearbyTempStations(lat, lon) {
-            const url = `https://hubeau.eaufrance.fr/api/v1/temperature/station?latitude=${lat}&longitude=${lon}&distance=${TEMP_SEARCH_RADIUS_KM}&size=30&format=json`;
+            const codeDepartement = await resolveCodeDepartement(lat, lon);
+            const url = `https://hubeau.eaufrance.fr/api/v1/temperature/station?code_departement=${encodeURIComponent(codeDepartement)}&size=100&format=json`;
             const res = await fetchWithTimeout(url, { timeout: 10000 });
             if (!res.ok) throw new Error(`API température indisponible — HTTP ${res.status}`);
             const data = await res.json();
@@ -6366,13 +7210,17 @@ function updatePressureChart(dayIdx) {
             return stations.sort((a, b) => a.dist - b.dist);
         }
 
-        // Le schéma exact de l'endpoint "chronique" n'a pas pu être confirmé aussi précisément que
-        // pour les autres API Hub'Eau utilisées dans cette app : on essaie donc plusieurs noms de
-        // champs plausibles (cohérents avec les conventions SANDRE déjà observées ailleurs) plutôt
-        // que de supposer un seul nom au risque de silencieusement ne rien afficher.
+        // Bug identifié le 05/09/2026 : filtrer sur date_debut_mesure = 7 derniers jours ne
+        // renvoyait JAMAIS rien, car le réseau Hub'Eau température ne compte qu'environ 50
+        // stations encore actives sur 760 référencées au total (voir présentation officielle de
+        // l'API) — même la station donnée en exemple dans la doc officielle (04051125) n'a plus
+        // transmis depuis 2013. Exiger une fenêtre récente fixe échoue donc silencieusement dans
+        // l'immense majorité des cas. Corrigé en demandant directement les dernières mesures
+        // disponibles (sort=desc), quelle que soit leur ancienneté, et en affichant leur vraie
+        // date plutôt que de supposer une fraîcheur qui n'existe pas — cohérent avec le principe
+        // de ne jamais fabriquer ou survendre une donnée.
         async function fetchTempObservations(codeStation) {
-            const since = new Date(Date.now() - 7 * 24 * 3600000).toISOString().slice(0, 10);
-            const url = `https://hubeau.eaufrance.fr/api/v1/temperature/chronique?code_station=${encodeURIComponent(codeStation)}&date_debut_mesure=${since}&size=500&format=json`;
+            const url = `https://hubeau.eaufrance.fr/api/v1/temperature/chronique?code_station=${encodeURIComponent(codeStation)}&sort=desc&size=200&format=json`;
             const res = await fetchWithTimeout(url, { timeout: 12000 });
             if (!res.ok) return [];
             const data = await res.json();
@@ -6380,9 +7228,10 @@ function updatePressureChart(dayIdx) {
             const out = [];
             list.forEach(o => {
                 const val = [o.resultat, o.resultat_mesure, o.temperature].find(v => typeof v === 'number');
-                const dateRaw = o.date_mesure_temp || o.date_heure_mesure || o.date_mesure;
-                if (typeof val !== 'number' || !dateRaw) return;
-                const t = new Date(dateRaw);
+                const datePart = o.date_mesure_temp || o.date_mesure;
+                const heurePart = o.heure_mesure_temp || '00:00:00';
+                if (typeof val !== 'number' || !datePart) return;
+                const t = new Date(`${datePart}T${heurePart}`);
                 if (isNaN(t.getTime())) return;
                 out.push({ time: t, value: val });
             });
@@ -6466,7 +7315,13 @@ function updatePressureChart(dayIdx) {
             const labels = obs.map(o => o.time.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) + ' ' + o.time.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }));
             const values = obs.map(o => Math.round(o.value * 10) / 10);
             drawTempEauChart(labels, values);
-            document.getElementById('temp-eau-last-obs').innerText = `Dernier relevé : ${last.time.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} · ${obs.length} mesures sur 7 jours`;
+            // Certaines stations du réseau (référencées mais non retirées de la liste officielle)
+            // n'ont plus transmis depuis des années — voir fetchTempObservations() ci-dessus. On
+            // le signale explicitement plutôt que de laisser croire que la valeur affichée est
+            // actuelle : ne jamais fabriquer ou survendre une fraîcheur de donnée qui n'existe pas.
+            const daysSinceLast = (Date.now() - last.time.getTime()) / 86400000;
+            const staleNote = daysSinceLast > 45 ? ' · ⚠️ station probablement hors service' : '';
+            document.getElementById('temp-eau-last-obs').innerText = `Dernier relevé : ${last.time.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })} · ${obs.length} mesures affichées${staleNote}`;
         }
 
         // ============================================================================
@@ -7098,6 +7953,154 @@ function updatePressureChart(dayIdx) {
             return out.sort((a, b) => a.dist - b.dist);
         }
 
+        // ============================================================================
+        // CARTE DES STATIONS DE SKI COLORÉE PAR CUMUL DE NEIGE PRÉVU (onglet Ski) — 05/09/2026
+        // ============================================================================
+        // Un SEUL appel API pour les 181 stations : Open-Meteo accepte des listes de coordonnées
+        // séparées par des virgules et renvoie un tableau de résultats dans le même ordre (voir
+        // "Multiple locations" dans la doc officielle) — jamais 181 requêtes individuelles.
+        const SKI_SNOW_MAP_FORECAST_DAYS = 7;
+        const SKI_SNOW_MAP_MAX_CM = 150; // plafond de l'échelle de couleur (au-delà : couleur max)
+
+        // Dégradé à 4 arrêts (gris clair → bleu pâle → bleu → violet foncé), cohérent avec la barre
+        // de légende CSS (.ski-snow-map-legend-bar) : on interpole entre les mêmes couleurs.
+        const SNOW_MAP_COLOR_STOPS = [
+            { at: 0, color: [233, 238, 242] },
+            { at: 0.33, color: [162, 210, 255] },
+            { at: 0.66, color: [43, 108, 176] },
+            { at: 1, color: [76, 29, 149] }
+        ];
+        function snowCumulToColor(cm) {
+            const t = Math.max(0, Math.min(1, cm / SKI_SNOW_MAP_MAX_CM));
+            let a = SNOW_MAP_COLOR_STOPS[0], b = SNOW_MAP_COLOR_STOPS[SNOW_MAP_COLOR_STOPS.length - 1];
+            for (let i = 0; i < SNOW_MAP_COLOR_STOPS.length - 1; i++) {
+                if (t >= SNOW_MAP_COLOR_STOPS[i].at && t <= SNOW_MAP_COLOR_STOPS[i + 1].at) {
+                    a = SNOW_MAP_COLOR_STOPS[i]; b = SNOW_MAP_COLOR_STOPS[i + 1]; break;
+                }
+            }
+            const span = b.at - a.at;
+            const localT = span === 0 ? 0 : (t - a.at) / span;
+            const rgb = a.color.map((c, i) => Math.round(c + (b.color[i] - c) * localT));
+            return `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+        }
+
+        async function loadSkiSnowMap() {
+            const sub = document.getElementById('ski-snow-map-sub');
+            const lats = SKI_STATIONS.map(s => s.lat).join(',');
+            const lons = SKI_STATIONS.map(s => s.lon).join(',');
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}&daily=snowfall_sum&timezone=auto&forecast_days=${SKI_SNOW_MAP_FORECAST_DAYS}`;
+            const res = await fetchWithTimeout(url, { timeout: 20000 });
+            if (!res.ok) throw new Error(`API indisponible — HTTP ${res.status}`);
+            const data = await res.json();
+            // Réponse multi-lieux : un tableau dans le même ordre que les coordonnées envoyées.
+            // Si un jour l'API changeait de comportement pour un nombre de lieux différent, on le
+            // détecte ici plutôt que de planter silencieusement plus loin.
+            if (!Array.isArray(data) || data.length !== SKI_STATIONS.length) {
+                throw new Error('Réponse inattendue de l\'API (nombre de stations ne correspond pas)');
+            }
+
+            const dailyLabels = (data[0] && data[0].daily && data[0].daily.time) ? data[0].daily.time.map(d => new Date(d).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })) : [];
+            const results = SKI_STATIONS.map((station, i) => {
+                const daily = data[i] && data[i].daily;
+                const values = daily && Array.isArray(daily.snowfall_sum) ? daily.snowfall_sum.map(v => typeof v === 'number' ? Math.round(v * 10) / 10 : 0) : [];
+                const total = values.reduce((sum, v) => sum + v, 0);
+                return { ...station, cumulCm: Math.round(total * 10) / 10, dailyValues: values };
+            });
+            // Conservé pour le comparateur multi-stations ci-dessous : mêmes données, aucun appel
+            // réseau supplémentaire nécessaire (voir populateSkiCompareSelects()/updateSkiCompareChart()).
+            skiSnowMapResults = results;
+            skiSnowMapDailyLabels = dailyLabels;
+
+            const mapContainer = document.getElementById('ski-snow-map');
+            if (skiSnowMap) { skiSnowMap.remove(); skiSnowMap = null; }
+            skiSnowMap = L.map('ski-snow-map', { zoomControl: false }).setView([46.4, 4.5], 5);
+            L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '© OpenStreetMap France' }).addTo(skiSnowMap);
+
+            results.forEach(s => {
+                L.circleMarker([s.lat, s.lon], {
+                    radius: 6,
+                    color: '#ffffff',
+                    weight: 1,
+                    fillColor: snowCumulToColor(s.cumulCm),
+                    fillOpacity: 0.9
+                }).addTo(skiSnowMap).bindPopup(
+                    `<strong>${s.name}</strong><br>${s.massif} · ${s.alt}m<br>Cumul ${SKI_SNOW_MAP_FORECAST_DAYS}j : ${s.cumulCm > 0 ? s.cumulCm.toFixed(1) + ' cm' : 'aucune neige prévue'}`
+                );
+            });
+
+            const maxCumul = Math.max(...results.map(s => s.cumulCm));
+            document.getElementById('ski-snow-map-legend-max').innerText = maxCumul > SKI_SNOW_MAP_MAX_CM ? `${SKI_SNOW_MAP_MAX_CM}+ cm` : `${Math.round(maxCumul)} cm`;
+            sub.innerText = `Cumul prévu sur ${SKI_SNOW_MAP_FORECAST_DAYS} jours, ${results.length} stations`;
+
+            populateSkiCompareSelects();
+        }
+
+        // ============================================================================
+        // COMPARATEUR MULTI-STATIONS (onglet Ski) — 05/09/2026
+        // ============================================================================
+        // Réutilise skiSnowMapResults, déjà chargé par loadSkiSnowMap() ci-dessus : aucun appel
+        // réseau ici, uniquement du rendu. Présélectionne les 3 stations les plus proches du lieu
+        // recherché quand c'est possible, sinon les 3 premières de la liste.
+        function populateSkiCompareSelects() {
+            if (!skiSnowMapResults.length) return;
+            let defaultIndexes = [0, 1, 2];
+            if (currentLat !== null && currentLon !== null) {
+                const withDist = skiSnowMapResults.map((s, i) => ({ i, dist: calculateDistance(currentLat, currentLon, s.lat, s.lon) }));
+                withDist.sort((a, b) => a.dist - b.dist);
+                defaultIndexes = withDist.slice(0, 3).map(w => w.i);
+            }
+            const optionsHtml = skiSnowMapResults.map((s, i) => `<option value="${i}">${s.name} (${s.alt}m)</option>`).join('');
+            for (let slot = 0; slot < 3; slot++) {
+                const sel = document.getElementById(`ski-compare-select-${slot}`);
+                if (!sel) continue;
+                sel.innerHTML = optionsHtml;
+                sel.value = defaultIndexes[slot] !== undefined ? defaultIndexes[slot] : slot;
+            }
+            updateSkiCompareChart();
+        }
+
+        function updateSkiCompareChart() {
+            if (typeof Chart === 'undefined' || !skiSnowMapResults.length) return;
+            const canvas = document.getElementById('skiCompareChart');
+            if (!canvas) return;
+            const colors = ['#d97736', '#2b6cb0', '#7048e8'];
+            const selectedIndexes = [0, 1, 2].map(slot => {
+                const sel = document.getElementById(`ski-compare-select-${slot}`);
+                const idx = sel ? parseInt(sel.value, 10) : NaN;
+                return Number.isInteger(idx) ? idx : null;
+            });
+
+            const datasets = selectedIndexes.map((idx, slot) => {
+                if (idx === null || !skiSnowMapResults[idx]) return null;
+                const s = skiSnowMapResults[idx];
+                return { label: s.name, data: s.dailyValues, backgroundColor: colors[slot], borderRadius: 4 };
+            }).filter(Boolean);
+
+            if (skiCompareChart) skiCompareChart.destroy();
+            skiCompareChart = new Chart(canvas.getContext('2d'), {
+                type: 'bar',
+                data: { labels: skiSnowMapDailyLabels, datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { font: { size: 9 }, color: '#5e706a' } },
+                        y: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 9 }, color: '#5e706a', callback: v => `${v}cm` } }
+                    }
+                }
+            });
+
+            const totalsEl = document.getElementById('ski-compare-totals');
+            if (totalsEl) {
+                totalsEl.innerHTML = selectedIndexes.map((idx, slot) => {
+                    if (idx === null || !skiSnowMapResults[idx]) return '';
+                    const s = skiSnowMapResults[idx];
+                    return `<span style="color:${colors[slot]}; font-weight:700;">${s.name}</span> : ${s.cumulCm > 0 ? s.cumulCm.toFixed(1) + ' cm' : 'aucune neige prévue'} sur ${SKI_SNOW_MAP_FORECAST_DAYS}j`;
+                }).filter(Boolean).join(' · ');
+            }
+        }
+
         // Liste de 322 stations balnéaires / plages officielles (littoral français + zones
         // frontalières proches : Belgique, Espagne, Italie), utilisée pour trouver rapidement les
         // stations proches sans dépendre d'une requête Overpass (celle-ci reste en repli si aucune
@@ -7589,8 +8592,14 @@ function updatePressureChart(dayIdx) {
                 const condMatin = wmoMap[weatherData.hourly.weather_code[start + 9] || 0] || wmoMap[0];
                 const condApres = wmoMap[weatherData.hourly.weather_code[start + 15] || 0] || wmoMap[0];
                 const temps = weatherData.hourly.temperature_2m.slice(start, start + 24);
-                const minT = Math.round(Math.min(...temps));
-                const maxT = Math.round(Math.max(...temps));
+                // Corrigé le 05/09/2026 : n'ajuster que le jour réellement analysé par
+                // analyzeLocalEffects() (microClimateAdjustments.dayIndex, généralement "Aujourd'hui")
+                // — pour les autres jours, aucune analyse relief/bâti n'a été calculée, on affiche
+                // donc sciemment la valeur modèle brute plutôt que d'inventer une correction.
+                const dayHourOffsets = Array.from({ length: temps.length }, (_, h) => h);
+                const adjustedDayTemps = applyMicroClimateToTemps(temps, dayHourOffsets, day);
+                const minT = Math.round(Math.min(...adjustedDayTemps));
+                const maxT = Math.round(Math.max(...adjustedDayTemps));
                 const rain = weatherData.hourly.rain ? weatherData.hourly.rain.slice(start, start + 24).reduce((a,b)=>a+(b||0),0).toFixed(1) : 0;
                 const windAvg = Math.round(weatherData.hourly.wind_speed_10m.slice(start, start + 24).reduce((a,b)=>a+b,0)/24);
                 const conf = calculateOpenMeteoConfidence(day);
