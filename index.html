@@ -2920,7 +2920,7 @@
                     <i class="fa-brands fa-android"></i>
                 </button>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 05/09/2026 - 22</div>
+            <div class="footer-last-update">Dernière mise à jour : 05/09/2026 - 23</div>
         </footer>
 
     </div>
@@ -3209,6 +3209,31 @@
         let currentLat = 45.1885;
         let currentLon = 5.7245;
         let currentPopulation = null; // population de la ville recherchée (geocoding Open-Meteo), utilisée pour l'estimation d'îlot de chaleur urbain — null si inconnue (GPS, clic carte)
+
+        // ---- Mémorisation du dernier lieu consulté (localStorage), pour redémarrer dessus à la
+        // prochaine visite plutôt que de revenir systématiquement sur Grenoble par défaut. "Ma
+        // position" (géolocalisation GPS) est volontairement EXCLUE de cette mémorisation : figer
+        // des coordonnées GPS d'une session précédente sous ce libellé générique serait trompeur au
+        // redémarrage (l'utilisateur croirait voir sa position actuelle). Repli silencieux si
+        // localStorage est indisponible (navigation privée...), comme pour la préférence
+        // micro-climat déjà gérée plus bas.
+        const LAST_LOCATION_KEY = 'metehop_last_location_v1';
+
+        function saveLastLocation(lat, lon, name, population) {
+            try {
+                localStorage.setItem(LAST_LOCATION_KEY, JSON.stringify({ lat, lon, name, population }));
+            } catch (e) { /* tant pis, préférence non persistée */ }
+        }
+
+        function loadLastLocation() {
+            try {
+                const raw = localStorage.getItem(LAST_LOCATION_KEY);
+                if (!raw) return null;
+                const obj = JSON.parse(raw);
+                if (typeof obj.lat === 'number' && typeof obj.lon === 'number' && typeof obj.name === 'string') return obj;
+            } catch (e) { /* donnée corrompue ou localStorage indisponible : repli sur le lieu par défaut */ }
+            return null;
+        }
         // ---- Relevé officiel Météo-France (réseau SYNOP) le plus proche, via Opendatasoft ----
         // Seuils au-delà desquels un avertissement est affiché à côté du relevé (voir
         // loadSynopStation()) : la station SYNOP la plus proche reste souvent lointaine (réseau
@@ -3554,6 +3579,14 @@
         // sur les coordonnées d'origine (sans population) si le géocodage échoue, pour ne jamais
         // bloquer le premier affichage.
         async function loadDefaultLocation() {
+            // Redémarre sur le dernier lieu réellement consulté (hors géolocalisation GPS, voir
+            // note sur LAST_LOCATION_KEY) s'il en existe un — pas de nouvel appel réseau nécessaire
+            // puisque lat/lon/nom sont déjà connus. Sinon, comportement historique : Grenoble.
+            const saved = loadLastLocation();
+            if (saved) {
+                await fetchWeather(saved.lat, saved.lon, saved.name, typeof saved.population === 'number' ? saved.population : null);
+                return;
+            }
             try {
                 const res = await fetchWithTimeout(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent('Grenoble')}&count=1&language=fr&format=json`, { timeout: 5000 });
                 const data = await res.json();
@@ -4225,6 +4258,7 @@
                 const res = await fetchWithTimeout(url, { timeout: 7000 });
                 if (!res.ok) throw new Error();
                 weatherData = await res.json();
+                if (locationName !== 'Ma position') saveLastLocation(lat, lon, locationName, population);
 
                 selectedDayIndex = 0;
                 renderCarousel();
