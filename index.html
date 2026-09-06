@@ -6502,6 +6502,12 @@
         // comme un seul bloc. Permet ensuite de suivre spécifiquement LA cellule la plus proche du
         // lieu recherché, sans que des systèmes sans rapport ailleurs dans le rayon ne faussent
         // l'estimation de trajectoire.
+        // Suivi de proximité d'orage (voir updateStormProximityBox) : en plus du centroïde
+        // géométrique déjà utilisé pour le suivi de trajectoire, on retient ici le pixel de plus
+        // forte réflectivité (dBZ) rencontré dans la cellule — le centroïde (moyenne de position
+        // de TOUS les pixels pluvieux connectés, faible intensité incluse) n'a aucune raison de
+        // tomber sur le cœur orageux d'une cellule étendue et hétérogène ; c'est ce pic, pas le
+        // centroïde, qui doit décider si "cette cellule contient un orage".
         function identifyRainCells(imgData, cx, cy, radiusPx) {
             const { data } = imgData;
             const visited = new Uint8Array(768 * 768);
@@ -6522,12 +6528,18 @@
                     const stack = [[sx, sy]];
                     visited[key] = 1;
                     let sumX = 0, sumY = 0, count = 0, maxAlpha = 0;
+                    let peakDbz = -Infinity, peakR = 0, peakG = 0, peakB = 0, peakAlpha = 0;
                     while (stack.length) {
                         const [x, y] = stack.pop();
                         const idx = (y * 768 + x) * 4;
                         const a = data[idx + 3];
                         sumX += x; sumY += y; count++;
                         if (a > maxAlpha) maxAlpha = a;
+                        const dbz = estimateDbzFromRgb(data[idx], data[idx + 1], data[idx + 2]);
+                        if (dbz > peakDbz) {
+                            peakDbz = dbz;
+                            peakR = data[idx]; peakG = data[idx + 1]; peakB = data[idx + 2]; peakAlpha = a;
+                        }
                         const neighbors = [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]];
                         for (const [nx, ny] of neighbors) {
                             if (nx < minX || nx >= maxX || ny < minY || ny >= maxY) continue;
@@ -6541,7 +6553,7 @@
                             stack.push([nx, ny]);
                         }
                     }
-                    if (count >= MIN_CELL_PIXELS) cells.push({ cx: sumX / count, cy: sumY / count, count, maxAlpha });
+                    if (count >= MIN_CELL_PIXELS) cells.push({ cx: sumX / count, cy: sumY / count, count, maxAlpha, peakR, peakG, peakB, peakAlpha });
                 }
             }
             return cells;
@@ -6714,6 +6726,27 @@
                 const times = imageDatas.map(f => f.time);
                 const track = trackCellBackward(cellFramesList, times, kmPerPixel, cx, cy);
 
+                // ---- Encart de proximité d'orage : calculé ICI, indépendamment du suivi de
+                // trajectoire multi-images ci-dessous (qui peut échouer — cellule qui vient d'entrer
+                // dans le cadre, scission/fusion de cellules, etc. — sans que cela signifie l'absence
+                // d'orage). On cherche simplement, dans la DERNIÈRE image radar uniquement, la cellule
+                // la plus proche dont le pixel de pointe (peakR/G/B, voir identifyRainCells) est de
+                // type orage/grêle, peu importe si sa trajectoire a pu être établie. Un orage
+                // littéralement sur la position (lecture directe du pixel courant) prime toujours.
+                let nearestStormKm = null;
+                if (clsNow.type === 'storm' || clsNow.type === 'hail') {
+                    nearestStormKm = 0;
+                } else {
+                    const lastFrameCells = cellFramesList[cellFramesList.length - 1] || [];
+                    for (const c of lastFrameCells) {
+                        const cCls = classifyRadarPixel(c.peakR, c.peakG, c.peakB, c.peakAlpha, isSnowMode);
+                        if (cCls.type !== 'storm' && cCls.type !== 'hail_candidate' && cCls.type !== 'hail') continue;
+                        const dKm = Math.round(Math.hypot(c.cx - cx, c.cy - cy) * kmPerPixel * 10) / 10;
+                        if (nearestStormKm === null || dKm < nearestStormKm) nearestStormKm = dKm;
+                    }
+                }
+                updateStormProximityBox(nearestStormKm);
+
                 if (track.length < 2) {
                     if (alreadyRaining) {
                         // On SAIT avec certitude qu'il pleut MAINTENANT (lecture directe du pixel sur
@@ -6739,9 +6772,6 @@
                         setEvoLoading('Estimation Metehop — pluie confirmée sur place, trajectoire future incertaine.');
                         metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === 'storm', hasSnow: clsNow.type === 'snow', etaMinutes: 0, confidence: 60 };
                         clearMetehopCellOnMap();
-                        // Orage/grêle littéralement sur la position (pas de suivi de trajectoire
-                        // fiable, mais la lecture directe du pixel actuel suffit ici) : distance nulle.
-                        updateStormProximityBox((clsNow.type === 'storm' || clsNow.type === 'hail') ? 0 : null);
                         renderVigilanceBanner().catch(() => {});
                         return;
                     }
@@ -6755,7 +6785,6 @@
                     setEvoLoading(`Estimation Metehop — pas de système pluvieux identifié à moins de ${METEHOP_RADIUS_KM}km.`);
                     metehopAnalysis = { hasHail: false, hasStorm: false, hasSnow: false, etaMinutes: null, confidence: dryConf[0] };
                     clearMetehopCellOnMap();
-                    updateStormProximityBox(null);
                     renderVigilanceBanner().catch(() => {});
                     return;
                 }
@@ -6782,17 +6811,6 @@
                 const speedKmh = Math.round(Math.sqrt(vx * vx + vy * vy) * kmPerPixel * 60 * 10) / 10;
                 const distanceToStormKm = Math.round(Math.hypot(lastCell.cx - cx, lastCell.cy - cy) * kmPerPixel * 10) / 10;
                 const cellCountPx = lastCell.count;
-
-                // Intensité ACTUELLE de la cellule suivie elle-même (pixel à son propre centroïde sur
-                // la dernière image radar) — distinct de la classification par tranche future ci-dessous,
-                // qui porte sur ce qui atteindra la position recherchée, pas sur la cellule en elle-même.
-                // Sert uniquement à l'encart de proximité d'orage (pas de vérification de surface grêle
-                // ici : le candidat grêle suffit à qualifier "orageux" pour cet encart).
-                const lastCellPxIdx = (Math.round(Math.min(767, Math.max(0, lastCell.cy))) * 768 + Math.round(Math.min(767, Math.max(0, lastCell.cx)))) * 4;
-                const lastCellCls = classifyRadarPixel(
-                    lastImg.data[lastCellPxIdx], lastImg.data[lastCellPxIdx + 1], lastImg.data[lastCellPxIdx + 2], lastImg.data[lastCellPxIdx + 3], isSnowMode
-                );
-                const trackedCellIsStormy = lastCellCls.type === 'storm' || lastCellCls.type === 'hail_candidate' || lastCellCls.type === 'hail';
 
                 // Pour chaque pas de 10 minutes, on regarde quel pixel de la dernière image
                 // "arrivera" sur le lieu recherché en remontant le masque de pluie le long de la
@@ -6891,7 +6909,6 @@
                 // en plus des seuils déjà calculés à partir des prévisions.
                 const avgConfidence = Math.round(confidence.slice(0, 12).reduce((a, b) => a + b, 0) / Math.min(12, confidence.length));
                 metehopAnalysis = { hasHail, hasStorm, hasSnow: hasSnowBin, etaMinutes, confidence: avgConfidence };
-                updateStormProximityBox(trackedCellIsStormy ? distanceToStormKm : null);
                 renderVigilanceBanner().catch(() => {});
 
             } catch (e) {
