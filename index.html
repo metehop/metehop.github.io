@@ -3114,7 +3114,7 @@
             <div class="footer-support-row">
                 <a class="footer-support-link" href="https://buymeacoffee.com/stridemetric" target="_blank" rel="noopener">🐸 Aide-moi à nourrir la grenouille Metehop</a>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 06/09/2026 - 45</div>
+            <div class="footer-last-update">Dernière mise à jour : 06/09/2026 - 46</div>
         </footer>
 
     </div>
@@ -5691,7 +5691,12 @@
             // 1. Stations de ski/plage déjà connues (données synchrones, aucun appel réseau) :
             // source la plus fiable, on prend les 6 plus proches de chaque type (corrigé le
             // 06/09/2026, auparavant limité à 3), chacune dans sa propre grille (ski ou plage).
-            const nearbySki = (typeof findNearbySkiStations === 'function' ? findNearbySkiStations(lat, lon, 60) : []).slice(0, 6);
+            // Corrigé le 06/09/2026 (sur demande, cas Grenoble) : 8 stations au lieu de 6. Les 7 Laux
+            // (avec sa tuile spéciale lessetlo.com, voir WEBCAM_STATION_EXTRA_TILES) est la 7e station
+            // la plus proche de Grenoble (~22km, juste derrière Villard-de-Lans à ~19km) — elle
+            // n'apparaissait donc jamais dans l'ancien seuil de 6. Générique plutôt que Grenoble
+            // uniquement : cohérent avec le reste de la fonction, entièrement basée sur la distance.
+            const nearbySki = (typeof findNearbySkiStations === 'function' ? findNearbySkiStations(lat, lon, 60) : []).slice(0, 8);
             const nearbyBeach = (typeof findNearbyBeachStations === 'function' ? findNearbyBeachStations(lat, lon, 50) : []).slice(0, 6);
 
             // 2. Bonus OpenStreetMap (Overpass API, gratuit et sans clé) : rare mais quand ça
