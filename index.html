@@ -3042,7 +3042,7 @@
                     <i class="fa-brands fa-android"></i>
                 </button>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 05/09/2026 - 32</div>
+            <div class="footer-last-update">Dernière mise à jour : 06/09/2026 - 36</div>
         </footer>
 
     </div>
@@ -4487,6 +4487,11 @@
             currentLat = lat;
             currentLon = lon;
             currentPopulation = population;
+            // Les signaux géo micro-climat (relief/bâti/cours d'eau) sont propres à un LIEU : un
+            // changement de lieu doit les invalider, sinon une réactivation ultérieure du toggle
+            // pourrait réutiliser par erreur les signaux de l'ancien lieu (voir onMicroClimateToggleChange).
+            microClimateGeoSignals = null;
+            microClimateDayCache = {};
             document.getElementById('title').innerText = locationName;
             document.getElementById('radar-sub-location').innerText = `${locationName} et alentours`;
             
@@ -4835,7 +4840,19 @@
         // recherché, qu'on ne veut pas déclencher sans consentement explicite de l'utilisateur.
         // ============================================================================
         let microClimateEnabled = false;
-        let microClimateAdjustments = null; // { dayIndex, valley:{active,deltaC,startH,endH}, uhi:{...} } — voir analyzeLocalEffects()
+        // Corrigé le 05/09/2026 : l'ancienne variable unique `microClimateAdjustments` ne portait
+        // l'ajustement que pour UN SEUL jour (celui analysé au moment de l'appel réseau), d'où deux bugs
+        // signalés : (1) les effets locaux ne se recalculaient pas en changeant de jour de consultation
+        // (le jour affiché ne correspondait plus à `dayIndex`, microClimateDeltaAtHour renvoyait alors
+        // un delta nul sans le signaler), et (2) le tableau 16 jours n'affichait quasi jamais
+        // l'ajustement (un seul jour sur 16 pouvait en bénéficier, et le tableau n'était de toute façon
+        // jamais re-rendu une fois l'analyse terminée). Nouvelle approche : on sépare les SIGNAUX GÉO
+        // (relief, bâti, cours d'eau, population), qui ne dépendent que du LIEU et nécessitent le réseau
+        // (Overpass/élévation), des AJUSTEMENTS PAR JOUR (favorabilité météo, delta °C), qui ne dépendent
+        // que de weatherData déjà en mémoire et se calculent donc instantanément pour n'importe quel
+        // jour, sans nouvel appel réseau — voir fetchMicroClimateGeoSignals() / getMicroClimateAdjustmentsForDay().
+        let microClimateGeoSignals = null; // { reliefIndex, reliefRadiusKm, buildingCount, nearestWater, resolvedPopulation } — un seul jeu de signaux pour le lieu courant
+        let microClimateDayCache = {}; // { [dayIndex]: ajustements déjà calculés pour ce jour } — mémoïsation, vidée à chaque nouveau jeu de signaux (nouveau lieu ou nouvelle analyse)
         try {
             // Clé renommée (_v2) le 04/09/2026 : une préférence "activé" enregistrée avant l'introduction
             // du défaut "désactivé" ne doit pas silencieusement contourner ce nouveau défaut. Toute
@@ -4873,14 +4890,25 @@
             return 1 - smoothstep01(endH, fallEnd, hourOfDay);
         }
 
+        // Renvoie les ajustements (valley/uhi/chips) pour un jour donné, en calculant à la demande à
+        // partir des signaux géo déjà en cache (aucun appel réseau ici) et en mémoïsant le résultat.
+        // Renvoie null si le micro-climat est désactivé, si les signaux du lieu ne sont pas encore
+        // disponibles, ou si aucun effet local n'a été détecté pour ce lieu (voir computeMicroClimateDayEffects).
+        function getMicroClimateAdjustmentsForDay(dayIdx) {
+            if (!microClimateEnabled || !microClimateGeoSignals) return null;
+            if (Object.prototype.hasOwnProperty.call(microClimateDayCache, dayIdx)) return microClimateDayCache[dayIdx];
+            const result = computeMicroClimateDayEffects(dayIdx, microClimateGeoSignals);
+            microClimateDayCache[dayIdx] = result;
+            return result;
+        }
+
         // Renvoie { delta, icon, source } pour une heure du jour donnée (0-23), lissé en entrée/sortie
-        // de fenêtre. `forDayIdx` doit correspondre au jour pour lequel microClimateAdjustments a été
-        // calculé (analyzeLocalEffects) ; sinon aucun ajustement n'est appliqué.
+        // de fenêtre. `forDayIdx` peut être n'importe quel jour de la prévision (0-15) : l'ajustement
+        // est recalculé au besoin pour ce jour précis, voir getMicroClimateAdjustmentsForDay() ci-dessus.
         function microClimateDeltaAtHour(hourOfDay, forDayIdx) {
-            if (!microClimateEnabled || !microClimateAdjustments || microClimateAdjustments.dayIndex !== forDayIdx) {
-                return { delta: 0, icon: null, source: null };
-            }
-            const v = microClimateAdjustments.valley, u = microClimateAdjustments.uhi;
+            const adj = getMicroClimateAdjustmentsForDay(forDayIdx);
+            if (!adj) return { delta: 0, icon: null, source: null };
+            const v = adj.valley, u = adj.uhi;
             let delta = 0, icon = null, source = null;
             if (v && v.active) {
                 const w = microClimateWindowWeight(hourOfDay, v.startH, v.endH, MICRO_CLIMATE_TRANSITION_H);
@@ -4924,7 +4952,12 @@
             try { localStorage.setItem('metehop_microclimate_enabled_v2', String(microClimateEnabled)); } catch (e) { /* tant pis, préférence non persistée */ }
 
             if (microClimateEnabled) {
-                if (currentLat !== null && currentLon !== null) {
+                if (microClimateGeoSignals) {
+                    // Signaux déjà en cache pour le lieu courant (ex. toggle désactivé puis réactivé
+                    // sans changer de lieu entretemps) : pas besoin de refaire les appels réseau.
+                    updateDayView(selectedDayIndex);
+                    if (weatherData) { render16DayTable(); renderCarousel(); }
+                } else if (currentLat !== null && currentLon !== null) {
                     analyzeLocalEffects(currentLat, currentLon, currentPopulation).catch(() => {
                         document.getElementById('local-effects-note').innerText = "Analyse indisponible pour le moment.";
                         document.getElementById('local-effects-list').innerHTML = '';
@@ -4932,10 +4965,18 @@
                 }
             } else {
                 localEffectsRequestToken++; // annule une éventuelle analyse en cours
-                microClimateAdjustments = null;
+                // Les signaux géo (microClimateGeoSignals) sont volontairement CONSERVÉS en cache : ils
+                // ne dépendent que du lieu, pas de l'état du bouton, donc une réactivation immédiate n'a
+                // pas besoin de refaire les appels réseau (élévation/Overpass). Seul le cache par jour
+                // est vidé par précaution (sans effet pratique tant que microClimateEnabled est faux,
+                // puisque getMicroClimateAdjustmentsForDay renvoie null dans ce cas).
+                microClimateDayCache = {};
                 document.getElementById('local-effects-note').innerText = MICRO_CLIMATE_DISABLED_TEXT;
                 document.getElementById('local-effects-list').innerHTML = '';
                 if (currentLat !== null) updateDayView(selectedDayIndex); // revient aux valeurs modèle brutes
+                // Corrigé le 05/09/2026 (tableau) puis 06/09/2026 (carrousel) : ni l'un ni l'autre
+                // n'étaient re-rendus à la désactivation du micro-climat.
+                if (weatherData) { render16DayTable(); renderCarousel(); }
             }
         }
 
@@ -4976,13 +5017,11 @@
         // ============================================================================
         let localEffectsRequestToken = 0; // évite qu'une requête pour un lieu obsolète n'écrase l'affichage d'un lieu plus récent
 
-        async function analyzeLocalEffects(lat, lon, population) {
-            const myToken = ++localEffectsRequestToken;
-            const note = document.getElementById('local-effects-note');
-            const list = document.getElementById('local-effects-list');
-            note.innerText = 'Analyse du relief et du bâti local...';
-            list.innerHTML = '';
-
+        // Récupère les signaux géo (relief, bâti, cours d'eau, population) pour un LIEU — nécessite le
+        // réseau (élévation Open-Meteo + Overpass), donc appelé UNE SEULE FOIS par lieu (voir
+        // analyzeLocalEffects ci-dessous), jamais par jour. Le calcul des ajustements pour un jour
+        // donné à partir de ces signaux est entièrement séparé, voir computeMicroClimateDayEffects().
+        async function fetchMicroClimateGeoSignals(lat, lon, population) {
             // ---- 1. RELIEF : deux anneaux de 8 points (2km ET 6km) + centre, un seul appel API ----
             // Un seul rayon de 2km s'est révélé insuffisant pour détecter des vallées larges (ex.
             // Grésivaudan, plusieurs km de large à plat en fond de vallée avant que les premiers
@@ -5085,13 +5124,24 @@
                 } catch (e) { /* population de repli indisponible : uniquement l'indicateur de densité bâtie */ }
             }
 
-            if (myToken !== localEffectsRequestToken) return; // un lieu plus récent a été recherché entre-temps
+            return { reliefIndex, reliefRadiusKm, buildingCount, nearestWater, resolvedPopulation };
+        }
+
+        // Calcule, à PARTIR DE SIGNAUX DÉJÀ CONNUS (aucun réseau ici), les ajustements micro-climat
+        // pour un jour précis de la prévision (dayIdx, 0 = aujourd'hui à 15). Les signaux structurels
+        // (relief détecté, densité bâtie, cours d'eau, population) sont les mêmes quel que soit le
+        // jour ; seule la FAVORABILITÉ (nuage/vent prévus CE jour-là) et donc le delta °C varient d'un
+        // jour à l'autre — c'est ce qui permet au tableau 16j comme au changement de jour de refléter
+        // correctement l'option micro-climat sans refaire un seul appel réseau. Renvoie null si aucun
+        // effet local n'est détecté pour ce lieu (résultat alors identique quel que soit dayIdx).
+        function computeMicroClimateDayEffects(dayIdx, signals) {
+            const { reliefIndex, buildingCount, nearestWater, resolvedPopulation } = signals;
 
             // ---- Construction des messages, croisés avec les conditions prévues réelles (jamais
             // un chiffre inventé : uniquement pour moduler le texte d'avertissement) ----
             function hoursConditionsFavorable(startH, endH) {
                 if (!weatherData || !weatherData.hourly) return null;
-                const dayStart = selectedDayIndex * 24;
+                const dayStart = dayIdx * 24;
                 let cloudSum = 0, windSum = 0, n = 0;
                 for (let h = startH; h <= endH; h++) {
                     const idx = dayStart + h;
@@ -5223,11 +5273,8 @@
                 uhiDeltaC = Math.round(uhiDeltaC * UHI_VALLEY_AMPLIFICATION * 10) / 10;
             }
 
-            microClimateAdjustments = {
-                dayIndex: selectedDayIndex,
-                valley: { active: valleyFavorable, deltaC: valleyDeltaC, startH: 5, endH: 9 },
-                uhi: { active: uhiFavorable, deltaC: uhiDeltaC, startH: 14, endH: 18 }
-            };
+            const valley = { active: valleyFavorable, deltaC: valleyDeltaC, startH: 5, endH: 9 };
+            const uhi = { active: uhiFavorable, deltaC: uhiDeltaC, startH: 14, endH: 18 };
 
             // 3. Cours d'eau / plan d'eau proche (effet non chiffré dans les ajustements ci-dessus,
             // simple signalement)
@@ -5253,25 +5300,65 @@
                 chips.push({ emoji: '🌊', alert: false, label: 'Cours d\'eau / plan d\'eau proche (effet modérateur)' });
             }
 
-            if (!chips.length) {
-                microClimateAdjustments = null; // rien à ajuster : ni relief ni bâti significatifs détectés
-                note.innerText = "Aucun effet local détecté aujourd'hui.";
+            if (!chips.length) return null; // rien à ajuster : ni relief ni bâti significatifs détectés à cet endroit
+
+            return { valley, uhi, chips, waterDetected };
+        }
+
+        // Met à jour l'encart "Effets locaux" (note + puces) pour le jour donné, à partir du cache —
+        // AUCUN réseau ici, peut donc être appelé à chaque changement de jour (voir updateDayView) sans
+        // coût perceptible. Corrigé le 05/09/2026 : c'est cet appel, absent du changement de jour
+        // jusqu'ici, qui manquait pour que l'encart se recalcule en passant d'un jour à l'autre.
+        function renderLocalEffectsPanel(dayIdx) {
+            const note = document.getElementById('local-effects-note');
+            const list = document.getElementById('local-effects-list');
+            if (!microClimateEnabled) {
+                note.innerText = MICRO_CLIMATE_DISABLED_TEXT;
                 list.innerHTML = '';
                 return;
             }
-
+            if (!microClimateGeoSignals) {
+                note.innerText = 'Analyse du relief et du bâti local...';
+                list.innerHTML = '';
+                return;
+            }
+            const adj = getMicroClimateAdjustmentsForDay(dayIdx);
+            if (!adj) {
+                note.innerText = "Aucun effet local détecté pour ce jour.";
+                list.innerHTML = '';
+                return;
+            }
             note.innerText = "Effets locaux détectés pour ce jour :";
-            list.innerHTML = chips.map(c => `
+            list.innerHTML = adj.chips.map(c => `
                 <div class="local-effect-chip${c.alert ? ' alert' : ''}">
                     <span class="local-effect-emoji">${c.emoji}</span>
                     <span>${c.label}</span>
                 </div>
             `).join('');
-
-            // Rafraîchit l'affichage (bandeau, rangée horaire, min/max et graphiques) pour appliquer
-            // immédiatement les ajustements ci-dessus, sans attendre une autre action de l'utilisateur.
-            if (selectedDayIndex === microClimateAdjustments.dayIndex) updateDayView(selectedDayIndex);
         }
+
+        async function analyzeLocalEffects(lat, lon, population) {
+            const myToken = ++localEffectsRequestToken;
+            document.getElementById('local-effects-note').innerText = 'Analyse du relief et du bâti local...';
+            document.getElementById('local-effects-list').innerHTML = '';
+
+            const signals = await fetchMicroClimateGeoSignals(lat, lon, population);
+
+            if (myToken !== localEffectsRequestToken) return; // un lieu plus récent a été recherché entre-temps
+
+            microClimateGeoSignals = signals;
+            microClimateDayCache = {}; // nouveaux signaux : invalide les ajustements par jour précédemment mis en cache
+
+            // Rafraîchit l'affichage (encart effets locaux, bandeau, rangée horaire, min/max,
+            // graphiques, tableau 16j ET carrousel "Explorer la journée") pour appliquer immédiatement
+            // les ajustements ci-dessus sur TOUS les jours concernés, sans attendre une autre action de
+            // l'utilisateur. Corrigé le 05/09/2026 (tableau 16j) puis 06/09/2026 (carrousel) : ni l'un
+            // ni l'autre n'étaient auparavant re-rendus à ce stade.
+            updateDayView(selectedDayIndex);
+            render16DayTable();
+            renderCarousel();
+        }
+
 
         async function fetchExtraLocalData(lat, lon, locationName) {
             // Réinitialisation des affichages
@@ -6515,12 +6602,23 @@
                 const dateStr = d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
                 const start = idx * 24;
                 const temps = weatherData.hourly.temperature_2m.slice(start, start + 24);
-                const maxT = Math.round(Math.max(...temps));
+                // Corrigé le 06/09/2026 : ce carrousel ("Explorer la journée") affichait toujours le
+                // maximum BRUT du modèle, jamais ajusté par le micro-climat — et n'était de toute façon
+                // jamais reconstruit une fois l'analyse micro-climat terminée (voir analyzeLocalEffects
+                // / onMicroClimateToggleChange, qui appellent désormais renderCarousel() comme
+                // render16DayTable()). Même logique par jour que le tableau 16j : voir
+                // computeMicroClimateDayEffects() / getMicroClimateAdjustmentsForDay().
+                const hourOffsetsCarousel = Array.from({ length: temps.length }, (_, h) => h);
+                const adjustedTemps = applyMicroClimateToTemps(temps, hourOffsetsCarousel, idx);
+                const maxT = Math.round(Math.max(...adjustedTemps));
                 const code = weatherData.hourly.weather_code[start + 12] || 0;
                 const cond = wmoMap[code] || wmoMap[0];
 
                 const tab = document.createElement('div');
-                tab.className = `day-tab ${idx === 0 ? 'active' : ''}`;
+                // Corrigé le 06/09/2026 : reconstruire ce carrousel après coup (nouvel ajustement
+                // micro-climat) ne doit pas réinitialiser la sélection sur "Aujourd'hui" si un autre
+                // jour est déjà affiché — on se cale donc sur selectedDayIndex, pas sur idx === 0.
+                tab.className = `day-tab ${idx === selectedDayIndex ? 'active' : ''}`;
                 tab.onclick = () => {
                     document.querySelectorAll('.day-tab').forEach(t => t.classList.remove('active'));
                     tab.classList.add('active');
@@ -6541,6 +6639,12 @@
 
         function updateDayView(dayIdx) {
             selectedDayIndex = dayIdx;
+            // Corrigé le 05/09/2026 : l'encart "Effets locaux" ne se recalculait pas en changeant de
+            // jour tant que le toggle micro-climat restait activé (il restait figé sur le jour analysé
+            // au moment de l'activation). renderLocalEffectsPanel() ne fait aucun appel réseau — elle
+            // relit simplement les signaux déjà en cache pour ce lieu — donc l'appeler à chaque
+            // changement de jour est sans coût perceptible.
+            renderLocalEffectsPanel(dayIdx);
             const start = dayIdx * 24;
             const end = start + 24;
             const now = new Date();
@@ -6551,12 +6655,8 @@
             let currentHourIdx = start + 12;
             if (dayIdx === 0) currentHourIdx = start + now.getHours();
 
-            // Corrigé le 05/09/2026 : cette valeur, le chiffre principal du bandeau, n'appliquait
-            // pas l'ajustement micro-climat alors que le MIN/MAX juste en dessous (day-tmin/day-tmax,
-            // voir plus bas) l'applique déjà — incohérence entre deux valeurs affichées côte à côte.
             const rawCurrentTemp = weatherData.hourly.temperature_2m[currentHourIdx] ?? weatherData.hourly.temperature_2m[start + 12];
             const currentHourOfDay = (dayIdx === 0) ? now.getHours() : 12;
-            const currentTemp = Math.round(rawCurrentTemp + microClimateDeltaAtHour(currentHourOfDay, dayIdx).delta);
             const currentCode = weatherData.hourly.weather_code[currentHourIdx] || 0;
             const cond = wmoMap[currentCode] || wmoMap[0];
             const isDayNow = weatherData.hourly.is_day ? weatherData.hourly.is_day[currentHourIdx] : 1;
@@ -6575,14 +6675,26 @@
             // mémoire, uniquement ce qui est montré à l'écran, avec badge et infobulle rappelant la
             // valeur modèle d'origine. Lissage : voir MICRO_CLIMATE_TRANSITION_H, pour ne jamais
             // produire de saut brutal de température d'une heure à l'autre.
+            //
+            // Corrigé le 06/09/2026 : `currentHourOfDay` (utilisé ci-dessus) et `hourOfDay` (calculé
+            // juste en dessous) désignent en réalité TOUJOURS la même heure — ce sont deux expressions
+            // équivalentes de la même valeur, jamais deux heures différentes. Le code appelait pourtant
+            // microClimateDeltaAtHour() une première fois pour construire `currentTemp` (avec le delta
+            // déjà additionné), PUIS une seconde fois pour `displayTemp` en additionnant ENCORE le
+            // même delta à `currentTemp` — la correction micro-climat du bandeau "météo maintenant"
+            // était donc systématiquement comptée deux fois, ce qui la rendait incohérente avec la
+            // rangée heure par heure juste en dessous (qui n'applique le delta qu'une fois). Un seul
+            // appel à microClimateDeltaAtHour() est désormais fait, son résultat servant à la fois pour
+            // la température affichée et pour le badge/l'infobulle.
             const hourOfDay = currentHourIdx - start;
             const heroMc = microClimateDeltaAtHour(hourOfDay, dayIdx);
-            let displayTemp = Math.round(currentTemp + heroMc.delta);
+            const modelTemp = Math.round(rawCurrentTemp); // valeur modèle brute (jamais ajustée), pour l'infobulle
+            let displayTemp = Math.round(rawCurrentTemp + heroMc.delta); // valeur affichée : ajustement appliqué une seule fois
             const microBadgeEl = document.getElementById('hero-microclimate-badge');
             let microBadgeInfo = null;
             if (heroMc.delta !== 0 && heroMc.icon) {
                 const sourceLabel = heroMc.source === 'valley' ? 'fond de vallée' : 'îlot de chaleur urbain';
-                microBadgeInfo = { icon: heroMc.icon, title: `Ajusté micro-climat : ${heroMc.delta > 0 ? '+' : ''}${heroMc.delta}°C (${sourceLabel}) — modèle : ${currentTemp}°C` };
+                microBadgeInfo = { icon: heroMc.icon, title: `Ajusté micro-climat : ${heroMc.delta > 0 ? '+' : ''}${heroMc.delta}°C (${sourceLabel}) — modèle : ${modelTemp}°C` };
             }
 
             document.getElementById('hero-temp-val').innerText = `${displayTemp}°C`;
@@ -6827,7 +6939,8 @@
             // détecté et activé pour ce jour — voir microClimateDeltaAtHour().
             const hourOffsets = Array.from({ length: rawTemps.length }, (_, h) => h);
             const temps = applyMicroClimateToTemps(rawTemps, hourOffsets, dayIdx);
-            const microClimateActiveToday = microClimateEnabled && microClimateAdjustments && microClimateAdjustments.dayIndex === dayIdx && (microClimateAdjustments.valley.active || microClimateAdjustments.uhi.active);
+            const microClimateActiveTodayAdj = getMicroClimateAdjustmentsForDay(dayIdx);
+            const microClimateActiveToday = !!(microClimateActiveTodayAdj && (microClimateActiveTodayAdj.valley.active || microClimateActiveTodayAdj.uhi.active));
 
             document.getElementById('chart-max-label').innerText = `${Math.round(Math.max(...temps))}° pic journalier`;
             const chartSubEl = document.getElementById('chart-sub-text');
@@ -6916,7 +7029,8 @@
             // (0-23h) de chaque point plutôt que sa simple position dans le tableau.
             const nightHourOffsets = nightTimes.map(t => parseInt(t.split('T')[1].substring(0, 2), 10));
             const temps = applyMicroClimateToTemps(rawTemps, nightHourOffsets, dayIdx);
-            const microClimateActiveTonight = microClimateEnabled && microClimateAdjustments && microClimateAdjustments.dayIndex === dayIdx && (microClimateAdjustments.valley.active || microClimateAdjustments.uhi.active);
+            const microClimateActiveTonightAdj = getMicroClimateAdjustmentsForDay(dayIdx);
+            const microClimateActiveTonight = !!(microClimateActiveTonightAdj && (microClimateActiveTonightAdj.valley.active || microClimateActiveTonightAdj.uhi.active));
             const clouds = weatherData.hourly.cloud_cover ? weatherData.hourly.cloud_cover.slice(startIdx, endIdx) : [];
 
             document.getElementById('astro-chart-sub').innerText = `Conditions de ${sunsetHour}h00 à ${sunriseHour}h00` + (microClimateActiveTonight ? ' · ajusté micro-climat' : '');
@@ -7264,7 +7378,8 @@ function updatePressureChart(dayIdx) {
             // Température ajustée de l'effet micro-climat (lissé) si détecté et activé pour ce jour.
             const hourOffsetsPressure = Array.from({ length: rawTemps.length }, (_, h) => h);
             const temps = applyMicroClimateToTemps(rawTemps, hourOffsetsPressure, dayIdx);
-            const microClimateActiveTodayPressure = microClimateEnabled && microClimateAdjustments && microClimateAdjustments.dayIndex === dayIdx && (microClimateAdjustments.valley.active || microClimateAdjustments.uhi.active);
+            const microClimateActiveTodayPressureAdj = getMicroClimateAdjustmentsForDay(dayIdx);
+            const microClimateActiveTodayPressure = !!(microClimateActiveTodayPressureAdj && (microClimateActiveTodayPressureAdj.valley.active || microClimateActiveTodayPressureAdj.uhi.active));
             const humidity = weatherData.hourly.relative_humidity_2m ? weatherData.hourly.relative_humidity_2m.slice(start, end) : new Array(24).fill(60);
             const dewPoints = weatherData.hourly.dew_point_2m ? weatherData.hourly.dew_point_2m.slice(start, end) : temps.map((t, i) => t - ((100 - humidity[i]) / 5));
 
@@ -7421,31 +7536,26 @@ function updatePressureChart(dayIdx) {
         // lui-même (Anomaly = Prévision - Climatologie du modèle), pas recalculées par l'app.
         let seasonalApiChart = null;
 
-        // Seuils propres à l'échelle MENSUELLE (une anomalie de +2°C sur une MOYENNE mensuelle est
-        // déjà un signal fort — très différent de l'échelle "16 jours" utilisée par
-        // classifyThermalAnomaly, qui compare des extrêmes journaliers). Même code couleur que
-        // l'encart "Anomalies météo détectées", seuils recalibrés pour cette échelle de temps.
+        // Corrigé le 06/09/2026 (sur demande) : plus de catégorie "Normale" (verte) pour les écarts
+        // proches de zéro — chaque mois est désormais classé strictement par SIGNE (chaud/froid),
+        // même pour un écart minime, seuls les seuils "vague de chaleur/froid" restent des paliers à
+        // part pour les écarts déjà marqués.
         function classifyMonthlyThermalAnomaly(tempAnomaly) {
             if (typeof tempAnomaly !== 'number') return null;
             if (tempAnomaly >= 2) return { label: 'Vague de chaleur', color: '#dc2626' };
-            if (tempAnomaly >= 0.8) return { label: 'Anomalie thermique positive', color: '#f97316' };
+            if (tempAnomaly >= 0) return { label: 'Anomalie thermique positive', color: '#f97316' };
             if (tempAnomaly <= -2) return { label: 'Vague de froid', color: '#1d4ed8' };
-            if (tempAnomaly <= -0.8) return { label: 'Anomalie thermique négative', color: '#60a5fa' };
-            return { label: 'Normale', color: '#16a34a' };
+            return { label: 'Anomalie thermique négative', color: '#60a5fa' };
         }
 
-        // Seuil fixe (mm cumulés sur le mois, plus parlant qu'un taux journalier) au-delà duquel on
-        // considère un excédent ou un déficit pluviométrique — pas de catégorie "Normale" ici,
-        // contrairement à la température : un écart de pluie en dessous du seuil n'est pas assez
-        // significatif pour être qualifié dans un sens ou dans l'autre, il reste donc simplement
-        // non classé (barre neutre, sans la couleur verte utilisée pour la température).
-        const HYDRIC_ANOMALY_THRESHOLD_MM = 10;
+        // Corrigé le 06/09/2026 (sur demande) : même logique que pour la température — plus de barre
+        // neutre/grise en dessous du seuil, chaque mois est classé par signe (excédent/déficit) même
+        // pour un écart minime. L'ancien seuil HYDRIC_ANOMALY_THRESHOLD_MM (10mm) n'est plus utilisé.
         function classifyMonthlyHydricAnomaly(pAnomMmPerDay, daysInMonth) {
             if (typeof pAnomMmPerDay !== 'number') return null;
             const monthlyTotalAnomaly = pAnomMmPerDay * (daysInMonth || 30);
-            if (monthlyTotalAnomaly >= HYDRIC_ANOMALY_THRESHOLD_MM) return { label: 'Excédent pluviométrique', color: '#0284c7' };
-            if (monthlyTotalAnomaly <= -HYDRIC_ANOMALY_THRESHOLD_MM) return { label: 'Déficit pluviométrique', color: '#ca8a04' };
-            return null;
+            if (monthlyTotalAnomaly >= 0) return { label: 'Excédent pluviométrique', color: '#0284c7' };
+            return { label: 'Déficit pluviométrique', color: '#ca8a04' };
         }
 
         async function loadSeasonalForecastAPI(lat, lon) {
@@ -9720,10 +9830,12 @@ function updatePressureChart(dayIdx) {
                 const condMatin = wmoMap[weatherData.hourly.weather_code[start + 9] || 0] || wmoMap[0];
                 const condApres = wmoMap[weatherData.hourly.weather_code[start + 15] || 0] || wmoMap[0];
                 const temps = weatherData.hourly.temperature_2m.slice(start, start + 24);
-                // Corrigé le 05/09/2026 : n'ajuster que le jour réellement analysé par
-                // analyzeLocalEffects() (microClimateAdjustments.dayIndex, généralement "Aujourd'hui")
-                // — pour les autres jours, aucune analyse relief/bâti n'a été calculée, on affiche
-                // donc sciemment la valeur modèle brute plutôt que d'inventer une correction.
+                // Corrigé le 05/09/2026 : chaque jour du tableau applique désormais SON PROPRE
+                // ajustement micro-climat (favorabilité météo ce jour-là), et non plus uniquement
+                // celui du jour analysé au moment de l'appel réseau — voir
+                // computeMicroClimateDayEffects() / getMicroClimateAdjustmentsForDay(). Les signaux
+                // structurels (relief, bâti, cours d'eau) restent, eux, les mêmes pour tout le lieu ;
+                // seule leur favorabilité varie jour par jour, sans nouvel appel réseau.
                 const dayHourOffsets = Array.from({ length: temps.length }, (_, h) => h);
                 const adjustedDayTemps = applyMicroClimateToTemps(temps, dayHourOffsets, day);
                 const minT = Math.round(Math.min(...adjustedDayTemps));
