@@ -1031,6 +1031,40 @@
             margin-top: 10px;
         }
 
+        /* Lien de soutien (Buy Me a Coffee) : bien visible, vert, avec une petite animation
+           d'agitation périodique pour attirer l'œil sans être agaçante en continu — l'agitation ne
+           se déclenche que quelques instants toutes les quelques secondes (voir footer-support-wiggle),
+           pas un tremblement permanent. Respecte prefers-reduced-motion (aucune animation dans ce cas). */
+        .footer-support-row {
+            text-align: center;
+            margin-top: 12px;
+        }
+        .footer-support-link {
+            display: inline-block;
+            color: var(--accent-green);
+            font-weight: 700;
+            font-size: 0.85rem;
+            text-decoration: none;
+            border-bottom: 2px solid var(--accent-green);
+            padding-bottom: 1px;
+            animation: footer-support-wiggle 4.5s ease-in-out infinite;
+        }
+        .footer-support-link:hover {
+            text-decoration: none;
+            opacity: 0.85;
+        }
+        @keyframes footer-support-wiggle {
+            0%, 82%, 100% { transform: rotate(0deg); }
+            84% { transform: rotate(-4deg); }
+            86% { transform: rotate(4deg); }
+            88% { transform: rotate(-3deg); }
+            90% { transform: rotate(3deg); }
+            92% { transform: rotate(0deg); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .footer-support-link { animation: none; }
+        }
+
         .install-modal-overlay {
             display: none;
             position: fixed;
@@ -3068,7 +3102,10 @@
                     <i class="fa-brands fa-android"></i>
                 </button>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 06/09/2026 - 39</div>
+            <div class="footer-support-row">
+                <a class="footer-support-link" href="https://buymeacoffee.com/stridemetric" target="_blank" rel="noopener">🐸 Aide-moi à nourrir la grenouille Metehop</a>
+            </div>
+            <div class="footer-last-update">Dernière mise à jour : 06/09/2026 - 40</div>
         </footer>
 
     </div>
