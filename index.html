@@ -3740,7 +3740,7 @@
         // ---- Suivi de proximité d'orage (encart sous "Évolution des 3 prochaines heures") ----
         // Rayon en deçà duquel une cellule orageuse (ou grêle) suivie déclenche l'encart et le
         // passage à une actualisation accélérée (1 min au lieu de 5 min habituelles).
-        const STORM_PROXIMITY_KM = 10;
+        const STORM_PROXIMITY_KM = 15;
         const STORM_PROXIMITY_REFRESH_MS = 60 * 1000;
         let stormNearbyActive = false;
 
@@ -6156,6 +6156,15 @@
         const EVO_BIN_MINUTES = 10;
         const EVO_BIN_COUNT = 18; // 3h par tranches de 10 minutes
 
+        // Harmonisation des unités entre les barres radar (Metehop) et le contour du modèle
+        // météo superposé : le radar estime un DÉBIT instantané (mm/h, via dBZ) tandis que le
+        // modèle répartit un total HORAIRE en 6 tranches de 10 min (une vraie accumulation). Pour
+        // que les deux séries soient comparables sur le même axe, tout débit radar (mmEquiv,
+        // exprimé en mm/h en interne — seuils de classification, plafond grêle, valeurs de repli
+        // TYPE_INTENSITY_FALLBACK, etc. restent en mm/h) est converti en "mm tombés durant cette
+        // tranche de 10 min" au moment de l'affichage seulement, via ce facteur.
+        const RATE_TO_10MIN_MM = EVO_BIN_MINUTES / 60;
+
         // Arrondit une date à la dizaine de minutes suivante (ex : 7h18 -> 7h20, 7h20 -> 7h20), pour
         // que le graphique démarre sur des horaires ronds, plus faciles à lire d'un coup d'œil.
         function roundUpToNearestTenMinutes(date) {
@@ -6438,22 +6447,21 @@
                 return { type: 'snow', color: '#8b5cf6', mmEquiv: Math.max(0.1, round1(rainRate * 0.3)) };
             }
 
-            const isYellowOrange = r > 180 && g > 120 && b < 120;             // pluie forte (~35-44 dBZ)
-            const isRed = r > 150 && g < 110 && b < 110;                       // orage (~45-54 dBZ)
-            const isMagentaOrWhite = isHailHue(r, g, b);                       // extrême (~55+ dBZ) → grêle candidate
-            const isBlueFamily = b >= r && b > 90 && r < 140;                  // pluie faible à modérée (< ~35 dBZ)
-
-            if (isMagentaOrWhite) {
+            // Seuils directement sur le dBZ estimé (et non plus sur 4 heuristiques de teinte RVB
+            // codées séparément) : le TYPE affiché et le mm/h calculé proviennent désormais
+            // TOUJOURS de la même estimation dBZ et ne peuvent plus se contredire. Auparavant, un
+            // pixel de teinte ambiguë ne correspondant à aucune des 4 familles codées en dur
+            // retombait par défaut sur "pluie faible" tout en gardant son débit RÉEL (potentiellement
+            // très élevé, ex. teinte extrême mal reconnue) — d'où des cas observés de "pluie faible"
+            // affichant un débit supérieur à "orage".
+            if (dbz >= 55) {
                 // Zone "extrême" : la relation Z-R n'est plus physiquement valable une fois de la
                 // grêle mélangée (écho gonflé par les gros grêlons, pas par de l'eau liquide) — la
                 // valeur est plafonnée plutôt que d'afficher un mm/h irréaliste.
                 return { type: 'hail_candidate', color: '#eab308', mmEquiv: round1(Math.min(50, rainRate)) };
             }
-            if (isRed) return { type: 'storm', color: '#ef4444', mmEquiv: round1(rainRate) };
-            if (isYellowOrange) return { type: 'rain_heavy', color: '#0284c7', mmEquiv: round1(rainRate) };
-            if (isBlueFamily) return { type: 'rain_light', color: '#7dd3fc', mmEquiv: round1(rainRate) };
-            // Teinte de transition non reconnue (début d'échelle, alpha encore faible) : traitée
-            // par défaut comme pluie faible plutôt que d'être ignorée.
+            if (dbz >= 45) return { type: 'storm', color: '#ef4444', mmEquiv: round1(rainRate) };
+            if (dbz >= 35) return { type: 'rain_heavy', color: '#0284c7', mmEquiv: round1(rainRate) };
             return { type: 'rain_light', color: '#7dd3fc', mmEquiv: round1(rainRate) };
         }
         const TYPE_COLOR = { hail: '#eab308', storm: '#ef4444', rain_heavy: '#0284c7', rain_light: '#7dd3fc', snow: '#8b5cf6', none: 'transparent' };
@@ -6707,7 +6715,7 @@
 
                 const nowTemp = getCurrentTempEstimate();
                 const isSnowMode = typeof nowTemp === 'number' && nowTemp <= 0.5;
-                const precipUnit = isSnowMode ? 'cm' : 'mm';
+                const precipUnit = isSnowMode ? 'cm/10min' : 'mm/10min';
                 const precipAxisColor = isSnowMode ? '#8b5cf6' : '#5a9bd4';
                 let clsNow = classifyRadarPixel(rNow, gNow, bNow, alphaNow, isSnowMode);
                 if (clsNow.type === 'hail_candidate') {
@@ -6756,11 +6764,11 @@
                         // ce cas : seule l'évolution FUTURE est incertaine, pas la situation actuelle.
                         const bins = new Array(EVO_BIN_COUNT).fill(0);
                         const colors = new Array(EVO_BIN_COUNT).fill('rgba(94, 156, 204, 0.12)');
-                        bins[0] = clsNow.mmEquiv;
+                        bins[0] = Math.round(clsNow.mmEquiv * RATE_TO_10MIN_MM * 100) / 100;
                         colors[0] = clsNow.color === 'transparent' ? 'rgba(94, 156, 204, 0.12)' : clsNow.color;
                         for (let s = 1; s < EVO_BIN_COUNT; s++) {
                             const decay = Math.max(0, 1 - s / 6); // décroît sur ~1h faute de trajectoire fiable
-                            bins[s] = Math.round(clsNow.mmEquiv * decay * 100) / 100;
+                            bins[s] = Math.round(clsNow.mmEquiv * RATE_TO_10MIN_MM * decay * 100) / 100;
                             colors[s] = bins[s] > 0.05 ? colors[0] : 'rgba(94, 156, 204, 0.12)';
                         }
                         const uncertainConf = [];
@@ -6859,7 +6867,7 @@
                         cls = { type: downgraded, color: TYPE_COLOR[downgraded], mmEquiv: downgraded === 'none' ? 0 : TYPE_INTENSITY_FALLBACK[downgraded] || 0 };
                     }
 
-                    bins.push(cls.mmEquiv);
+                    bins.push(Math.round(cls.mmEquiv * RATE_TO_10MIN_MM * 100) / 100);
                     colors.push(cls.color === 'transparent' ? 'rgba(94, 156, 204, 0.12)' : cls.color);
                     confidence.push(confidenceForBin(t, cls.type, distanceToStormKm, trajectoryR2, cellCountPx, speedKmh, sizeFactor));
                     if (cls.type !== 'none' && etaMinutes === null) etaMinutes = t;
