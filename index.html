@@ -14,6 +14,15 @@
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://metehop.github.io/">
     <meta property="og:locale" content="fr_FR">
+    <meta property="og:image" content="https://metehop.github.io/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Metehop – Météo hyperlocale Grenoble, Isère & massifs alpins">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Metehop – Météo hyperlocale Grenoble & Alpes">
+    <meta name="twitter:description" content="Prévisions, neige, eau, astronomie : une météo calibrée sur le terrain à Tencin et le Grésivaudan.">
+    <meta name="twitter:image" content="https://metehop.github.io/og-image.png">
 
     <script type="application/ld+json">
     {
@@ -77,6 +86,20 @@
         }
 
         * { box-sizing: border-box; }
+
+        /* Accessible uniquement aux lecteurs d'écran et aux moteurs de recherche : cache visuellement
+           sans utiliser display:none (qui serait ignoré par les technologies d'assistance). Ajouté le
+           06/09/2026 pour donner à la page un <h1> sémantique (absent jusqu'ici, l'en-tête n'étant
+           qu'un logo image) sans changer l'apparence visuelle de la barre de recherche. */
+        .visually-hidden {
+            position: absolute;
+            width: 1px; height: 1px;
+            padding: 0; margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -1734,6 +1757,7 @@
 <body>
 
     <div class="app-container">
+        <h1 class="visually-hidden">Metehop — Météo hyperlocale pour Grenoble, l'Isère et les massifs alpins</h1>
         <!-- Barre supérieure -->
         <div class="mv-header-container">
             <a href="#" class="mv-brand">
@@ -3026,6 +3050,8 @@
             <div class="footer-line1">
                 <span>©2026 Metehop</span>
                 <span class="footer-sep">|</span>
+                <a class="footer-icon-btn" href="about.html" title="À propos de Metehop" style="font-size: 0.7rem; opacity: 0.85;">À propos</a>
+                <span class="footer-sep">|</span>
                 <a class="footer-icon-btn" href="mailto:stridemetric@proton.me" title="Contact">✉️</a>
                 <span class="footer-sep">|</span>
                 <button type="button" class="footer-icon-btn" onclick="openSourcesModal()" title="Sources et modèles utilisés">💡</button>
@@ -3042,7 +3068,7 @@
                     <i class="fa-brands fa-android"></i>
                 </button>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 06/09/2026 - 36</div>
+            <div class="footer-last-update">Dernière mise à jour : 06/09/2026 - 39</div>
         </footer>
 
     </div>
@@ -5403,26 +5429,90 @@
         // Stratégie retenue, honnête et qui fonctionne réellement :
         // 1. Pour les stations de ski/plage déjà connues et géolocalisées par l'app (mêmes
         //    listes que les tableaux "Station de ski" / "Station balnéaire" ci-dessus, recherche
-        //    synchrone et gratuite, sans appel réseau), on propose une tuile de recherche vers
-        //    un moteur de recherche déjà indexé sur les vrais annuaires de webcams (Skiinfo,
-        //    meteo-webcam.net, France Webcams, etc.) — fiable à 100%, jamais de lien mort.
+        //    synchrone et gratuite, sans appel réseau), on propose PLUSIEURS tuiles fiables par
+        //    station (voir buildWebcamTiles ci-dessous) plutôt qu'une seule recherche générique.
         // 2. En complément, une requête Overpass reste tentée (bonus) : quand un nœud OSM référence
         //    vraiment une webcam à proximité (rare mais ça arrive, notamment en ville ou sur des
         //    points de vue), son image est incrustée directement plutôt qu'un simple lien.
+        //
+        // Améliorations du 06/09/2026 (sur demande) :
+        // - 6 stations proches par grille au lieu de 3.
+        // - En plus de la recherche Google Images, chaque station connue propose désormais aussi
+        //   un lien direct vers windy.com/webcams (vrai annuaire de webcams ski/montagne/plage,
+        //   consultable sans clé — seule sa API programmatique nécessite une clé, pas la
+        //   navigation sur le site) et une recherche vidéo YouTube (beaucoup de stations diffusent
+        //   en direct sur YouTube). Lien windy.com volontairement générique (page d'accueil des
+        //   webcams, vérifiée fonctionnelle) plutôt qu'un lien profond par coordonnées : le format
+        //   d'URL public de Windy pour ouvrir directement la couche webcams à un endroit précis
+        //   n'est pas documenté de façon fiable (seuls les identifiants de webcam individuels le
+        //   sont) — on préfère un lien générique qui fonctionne à coup sûr plutôt qu'un lien profond
+        //   deviné qui pourrait retomber silencieusement sur la mauvaise couche.
+        // - Tri de la grille finale par distance croissante (au lieu de toujours afficher les
+        //   webcams OSM avant les tuiles de recherche, sans lien avec leur proximité réelle).
+        // - Anti-doublon : quand une webcam OSM (image ou lien réel) correspond déjà à une station
+        //   connue (nom proche + distance quasi identique), on n'affiche plus les tuiles génériques
+        //   de cette station à côté — la vraie webcam OSM est de toute façon la meilleure source,
+        //   inutile de la répéter en 3 tuiles génériques.
         const WEBCAM_OSM_RADIUS_KM = 60;
 
         function escapeWebcamText(str) {
             return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
         }
 
-        function buildWebcamSearchTile(name, dist) {
-            const query = `webcam en direct ${name}`;
-            return {
-                kind: 'search',
-                name,
-                dist,
-                url: `https://www.google.com/search?q=${encodeURIComponent(query)}&tbm=isch`
-            };
+        // Génère les tuiles "fiables" pour une station connue (aucun appel réseau) : un lien vers
+        // l'annuaire windy.com/webcams, une recherche vidéo YouTube, et une recherche d'images
+        // Google — dans cet ordre d'affichage (le plus qualitatif en premier).
+        //
+        // WEBCAM_STATION_EXTRA_TILES (06/09/2026) : certaines stations ont un site communautaire
+        // dédié qui vaut mieux qu'une recherche générique (ex. lessetlo.com pour Les 7 Laux — 5
+        // webcams + enneigement + état des remontées en temps réel, à la fois plus complet et plus
+        // fiable qu'une recherche Google). On y renvoie par un simple LIEN (comme les tuiles
+        // "Rechercher"), jamais en incrustant directement leurs images : ce sont de petits sites
+        // indépendants (financés par dons) dont la bande passante a un coût pour leur créateur —
+        // les faire visiter leur apporte du trafic au lieu de leur en coûter. Ajoutée en tête de
+        // liste (avant windy/YouTube/Google) car c'est la source la plus qualitative pour cette
+        // station précise.
+        const WEBCAM_STATION_EXTRA_TILES = {
+            'ski-7laux': [{ kind: 'directory', url: 'https://www.lessetlo.com/', label: 'Lessetlo', icon: 'fa-video' }]
+        };
+
+        function buildWebcamTiles(name, dist, stationId) {
+            const youtubeQuery = `webcam ${name} en direct`;
+            const imagesQuery = `webcam en direct ${name}`;
+            const extras = (stationId && WEBCAM_STATION_EXTRA_TILES[stationId]) || [];
+            return [
+                ...extras.map(e => ({ ...e, name, dist })),
+                {
+                    kind: 'directory',
+                    name,
+                    dist,
+                    url: 'https://www.windy.com/webcams/'
+                },
+                {
+                    kind: 'search-video',
+                    name,
+                    dist,
+                    url: `https://www.youtube.com/results?search_query=${encodeURIComponent(youtubeQuery)}`
+                },
+                {
+                    kind: 'search',
+                    name,
+                    dist,
+                    url: `https://www.google.com/search?q=${encodeURIComponent(imagesQuery)}&tbm=isch`
+                }
+            ];
+        }
+
+        // Une webcam OSM (image ou lien réel) "fait doublon" avec une station connue quand son nom
+        // recoupe celui de la station ET qu'elle est à une distance quasi identique (moins de 3km
+        // d'écart) — signe qu'il s'agit très probablement du même endroit. Réutilise normalizeVille
+        // (recherche de ville tolérante aux fautes d'orthographe) pour la comparaison de noms.
+        function osmWebcamMatchesStation(osmWebcam, station) {
+            const osmNorm = normalizeVille(osmWebcam.name || '');
+            const stationNorm = normalizeVille(station.name || '');
+            if (!osmNorm || !stationNorm) return false;
+            const namesOverlap = osmNorm.includes(stationNorm) || stationNorm.includes(osmNorm);
+            return namesOverlap && Math.abs(osmWebcam.dist - station.dist) < 3;
         }
 
         // Rendu d'une tuile webcam (extrait en fonction partagée le 05/09/2026 lors de la
@@ -5443,6 +5533,14 @@
                 thumb = `<div class="webcam-thumb-placeholder"><i class="fa-solid fa-up-right-from-square"></i></div>`;
                 badge = '';
                 subLabel = host ? escapeWebcamText(host) : 'OpenStreetMap';
+            } else if (w.kind === 'directory') {
+                thumb = `<div class="webcam-thumb-placeholder"><i class="fa-solid ${w.icon || 'fa-wind'}"></i></div>`;
+                badge = '';
+                subLabel = w.label || 'windy.com';
+            } else if (w.kind === 'search-video') {
+                thumb = `<div class="webcam-thumb-placeholder"><i class="fa-brands fa-youtube"></i></div>`;
+                badge = '';
+                subLabel = 'YouTube';
             } else {
                 thumb = `<div class="webcam-thumb-placeholder"><i class="fa-solid fa-magnifying-glass"></i></div>`;
                 badge = '';
@@ -5462,12 +5560,14 @@
 
         // Remplit une grille (ski ou plage) avec ses tuiles de recherche propres au domaine +
         // les webcams OpenStreetMap partagées (non classables par domaine, donc communes aux deux
-        // grilles — voir commentaire sur la carte HTML correspondante).
+        // grilles — voir commentaire sur la carte HTML correspondante). Triées par distance
+        // croissante, toutes sources mélangées (corrigé le 06/09/2026 — auparavant les webcams OSM
+        // passaient toujours avant les tuiles de recherche, sans rapport avec la proximité réelle).
         function renderWebcamGrid(gridId, noDataMsgId, noteId, searchTiles, osmWebcams, domainLabel) {
             const grid = document.getElementById(gridId);
             const noDataMsg = document.getElementById(noDataMsgId);
             const note = document.getElementById(noteId);
-            const all = [...osmWebcams, ...searchTiles];
+            const all = [...osmWebcams, ...searchTiles].sort((a, b) => a.dist - b.dist);
             if (!all.length) {
                 grid.style.display = 'none';
                 noDataMsg.style.display = 'block';
@@ -5494,12 +5594,10 @@
             document.getElementById('webcam-no-data-msg-beach').style.display = 'none';
 
             // 1. Stations de ski/plage déjà connues (données synchrones, aucun appel réseau) :
-            // source la plus fiable, on prend les 3 plus proches de chaque type, chacune dans sa
-            // propre grille (ski ou plage).
-            const nearbySki = (typeof findNearbySkiStations === 'function' ? findNearbySkiStations(lat, lon, 60) : []).slice(0, 3);
-            const nearbyBeach = (typeof findNearbyBeachStations === 'function' ? findNearbyBeachStations(lat, lon, 50) : []).slice(0, 3);
-            const skiSearchTiles = nearbySki.map(s => buildWebcamSearchTile(s.name, s.dist));
-            const beachSearchTiles = nearbyBeach.map(s => buildWebcamSearchTile(s.name, s.dist));
+            // source la plus fiable, on prend les 6 plus proches de chaque type (corrigé le
+            // 06/09/2026, auparavant limité à 3), chacune dans sa propre grille (ski ou plage).
+            const nearbySki = (typeof findNearbySkiStations === 'function' ? findNearbySkiStations(lat, lon, 60) : []).slice(0, 6);
+            const nearbyBeach = (typeof findNearbyBeachStations === 'function' ? findNearbyBeachStations(lat, lon, 50) : []).slice(0, 6);
 
             // 2. Bonus OpenStreetMap (Overpass API, gratuit et sans clé) : rare mais quand ça
             // matche, on incruste directement l'image plutôt qu'un simple lien. Un nœud OSM
@@ -5531,6 +5629,16 @@
             } catch (e) {
                 osmWebcams = []; // Overpass indisponible : on garde simplement les tuiles de recherche
             }
+
+            // 3. Tuiles de recherche par station connue, générées seulement APRÈS avoir reçu les
+            // webcams OSM ci-dessus, pour pouvoir écarter (anti-doublon) les stations déjà couvertes
+            // par une vraie webcam OSM à quasi la même distance — voir osmWebcamMatchesStation().
+            const skiSearchTiles = nearbySki
+                .filter(s => !osmWebcams.some(w => osmWebcamMatchesStation(w, s)))
+                .flatMap(s => buildWebcamTiles(s.name, s.dist, s.id));
+            const beachSearchTiles = nearbyBeach
+                .filter(s => !osmWebcams.some(w => osmWebcamMatchesStation(w, s)))
+                .flatMap(s => buildWebcamTiles(s.name, s.dist, s.id));
 
             renderWebcamGrid('webcam-grid', 'webcam-no-data-msg', 'webcam-note', skiSearchTiles, osmWebcams, 'de ski');
             renderWebcamGrid('webcam-grid-beach', 'webcam-no-data-msg-beach', 'webcam-note-beach', beachSearchTiles, osmWebcams, 'balnéaire');
