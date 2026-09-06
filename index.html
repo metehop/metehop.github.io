@@ -205,6 +205,66 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.04);
             flex-shrink: 0;
         }
+        /* Favoris : bouton étoile (ajout/retrait du lieu courant) + rangée de chips pour basculer
+           rapidement entre les lieux enregistrés. Étoile grisée/non cliquable sur "Ma position"
+           (voir toggleFavoriteCurrentLocation), pour la même raison que LAST_LOCATION_KEY exclut
+           déjà la géolocalisation GPS : un libellé générique figé n'aurait pas de sens à rappeler. */
+        .btn-favorite {
+            background: #ffffff;
+            border: none;
+            border-radius: 50%;
+            width: 38px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            flex-shrink: 0;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+        .btn-favorite.is-favorite { color: var(--accent-orange); }
+        .btn-favorite:disabled { opacity: 0.4; cursor: default; }
+        .favorites-chips {
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            padding-bottom: 2px;
+            margin: -6px 0 6px;
+        }
+        .favorites-chips::-webkit-scrollbar { display: none; }
+        .favorite-chip {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--card-bg);
+            color: var(--primary-dark);
+            border: none;
+            border-radius: 999px;
+            padding: 6px 8px 6px 12px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            white-space: nowrap;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .favorite-chip.active { background: var(--primary-dark); color: #ffffff; }
+        .favorite-chip .fav-remove {
+            background: rgba(0,0,0,0.08);
+            border: none;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: inherit;
+            font-size: 0.55rem;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .favorite-chip.active .fav-remove { background: rgba(255,255,255,0.25); }
 
         /* Banner Principale */
         .hero-banner {
@@ -234,6 +294,25 @@
             background: rgba(255, 255, 255, 0.4);
             border-radius: 50%;
             pointer-events: none;
+        }
+        /* Bouton de partage (voir shareWeatherImage) : coin haut-droit du bandeau principal, discret
+           mais accessible. z-index au-dessus du cercle décoratif ::after ci-dessus. */
+        .btn-share-weather {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            background: rgba(255, 255, 255, 0.55);
+            border: none;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary-dark);
+            cursor: pointer;
+            font-size: 0.8rem;
+            z-index: 2;
         }
         .hero-subtitle {
             font-size: 0.68rem;
@@ -1814,11 +1893,17 @@
                     <input type="text" id="city" placeholder="Rechercher une ville..." onkeypress="handleEnter(event)">
                     <button class="btn-search-icon" onclick="searchCity()"><i class="fa-solid fa-arrow-right"></i></button>
                 </div>
+                <button id="favorite-btn" class="btn-favorite" onclick="toggleFavoriteCurrentLocation()" title="Ajouter aux favoris">
+                    <i class="fa-regular fa-star" id="favorite-btn-icon"></i>
+                </button>
                 <button id="geo-btn" class="btn-geo" onclick="locateUser()" title="Ma position">
                     <i class="fa-solid fa-location-crosshairs"></i>
                 </button>
             </div>
         </div>
+
+        <!-- Chips de bascule rapide entre lieux favoris (voir renderFavoritesChips) -->
+        <div class="favorites-chips" id="favorites-chips" style="display:none;"></div>
 
         <!-- Sélecteur de groupe (6 positions) -->
         <div class="group-selector" id="group-selector">
@@ -1844,6 +1929,9 @@
 
         <!-- Banner météo principale -->
         <div class="hero-banner">
+            <button type="button" class="btn-share-weather" onclick="shareWeatherImage()" title="Partager cette météo">
+                <i class="fa-solid fa-share-nodes"></i>
+            </button>
             <div class="hero-top-row">
                 <div>
                     <div class="hero-subtitle">VOTRE MÉTÉO, MAINTENANT</div>
@@ -1950,7 +2038,7 @@
             <div class="card-sage">
                 <div class="card-sage-header">
                     <div>
-                        <div class="card-sage-title">Radar des précipitations</div>
+                        <div class="card-sage-title" id="radar-card-title">Radar des précipitations</div>
                         <div class="card-sage-sub" id="radar-sub-location">En direct</div>
                     </div>
                 </div>
@@ -1960,6 +2048,7 @@
                         <div class="radar-header-toggle">
                             <button id="mode-radar" class="mode-btn active" onclick="setRadarMode('radar')">En direct</button>
                             <button id="mode-forecast" class="mode-btn" onclick="setRadarMode('forecast')">Prévisions 6h</button>
+                            <button id="mode-lightning" class="mode-btn" onclick="setRadarMode('lightning')">Foudre</button>
                             <button type="button" class="map-recenter-btn" onclick="recenterRadarMap()" title="Recentrer sur le lieu de prévision">
                                 <i class="fa-solid fa-crosshairs"></i>
                             </button>
@@ -1988,6 +2077,12 @@
                         <div class="fc-leg-item"><div class="fc-leg-box" style="background:#8b5cf6;"></div> Neige</div>
                         <div class="fc-leg-item"><div class="fc-leg-box" style="background:#ef4444;"></div> Orage</div>
                     </div>
+                    <div class="forecast-legend-grid" id="lightning-legend-grid" style="display:none;">
+                        <div class="fc-leg-item"><div class="fc-leg-box" style="background:#f4c07a;"></div> Faible</div>
+                        <div class="fc-leg-item"><div class="fc-leg-box" style="background:#d97736;"></div> Modéré</div>
+                        <div class="fc-leg-item"><div class="fc-leg-box" style="background:#c0392b;"></div> Élevé</div>
+                    </div>
+                    <div class="card-sage-sub" id="lightning-caveat" style="display:none; padding: 0 4px 4px; font-size: 0.62rem;">Indice prévisionnel (potentiel de foudre, DWD ICON-D2) — pas une détection d'éclairs déjà tombés.</div>
                     <div class="grid-model-source" id="grid-model-source" style="display:none;"></div>
                 </div>
             </div>
@@ -2005,6 +2100,11 @@
 
             <div class="chart-container">
                 <canvas id="weatherChart"></canvas>
+            </div>
+            <div class="astro-legend" style="margin-top:6px;">
+                <span class="astro-legend-item"><span class="legend-dot" style="background:#d97736;"></span> Température</span>
+                <span class="astro-legend-item"><span class="legend-dot" style="background:#5a9bd4;"></span> Pluie/Neige</span>
+                <span class="astro-legend-item" id="chart-normal-legend-item" style="display:none;"><span class="legend-dash" style="border-color: rgba(28, 56, 50, 0.55);"></span> Normale de saison (15 ans)</span>
             </div>
 
             <div class="sun-wind-grid">
@@ -2093,17 +2193,16 @@
                         <i class="fa-solid fa-seedling" style="color: var(--accent-green); margin-right: 6px;"></i>
                         Température sol & air — 16 jours (plantations)
                     </div>
-                    <div class="card-sage-sub" id="plant-temp-note">Prévisions sol/air et moyennes historiques du lieu — chargées à la demande.</div>
+                    <div class="card-sage-sub" id="plant-temp-note">Prévisions sol/air et moyennes historiques du lieu.</div>
                 </div>
             </div>
-            <div class="astro-legend" id="plant-temp-legend" style="margin-bottom: 6px; display:none;">
+            <div class="astro-legend" id="plant-temp-legend" style="margin-bottom: 6px;">
                 <span class="astro-legend-item"><span class="legend-dot" style="background:#d97736;"></span> Air prévu</span>
                 <span class="astro-legend-item"><span class="legend-dot" style="background:#8b5e34;"></span> Sol prévu (surface)</span>
                 <span class="astro-legend-item"><span class="legend-dot" style="background:#d97736; opacity:0.5;"></span> Air — moyenne historique (pointillé)</span>
                 <span class="astro-legend-item"><span class="legend-dot" style="background:#8b5e34; opacity:0.5;"></span> Sol — moyenne historique (pointillé)</span>
             </div>
-            <button type="button" class="btn-load-data" id="plant-temp-load-btn" onclick="triggerLoadPlantationTempChart()">Charger les données</button>
-            <div class="chart-container" id="plant-temp-chart-container" style="display:none;">
+            <div class="chart-container" id="plant-temp-chart-container">
                 <canvas id="plantTempChart"></canvas>
             </div>
         </div>
@@ -2118,11 +2217,10 @@
                         <i class="fa-solid fa-droplet-slash" style="color: #2b6cb0; margin-right: 6px;"></i>
                         Bilan hydrique du jardin — 16 jours
                     </div>
-                    <div class="card-sage-sub" id="water-balance-note">Pluie prévue vs évapotranspiration de référence — chargé à la demande.</div>
+                    <div class="card-sage-sub" id="water-balance-note">Pluie prévue vs évapotranspiration de référence.</div>
                 </div>
             </div>
-            <button type="button" class="btn-load-data" id="water-balance-load-btn" onclick="triggerLoadWaterBalance()">Charger les données</button>
-            <div id="water-balance-content" style="display:none;">
+            <div id="water-balance-content">
                 <div class="heating-status-row">
                     <div class="heating-status-pill">
                         <div class="heating-pill-label">Pluie cumulée</div>
@@ -3125,7 +3223,7 @@
             <div class="footer-support-row">
                 <a class="footer-support-link" href="https://buymeacoffee.com/stridemetric" target="_blank" rel="noopener">🐸 Aide-moi à nourrir la grenouille Metehop</a>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 06/09/2026 - 47</div>
+            <div class="footer-last-update">Dernière mise à jour : 06/09/2026 - 55</div>
         </footer>
 
     </div>
@@ -3159,6 +3257,10 @@
                 <div class="sources-item">
                     <strong>Open-Meteo — API Marine</strong>
                     <span>Hauteur de houle, température de l'eau et conditions marines. <a href="https://open-meteo.com/en/docs/marine-weather-api" target="_blank" rel="noopener">open-meteo.com/marine-weather-api</a></span>
+                </div>
+                <div class="sources-item">
+                    <strong>Open-Meteo — API DWD ICON</strong>
+                    <span>Potentiel de foudre (LPI, indice prévisionnel du modèle ICON-D2 de Deutscher Wetterdienst), affiché en calque sur la carte radar — pas une détection d'éclairs en temps réel. <a href="https://open-meteo.com/en/docs/dwd-api" target="_blank" rel="noopener">open-meteo.com/dwd-api</a></span>
                 </div>
                 <div class="sources-item">
                     <strong>Open-Meteo — API Geocoding</strong>
@@ -3410,6 +3512,13 @@
         let forecastGridLayer = null;
         let forecastGridCells = [];
         let forecastFrames30min = [];
+        // ---- Foudre (LPI, potentiel de foudre DWD ICON-D2) : voir loadLightningGrid ----
+        let lightningLayer = null;
+        let lightningFrames = [];
+        let lightningCenterLat = null;
+        let lightningCenterLon = null;
+        let lightningDataAvailable = true; // false = hors couverture ICON-D2 (Europe centrale) ou horizon dépassé
+        let lightningFetchError = false; // true = échec réseau/API, distinct d'une simple absence de couverture
         let selectedDayIndex = 0;
         let currentLat = 45.1885;
         let currentLon = 5.7245;
@@ -3438,6 +3547,102 @@
                 if (typeof obj.lat === 'number' && typeof obj.lon === 'number' && typeof obj.name === 'string') return obj;
             } catch (e) { /* donnée corrompue ou localStorage indisponible : repli sur le lieu par défaut */ }
             return null;
+        }
+
+        // ---- Lieux favoris multiples (localStorage), pour basculer rapidement entre plusieurs
+        // lieux suivis régulièrement, en plus du simple "dernier lieu consulté" ci-dessus. "Ma
+        // position" (GPS) est exclue de la mise en favori pour la même raison que LAST_LOCATION_KEY
+        // l'exclut déjà : un libellé générique figé n'aurait pas de sens à rappeler plus tard.
+        const FAVORITES_KEY = 'metehop_favorites_v1';
+        const FAVORITES_MAX = 5;
+        let favorites = [];
+        let currentLocationName = null;
+
+        function saveFavorites(list) {
+            try { localStorage.setItem(FAVORITES_KEY, JSON.stringify(list)); }
+            catch (e) { /* tant pis, préférence non persistée */ }
+        }
+
+        // Au tout premier chargement après la mise à jour (clé favoris absente), on repart du
+        // dernier lieu consulté comme favori initial plutôt qu'une liste vide, pour ne pas faire
+        // perdre aux utilisateurs existants le lieu qu'ils suivent déjà au quotidien.
+        function loadFavorites() {
+            try {
+                const raw = localStorage.getItem(FAVORITES_KEY);
+                if (raw) {
+                    const arr = JSON.parse(raw);
+                    if (Array.isArray(arr)) {
+                        return arr.filter(f => f && typeof f.lat === 'number' && typeof f.lon === 'number' && typeof f.name === 'string');
+                    }
+                    return [];
+                }
+                const last = loadLastLocation();
+                if (last) {
+                    const seeded = [{ lat: last.lat, lon: last.lon, name: last.name, population: typeof last.population === 'number' ? last.population : null }];
+                    saveFavorites(seeded);
+                    return seeded;
+                }
+            } catch (e) { /* localStorage indisponible : pas de favoris */ }
+            return [];
+        }
+
+        function findFavoriteIndex(lat, lon) {
+            return favorites.findIndex(f => Math.abs(f.lat - lat) < 0.0005 && Math.abs(f.lon - lon) < 0.0005);
+        }
+
+        function toggleFavoriteCurrentLocation() {
+            if (currentLocationName === 'Ma position') return; // exclu, voir note ci-dessus
+            const idx = findFavoriteIndex(currentLat, currentLon);
+            if (idx >= 0) {
+                favorites.splice(idx, 1);
+            } else {
+                if (favorites.length >= FAVORITES_MAX) {
+                    alert(`Vous pouvez enregistrer au maximum ${FAVORITES_MAX} favoris. Retirez-en un avant d'en ajouter un nouveau.`);
+                    return;
+                }
+                favorites.push({ lat: currentLat, lon: currentLon, name: currentLocationName, population: currentPopulation });
+            }
+            saveFavorites(favorites);
+            updateFavoriteButtonUI();
+            renderFavoritesChips();
+        }
+
+        function updateFavoriteButtonUI() {
+            const btn = document.getElementById('favorite-btn');
+            const icon = document.getElementById('favorite-btn-icon');
+            const isGpsLocation = currentLocationName === 'Ma position';
+            btn.disabled = isGpsLocation;
+            btn.title = isGpsLocation ? "Recherchez une ville pour l'ajouter aux favoris" : (findFavoriteIndex(currentLat, currentLon) >= 0 ? 'Retirer des favoris' : 'Ajouter aux favoris');
+            const fav = !isGpsLocation && findFavoriteIndex(currentLat, currentLon) >= 0;
+            btn.classList.toggle('is-favorite', fav);
+            icon.className = fav ? 'fa-solid fa-star' : 'fa-regular fa-star';
+        }
+
+        function switchToFavorite(idx) {
+            const f = favorites[idx];
+            if (!f) return;
+            fetchWeather(f.lat, f.lon, f.name, typeof f.population === 'number' ? f.population : null);
+        }
+
+        function removeFavorite(idx, event) {
+            event.stopPropagation();
+            favorites.splice(idx, 1);
+            saveFavorites(favorites);
+            renderFavoritesChips();
+            updateFavoriteButtonUI();
+        }
+
+        function renderFavoritesChips() {
+            const container = document.getElementById('favorites-chips');
+            if (!favorites.length) { container.style.display = 'none'; container.innerHTML = ''; return; }
+            container.style.display = '';
+            container.innerHTML = favorites.map((f, i) => {
+                const active = Math.abs(f.lat - currentLat) < 0.0005 && Math.abs(f.lon - currentLon) < 0.0005;
+                return `<button type="button" class="favorite-chip${active ? ' active' : ''}" onclick="switchToFavorite(${i})">
+                    <span>${f.name}</span>
+                    <span class="fav-remove" onclick="removeFavorite(${i}, event)"><i class="fa-solid fa-xmark"></i></span>
+                </button>`;
+            }).join('');
         }
         // ---- Relevé officiel Météo-France (réseau SYNOP) le plus proche, via Opendatasoft ----
         // Seuils au-delà desquels un avertissement est affiché à côté du relevé (voir
@@ -3809,6 +4014,7 @@
         window.addEventListener('DOMContentLoaded', () => {
             setGroup('general');
             updateMicroClimateToggleUI();
+            favorites = loadFavorites();
             loadDefaultLocation();
             setTimeout(updateMoonPhase, 800);
             initTrajetDepartureBounds();
@@ -4220,9 +4426,9 @@
 
             // Chargement différé : les données spécifiques à un groupe ne sont récupérées qu'à
             // la première activation de son onglet, pour limiter strictement le nombre de
-            // requêtes API envoyées au démarrage. Le Jardinage est en plus gaté derrière un
-            // bouton "Charger les données" (comme les tendances saisonnières), pour limiter
-            // encore davantage les requêtes tant que l'utilisateur n'en a pas explicitement besoin.
+            // requêtes API envoyées au démarrage. Les tendances saisonnières restent, elles,
+            // gatées derrière un bouton "Charger les données" (voir plus bas), le Jardinage ne
+            // l'est plus depuis le passage à une requête archive mutualisée et mise en cache.
             if ((group === 'leisure' || group === 'ski') && !extraLocalDataLoaded && currentLat !== null) {
                 extraLocalDataLoaded = true;
                 fetchExtraLocalData(currentLat, currentLon, document.getElementById('title').innerText);
@@ -4247,6 +4453,18 @@
             if (group === 'astrogarden' && !synopStationLoaded && currentLat !== null) {
                 synopStationLoaded = true;
                 loadSynopStation(currentLat, currentLon).catch(() => {});
+            }
+            if (group === 'astrogarden' && !plantationLoaded && currentLat !== null) {
+                plantationLoaded = true;
+                document.getElementById('plant-temp-note').innerText = 'Chargement des moyennes historiques...';
+                loadPlantationTempChart(currentLat, currentLon).catch(() => {});
+            }
+            if (group === 'astrogarden' && !waterBalanceLoaded && currentLat !== null) {
+                waterBalanceLoaded = true;
+                document.getElementById('water-balance-note').innerText = 'Chargement des données de pluie et d\'évapotranspiration...';
+                loadWaterBalance(currentLat, currentLon).catch(() => {
+                    document.getElementById('water-balance-note').innerText = 'Données indisponibles pour le moment.';
+                });
             }
             if (group === 'astrogarden' && weatherData) {
                 renderAstroNightsRanking();
@@ -4331,43 +4549,24 @@
             if (heatingChart) { heatingChart.destroy(); heatingChart = null; }
         }
 
-        // ---- Jardinage : chargées uniquement au clic, pour la même raison (limiter les requêtes API) ----
-        function triggerLoadPlantationTempChart() {
-            if (plantationLoaded || currentLat === null) return;
-            plantationLoaded = true;
-            document.getElementById('plant-temp-load-btn').style.display = 'none';
-            document.getElementById('plant-temp-chart-container').style.display = '';
-            document.getElementById('plant-temp-legend').style.display = '';
-            document.getElementById('plant-temp-note').innerText = 'Chargement des moyennes historiques...';
-            loadPlantationTempChart(currentLat, currentLon).catch(() => {});
-        }
-
+        // ---- Jardinage : chargement automatique à l'ouverture de l'onglet (voir setGroup) ----
+        // Anciennement gaté derrière un bouton "Charger les données" pour limiter les requêtes API
+        // (15 requêtes archive séparées) ; devenu inutile depuis le passage à une seule requête
+        // archive mutualisée avec la normale de saison du graphique horaire, mise en cache 30 jours
+        // (voir loadHistoricalDailyNormals) — le coût réseau ne justifie plus ce frein à l'usage.
         function resetPlantationGate() {
             plantationLoaded = false;
-            document.getElementById('plant-temp-load-btn').style.display = '';
-            document.getElementById('plant-temp-chart-container').style.display = 'none';
-            document.getElementById('plant-temp-legend').style.display = 'none';
-            document.getElementById('plant-temp-note').innerText = 'Prévisions sol/air et moyennes historiques du lieu — chargées à la demande.';
+            document.getElementById('plant-temp-note').innerText = 'Prévisions sol/air et moyennes historiques du lieu.';
+            if (plantTempChart) { plantTempChart.destroy(); plantTempChart = null; }
         }
 
-        // ---- Bilan hydrique du jardin : chargé uniquement au clic (appel API dédié pour ET0 et
-        // cumul de pluie, non inclus dans le forecast principal) ----
-        function triggerLoadWaterBalance() {
-            if (waterBalanceLoaded || currentLat === null) return;
-            waterBalanceLoaded = true;
-            document.getElementById('water-balance-load-btn').style.display = 'none';
-            document.getElementById('water-balance-content').style.display = '';
-            document.getElementById('water-balance-note').innerText = 'Chargement des données de pluie et d\'évapotranspiration...';
-            loadWaterBalance(currentLat, currentLon).catch(() => {
-                document.getElementById('water-balance-note').innerText = 'Données indisponibles pour le moment.';
-            });
-        }
-
+        // ---- Bilan hydrique du jardin : chargement automatique à l'ouverture de l'onglet (voir
+        // setGroup), même principe que le Jardinage ci-dessus — l'appel API dédié (ET0 + cumul de
+        // pluie, non inclus dans le forecast principal) reste un seul appel forecast standard, pas
+        // d'historique archive ici, donc pas de coût réseau particulier à limiter derrière un bouton.
         function resetWaterBalanceGate() {
             waterBalanceLoaded = false;
-            document.getElementById('water-balance-load-btn').style.display = '';
-            document.getElementById('water-balance-content').style.display = 'none';
-            document.getElementById('water-balance-note').innerText = 'Pluie prévue vs évapotranspiration de référence — chargé à la demande.';
+            document.getElementById('water-balance-note').innerText = 'Pluie prévue vs évapotranspiration de référence.';
             if (waterBalanceChart) { waterBalanceChart.destroy(); waterBalanceChart = null; }
         }
 
@@ -4598,17 +4797,125 @@
             }
         }
 
+        // ---- Normales climatiques journalières partagées (air 2m + sol surface) ----
+        // Moyenne journalière RÉELLE sur les 15 dernières années civiles complètes, mêmes dates
+        // calendaires (API Archive Open-Meteo, ERA5/ERA5-Land). UNE SEULE requête couvrant les 15
+        // années ET les deux variables (air + sol) d'un coup : Open-Meteo limite l'usage non-
+        // commercial à 10 000 requêtes/jour PAR IP APPELANTE (voir github.com/open-meteo/open-meteo),
+        // et cette IP peut être partagée entre plusieurs visiteurs (NAT d'opérateur mobile, réseau
+        // d'entreprise) — un compteur qui se vide 15x (ou 30x) plus vite par simple chargement de
+        // page aurait un vrai impact. Fonction PARTAGÉE entre la normale de saison du graphique
+        // horaire (loadDailyTempNormals, air seulement) et le graphique Air/Sol du Jardinage
+        // (loadPlantationTempChart, air + sol) : les deux consomment le même résultat mis en cache,
+        // donc un seul lieu ne coûte jamais plus d'un appel archive au total, quel que soit le
+        // nombre de fonctionnalités qui en ont besoin.
+        //
+        // Cache localStorage en plus (clé lat/lon arrondie à 0,01°, valable 30 jours) : une normale
+        // climatique ne bouge pas d'une visite à l'autre, donc revenir sur un même lieu (ou recharger
+        // la page) ne redéclenche aucun nouvel appel archive tant que le cache est valide. Indexé par
+        // jour calendaire (MM-JJ) et non par date complète, pour rester réutilisable d'un jour à
+        // l'autre malgré la fenêtre glissante des 16 jours de prévision.
+        let dailyTempNormals = {}; // {"YYYY-MM-DD": moyenne air} pour le lieu courant, voir loadDailyTempNormals
+        const NORMALS_CACHE_KEY = 'metehop_normals_cache_v2';
+        const NORMALS_CACHE_MAX_AGE_DAYS = 30;
+        const NORMALS_CACHE_MAX_ENTRIES = 20;
+
+        function normalsCacheKeyFor(lat, lon) { return `${lat.toFixed(2)},${lon.toFixed(2)}`; }
+        function loadNormalsCache() {
+            try { return JSON.parse(localStorage.getItem(NORMALS_CACHE_KEY)) || {}; }
+            catch (e) { return {}; }
+        }
+        function saveNormalsCache(cache) {
+            try { localStorage.setItem(NORMALS_CACHE_KEY, JSON.stringify(cache)); }
+            catch (e) { /* tant pis, pas de cache persistant */ }
+        }
+
+        // Renvoie { air: {"MM-JJ": moyenne}, soil: {"MM-JJ": moyenne} } pour le lieu donné — objets
+        // vides (jamais null) si l'archive est indisponible, pour que les appelants n'aient qu'à
+        // tester la présence d'une clé MM-JJ précise plutôt que de vérifier la forme du retour.
+        async function loadHistoricalDailyNormals(lat, lon) {
+            const cache = loadNormalsCache();
+            const cacheKey = normalsCacheKeyFor(lat, lon);
+            const entry = cache[cacheKey];
+            const maxAgeMs = NORMALS_CACHE_MAX_AGE_DAYS * 24 * 3600 * 1000;
+            if (entry && typeof entry.computedAt === 'number' && (Date.now() - entry.computedAt) < maxAgeMs && entry.normals) {
+                return entry.normals;
+            }
+
+            const YEARS_BACK = 15;
+            const nowYear = new Date().getFullYear();
+            const startDate = `${nowYear - YEARS_BACK}-01-01`;
+            const endDate = `${nowYear - 1}-12-31`; // années civiles complètes seulement
+            try {
+                const hUrl = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${startDate}&end_date=${endDate}&daily=temperature_2m_mean,soil_temperature_0_to_7cm_mean&timezone=auto`;
+                const res = await fetchWithTimeout(hUrl, { timeout: 20000 });
+                if (!res.ok) return { air: {}, soil: {} };
+                const data = await res.json();
+                if (!data.daily || !data.daily.time) return { air: {}, soil: {} };
+
+                const airByKey = {}, soilByKey = {};
+                data.daily.time.forEach((dateStr, i) => {
+                    const key = dateStr.slice(5);
+                    const airV = data.daily.temperature_2m_mean ? data.daily.temperature_2m_mean[i] : undefined;
+                    const soilV = data.daily.soil_temperature_0_to_7cm_mean ? data.daily.soil_temperature_0_to_7cm_mean[i] : undefined;
+                    if (typeof airV === 'number') { if (!airByKey[key]) airByKey[key] = []; airByKey[key].push(airV); }
+                    if (typeof soilV === 'number') { if (!soilByKey[key]) soilByKey[key] = []; soilByKey[key].push(soilV); }
+                });
+                const air = {}, soil = {};
+                Object.keys(airByKey).forEach(k => { air[k] = average(airByKey[k]); });
+                Object.keys(soilByKey).forEach(k => { soil[k] = average(soilByKey[k]); });
+                const normals = { air, soil };
+
+                // Taille bornée : on retire l'entrée la plus ancienne plutôt que de laisser le
+                // cache grossir indéfiniment au fil des lieux consultés.
+                const keys = Object.keys(cache);
+                if (keys.length >= NORMALS_CACHE_MAX_ENTRIES && !cache[cacheKey]) {
+                    const oldestKey = keys.reduce((a, b) => (cache[a].computedAt < cache[b].computedAt ? a : b));
+                    delete cache[oldestKey];
+                }
+                cache[cacheKey] = { computedAt: Date.now(), normals };
+                saveNormalsCache(cache);
+                return normals;
+            } catch (e) {
+                return { air: {}, soil: {} }; // archive indisponible : rien d'inventé, appelants gèrent l'absence
+            }
+        }
+
+        // ---- Normale de saison en overlay sur le graphique horaire (voir updateChart) ----
+        async function loadDailyTempNormals(lat, lon) {
+            if (!weatherData || !weatherData.daily || !weatherData.daily.time || !weatherData.daily.time.length) return;
+            const dayList = weatherData.daily.time; // ["YYYY-MM-DD", ...] jusqu'à 16 jours
+            const hist = await loadHistoricalDailyNormals(lat, lon);
+
+            const normals = {};
+            dayList.forEach(dateStr => {
+                const v = hist.air[dateStr.slice(5)];
+                if (typeof v === 'number') normals[dateStr] = v;
+            });
+            dailyTempNormals = normals;
+            // Le graphique a pu être affiché avant la fin de ce chargement (requête archive plus
+            // lentes que la prévision elle-même) : on le redessine pour faire apparaître la ligne
+            // pointillée dès qu'elle est disponible, seulement si le lieu n'a pas changé entretemps.
+            if (weatherData && weatherData.daily && weatherData.daily.time === dayList) {
+                updateChart(selectedDayIndex);
+            }
+        }
+
         async function fetchWeather(lat, lon, locationName, population = null) {
             currentLat = lat;
             currentLon = lon;
             currentPopulation = population;
+            currentLocationName = locationName;
             // Les signaux géo micro-climat (relief/bâti/cours d'eau) sont propres à un LIEU : un
             // changement de lieu doit les invalider, sinon une réactivation ultérieure du toggle
             // pourrait réutiliser par erreur les signaux de l'ancien lieu (voir onMicroClimateToggleChange).
             microClimateGeoSignals = null;
             microClimateDayCache = {};
+            dailyTempNormals = {}; // nouveau lieu : la normale de saison affichée doit repartir de zéro
             document.getElementById('title').innerText = locationName;
             document.getElementById('radar-sub-location').innerText = `${locationName} et alentours`;
+            updateFavoriteButtonUI();
+            renderFavoritesChips();
             
             try {
                 const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,apparent_temperature,dew_point_2m,precipitation,precipitation_probability,rain,cloud_cover,snowfall,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,wind_speed_200hPa,pressure_msl,relative_humidity_2m,freezing_level_height,soil_temperature_0cm,is_day&daily=sunrise,sunset,precipitation_probability_max,temperature_2m_max,temperature_2m_min,temperature_2m_mean,uv_index_max&timezone=auto&forecast_days=16`;
@@ -4624,6 +4931,7 @@
                 updateSnowEpisodeCard();
                 ensembleConfidenceByDay = null; // nouveau lieu : on repart sur l'heuristique le temps du chargement
                 loadEnsembleConfidence(lat, lon).catch(() => {});
+                loadDailyTempNormals(lat, lon).catch(() => {});
                 renderVigilanceBanner().catch(() => {});
                 loadPollenChart(lat, lon).catch(() => {});
                 loadSeasonalForecastAPI(lat, lon).catch(() => {});
@@ -4680,6 +4988,15 @@
                     forecastGridLayer = null;
                 }
                 forecastFrames30min = [];
+                // Idem pour la grille de foudre : un nouveau lieu invalide la grille précédente
+                // (autre zone géographique), on ne garde jamais l'ancienne affichée par erreur.
+                if (lightningLayer) {
+                    map.removeLayer(lightningLayer);
+                    lightningLayer = null;
+                }
+                lightningFrames = [];
+                lightningCenterLat = null;
+                lightningCenterLon = null;
             } catch (e) {
                 console.error(e);
             }
@@ -6585,6 +6902,189 @@
             return cells;
         }
 
+        // ---- Foudre (potentiel de foudre / LPI, DWD ICON-D2 via Open-Meteo) ----
+        // Contrairement à la grille de précipitations 6h ci-dessus (qui interpole une grille dense
+        // de cellules à partir de 9 points réellement interrogés), le LPI est ici demandé
+        // DIRECTEMENT sur chaque point de la grille affichée, en UNE SEULE requête groupée
+        // multi-coordonnées (l'API Open-Meteo accepte des listes lat/lon séparées par des virgules
+        // et renvoie un tableau, un objet par point, dans le même ordre — voir
+        // openmeteo.substack.com/p/weather-data-for-multiple-locations). Pas d'interpolation
+        // maison ici : chaque cercle affiché correspond à une vraie valeur de modèle à cet endroit
+        // précis, pas une estimation entre points voisins.
+        //
+        // lightning_potential n'existe que dans ICON-D2 (Europe centrale, horizon ~48h) — hors de
+        // cette zone/cet horizon, les valeurs sont simplement absentes (jamais inventées). Seuil
+        // d'affichage à 5 J/kg : c'est le seuil utilisé par DWD elle-même pour ICON-D2 comme signal
+        // exploitable (voir Meteorologische Zeitschrift, "Data-Driven Prediction of Severe
+        // Convection at DWD", 2024) — en dessous, le bruit du modèle domine le signal.
+        const LIGHTNING_GRID_RADIUS_KM = 40;
+        const LIGHTNING_GRID_STEP_KM = 16;
+        const LIGHTNING_FRAME_HOURS = 12; // horizon affiché : +0h à +12h, un point par heure
+        const LIGHTNING_MIN_LPI = 5; // J/kg — en dessous, cellule non affichée (bruit de modèle)
+
+        function generateLightningGrid(centerLat, centerLon) {
+            const points = [];
+            const steps = Math.round(LIGHTNING_GRID_RADIUS_KM / LIGHTNING_GRID_STEP_KM);
+            for (let dx = -steps; dx <= steps; dx++) {
+                for (let dy = -steps; dy <= steps; dy++) {
+                    const distKm = Math.sqrt(dx * dx + dy * dy) * LIGHTNING_GRID_STEP_KM;
+                    if (distKm > LIGHTNING_GRID_RADIUS_KM) continue;
+                    const dLat = (dy * LIGHTNING_GRID_STEP_KM) / 111.32;
+                    const dLon = (dx * LIGHTNING_GRID_STEP_KM) / (111.32 * Math.cos(centerLat * Math.PI / 180));
+                    points.push({ lat: centerLat + dLat, lon: centerLon + dLon, dist: distKm });
+                }
+            }
+            return points;
+        }
+
+        function lightningColorFor(lpi) {
+            if (lpi >= 50) return '#c0392b';
+            if (lpi >= 20) return '#d97736';
+            return '#f4c07a';
+        }
+
+        // Charge le LPI pour la grille autour du lieu donné et construit LIGHTNING_FRAME_HOURS+1
+        // trames horaires (+0h à +12h). Ne recharge pas si déjà fait pour ce centre (~2km près),
+        // même logique que la grille de précipitations 6h — donnée de prévision à courte échéance,
+        // pas d'intérêt à mettre en cache au-delà de la session en cours (pas de localStorage ici).
+        async function loadLightningGrid(centerLat, centerLon) {
+            if (lightningFrames.length > 0 && lightningCenterLat !== null && lightningCenterLon !== null &&
+                calculateDistance(centerLat, centerLon, lightningCenterLat, lightningCenterLon) < 2) {
+                return;
+            }
+
+            const points = generateLightningGrid(centerLat, centerLon);
+            const latList = points.map(p => p.lat.toFixed(4)).join(',');
+            const lonList = points.map(p => p.lon.toFixed(4)).join(',');
+
+            let results = null;
+            let anyDataAvailable = false;
+            lightningFetchError = false;
+            try {
+                // models=icon_d2 FORCÉ explicitement : lightning_potential n'existe que dans ICON-D2
+                // (voir note ci-dessus). Sans ce paramètre, l'endpoint /dwd-icon peut mélanger
+                // ICON-D2/EU/Global selon la résolution disponible et renvoyer un 200 OK avec des
+                // valeurs null pour ce champ dès qu'un autre modèle que D2 est sélectionné pour
+                // l'heure ou le point demandé — un piège déjà documenté côté Open-Meteo pour
+                // d'autres endpoints (API Marine, github.com/open-meteo/open-meteo/issues/1364).
+                // Conséquence directe si on omet ce paramètre : le calque peut rester vide même en
+                // pleine zone orageuse, sans aucune erreur réseau pour le signaler.
+                const url = `https://api.open-meteo.com/v1/dwd-icon?latitude=${latList}&longitude=${lonList}&hourly=lightning_potential&models=icon_d2&timezone=auto&forecast_days=2`;
+                const res = await fetchWithTimeout(url, { timeout: 15000 });
+                if (!res.ok) throw new Error('Réponse API invalide');
+                results = await res.json();
+                if (!Array.isArray(results)) results = [results]; // un seul point : pas de tableau
+                // Distingue "aucun risque actuellement" (valeurs réelles, toutes sous le seuil) de
+                // "aucune donnée disponible ici" (ICON-D2 ne couvre que l'Europe centrale, ~48h) —
+                // sans ce contrôle, les deux cas affichaient la même carte vide, trompeur pour un
+                // lieu hors zone de couverture plutôt qu'un lieu réellement calme.
+                anyDataAvailable = results.some(d => d && d.hourly && Array.isArray(d.hourly.lightning_potential) &&
+                    d.hourly.lightning_potential.some(v => typeof v === 'number'));
+            } catch (e) {
+                lightningFrames = [];
+                lightningDataAvailable = false;
+                lightningFetchError = true;
+                lightningCenterLat = centerLat;
+                lightningCenterLon = centerLon;
+                return;
+            }
+            lightningDataAvailable = anyDataAvailable;
+            if (!anyDataAvailable) {
+                // Aucune valeur exploitable sur toute la grille/l'horizon : très probablement hors
+                // couverture ICON-D2 (Europe centrale uniquement) plutôt qu'un vrai calme plat —
+                // pas la peine de construire des trames vides, le message dédié suffit (voir
+                // rebuildLightningGridAt).
+                lightningFrames = [];
+                lightningCenterLat = centerLat;
+                lightningCenterLon = centerLon;
+                return;
+            }
+
+            const now = new Date();
+            const frames = [];
+            for (let h = 0; h <= LIGHTNING_FRAME_HOURS; h++) {
+                const frameTime = new Date(now.getTime() + h * 3600000);
+                const framePoints = [];
+                points.forEach((pt, i) => {
+                    const data = results[i];
+                    if (!data || !data.hourly || !data.hourly.time || !data.hourly.lightning_potential) return;
+                    const idx = data.hourly.time.findIndex(t => new Date(t).getTime() >= frameTime.getTime());
+                    if (idx === -1) return;
+                    const lpi = data.hourly.lightning_potential[idx];
+                    if (typeof lpi !== 'number' || lpi < LIGHTNING_MIN_LPI) return;
+                    framePoints.push({ lat: pt.lat, lon: pt.lon, lpi });
+                });
+                frames.push({ time: frameTime, points: framePoints });
+            }
+
+            lightningFrames = frames;
+            lightningCenterLat = centerLat;
+            lightningCenterLon = centerLon;
+        }
+
+        // Reconstruit la grille de foudre sur un point donné et recadre la carte dessus, même
+        // principe que rebuildForecastGridAt() pour la grille de précipitations 6h.
+        async function rebuildLightningGridAt(lat, lon) {
+            document.getElementById('radar-time').innerText = 'Chargement...';
+            await loadLightningGrid(lat, lon);
+
+            const halfKm = LIGHTNING_GRID_RADIUS_KM;
+            const latDelta = halfKm / 111;
+            const lonDelta = halfKm / (111 * Math.cos(lat * Math.PI / 180));
+            map.fitBounds([
+                [lat - latDelta, lon - lonDelta],
+                [lat + latDelta, lon + lonDelta]
+            ]);
+
+            const slider = document.getElementById('radar-slider');
+            if (lightningFrames.length > 0) {
+                slider.max = lightningFrames.length - 1;
+                slider.value = 0;
+                currentRadarIndex = 0;
+                renderLightningGrid(0);
+            } else if (lightningFetchError) {
+                document.getElementById('radar-time').innerText = 'Indisponible pour le moment';
+            } else if (!lightningDataAvailable) {
+                document.getElementById('radar-time').innerText = 'Hors couverture (Europe centrale uniquement)';
+            } else {
+                document.getElementById('radar-time').innerText = 'Indisponible pour ce lieu';
+            }
+        }
+
+        function renderLightningGrid(frameIndex) {
+            if (!map) return;
+            if (lightningLayer) {
+                map.removeLayer(lightningLayer);
+                lightningLayer = null;
+            }
+
+            const frame = lightningFrames[frameIndex];
+            if (!frame) return;
+
+            lightningLayer = L.layerGroup().addTo(map);
+            const radiusMeters = LIGHTNING_GRID_STEP_KM * 550; // cercles qui se recouvrent légèrement, effet "zone"
+
+            frame.points.forEach(pt => {
+                const color = lightningColorFor(pt.lpi);
+                const circle = L.circle([pt.lat, pt.lon], {
+                    radius: radiusMeters,
+                    color: color,
+                    weight: 0.5,
+                    opacity: 0.4,
+                    fillColor: color,
+                    fillOpacity: Math.min(0.75, 0.35 + pt.lpi / 150)
+                });
+                circle.bindPopup(`<b>Potentiel de foudre</b><br>${Math.round(pt.lpi)} J/kg`);
+                circle.addTo(lightningLayer);
+            });
+
+            const timeStr = frame.time.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+            const dayStr = frame.time.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
+            document.getElementById('radar-time').innerText = frame.points.length > 0
+                ? `${dayStr} ${timeStr}`
+                : `${dayStr} ${timeStr} · aucun risque détecté`;
+        }
+
         function interpolateHourlyData(times, values, targetTime) {
             // Interpolation linéaire entre deux points horaires
             for (let i = 0; i < times.length - 1; i++) {
@@ -6802,7 +7302,7 @@
             const dayStr = d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
 
             document.getElementById('radar-time').innerText = `${dayStr} ${timeStr}`;
-            console.log(`Frame ${frameIndex}: ${visibleCells} cellules visibles, types: ${rainCount} pluie, ${snowCount} neige, ${stormCount} orage`);
+            console.log(`Frame ${frameIndex}: ${visibleCells} cellules visibles`);
         }
 
         function renderCarousel() {
@@ -7165,7 +7665,14 @@
             const chartSubEl = document.getElementById('chart-sub-text');
             if (chartSubEl) {
                 const baseSub = 'Évolution thermique, histogramme de pluie (mm) et neige (cm)';
-                chartSubEl.innerText = microClimateActiveToday ? `${baseSub} · ajusté micro-climat` : baseSub;
+                const microSuffix = microClimateActiveToday ? ' · ajusté micro-climat' : '';
+                // Normale de saison (moyenne journalière réelle sur 15 ans, mêmes dates calendaires,
+                // voir loadDailyTempNormals) : affichée dès qu'elle est connue pour ce jour précis,
+                // silencieusement absente sinon (pas de valeur inventée).
+                const dateStr = weatherData.daily && weatherData.daily.time ? weatherData.daily.time[dayIdx] : null;
+                const normalValue = dateStr ? dailyTempNormals[dateStr] : null;
+                const normalSuffix = typeof normalValue === 'number' ? ` · Normale 15 ans : ${Math.round(normalValue)}°C` : '';
+                chartSubEl.innerText = baseSub + microSuffix + normalSuffix;
             }
 
             if (typeof Chart === 'undefined') return;
@@ -7186,13 +7693,36 @@
             const precipColor = hasSnowToday ? 'rgba(139, 92, 246, 0.75)' : 'rgba(94, 156, 204, 0.65)';
             const precipAxisColor = hasSnowToday ? '#8b5cf6' : '#5a9bd4';
 
+            // Ligne pointillée de référence (normale de saison, voir plus haut) : un plateau
+            // horizontal (même valeur répétée sur les 24h) plutôt qu'une vraie courbe horaire — on ne
+            // dispose que d'une moyenne JOURNALIÈRE historique, pas d'un profil horaire par le passé.
+            const dateStrForNormal = weatherData.daily && weatherData.daily.time ? weatherData.daily.time[dayIdx] : null;
+            const normalForDay = dateStrForNormal ? dailyTempNormals[dateStrForNormal] : null;
+            const datasets = [
+                { type: 'line', label: 'Température (°C)', data: temps, borderColor: '#d97736', borderWidth: 2, fill: true, backgroundColor: tempGradient, tension: 0.4, pointRadius: 0, yAxisID: 'yTemp' },
+                { type: 'bar', label: precipLabel, data: precipValues, backgroundColor: precipColor, borderRadius: 4, barThickness: 5, yAxisID: 'yPrecip' }
+            ];
+            if (typeof normalForDay === 'number') {
+                datasets.push({
+                    type: 'line',
+                    label: 'Normale de saison (15 ans)',
+                    data: new Array(temps.length).fill(normalForDay),
+                    borderColor: 'rgba(28, 56, 50, 0.55)',
+                    borderWidth: 1.5,
+                    borderDash: [5, 4],
+                    pointRadius: 0,
+                    fill: false,
+                    tension: 0,
+                    yAxisID: 'yTemp'
+                });
+            }
+            const normalLegendEl = document.getElementById('chart-normal-legend-item');
+            if (normalLegendEl) normalLegendEl.style.display = typeof normalForDay === 'number' ? '' : 'none';
+
             weatherChart = new Chart(ctx, {
                 data: {
                     labels: hours,
-                    datasets: [
-                        { type: 'line', label: 'Température (°C)', data: temps, borderColor: '#d97736', borderWidth: 2, fill: true, backgroundColor: tempGradient, tension: 0.4, pointRadius: 0, yAxisID: 'yTemp' },
-                        { type: 'bar', label: precipLabel, data: precipValues, backgroundColor: precipColor, borderRadius: 4, barThickness: 5, yAxisID: 'yPrecip' }
-                    ]
+                    datasets: datasets
                 },
                 options: {
                     responsive: true,
@@ -9663,48 +10193,18 @@ function updatePressureChart(dayIdx) {
                 });
 
                 // ---- Moyenne historique (15 dernières années, mêmes dates calendaires) ----
+                // Requête archive mutualisée avec la normale de saison du graphique horaire (voir
+                // loadHistoricalDailyNormals) : un seul appel réseau pour les deux fonctionnalités,
+                // avec cache localStorage 30 jours — plus de boucle de 15 requêtes séparées ici.
                 const YEARS_BACK = 15;
-                const shiftYear = (dateStr, offset) => {
-                    const [y, m, d] = dateStr.split('-').map(Number);
-                    return new Date(Date.UTC(y - offset, m - 1, d)).toISOString().slice(0, 10);
-                };
-
-                const histAirByKey = new Map();
-                const histSoilByKey = new Map();
-                dayList.forEach(dateStr => {
-                    histAirByKey.set(dateStr.slice(5), []);
-                    histSoilByKey.set(dateStr.slice(5), []);
-                });
-
-                const first = dayList[0];
-                const last = dayList[dayList.length - 1];
-                const yearRequests = [];
-                for (let offset = 1; offset <= YEARS_BACK; offset++) {
-                    const startD = shiftYear(first, offset);
-                    const endD = shiftYear(last, offset);
-                    const hUrl = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${startD}&end_date=${endD}&daily=temperature_2m_mean,soil_temperature_0_to_7cm_mean&timezone=auto`;
-                    yearRequests.push(fetchWithTimeout(hUrl, { timeout: 15000 }).then(r => r.ok ? r.json() : null).catch(() => null));
-                }
-
-                const yearResults = await Promise.all(yearRequests);
-                yearResults.forEach(data => {
-                    if (!data || !data.daily || !data.daily.time) return;
-                    data.daily.time.forEach((dateStr, i) => {
-                        const key = dateStr.slice(5);
-                        const airV = data.daily.temperature_2m_mean ? data.daily.temperature_2m_mean[i] : undefined;
-                        const soilV = data.daily.soil_temperature_0_to_7cm_mean ? data.daily.soil_temperature_0_to_7cm_mean[i] : undefined;
-                        if (histAirByKey.has(key) && typeof airV === 'number') histAirByKey.get(key).push(airV);
-                        if (histSoilByKey.has(key) && typeof soilV === 'number') histSoilByKey.get(key).push(soilV);
-                    });
-                });
-
+                const hist = await loadHistoricalDailyNormals(lat, lon);
                 const airHistorical = dayList.map(dateStr => {
-                    const arr = histAirByKey.get(dateStr.slice(5));
-                    return arr && arr.length ? average(arr) : null;
+                    const v = hist.air[dateStr.slice(5)];
+                    return typeof v === 'number' ? v : null;
                 });
                 const soilHistorical = dayList.map(dateStr => {
-                    const arr = histSoilByKey.get(dateStr.slice(5));
-                    return arr && arr.length ? average(arr) : null;
+                    const v = hist.soil[dateStr.slice(5)];
+                    return typeof v === 'number' ? v : null;
                 });
 
                 const anyHistorical = airHistorical.some(v => v !== null) || soilHistorical.some(v => v !== null);
@@ -10122,7 +10622,8 @@ function updatePressureChart(dayIdx) {
         // (utile après que l'utilisateur ait déplacé/zoomé la carte manuellement).
         function recenterRadarMap() {
             if (!map) return;
-            map.setView([currentLat, currentLon], radarMode === 'forecast' ? 9 : 7);
+            const zoom = (radarMode === 'forecast' || radarMode === 'lightning') ? 9 : 7;
+            map.setView([currentLat, currentLon], zoom);
         }
 
         // Affiche sur la carte radar visible la position réelle de la cellule que Metehop suit et
@@ -10325,8 +10826,12 @@ function updatePressureChart(dayIdx) {
             radarMode = mode;
             document.getElementById('mode-radar').classList.toggle('active', mode === 'radar');
             document.getElementById('mode-forecast').classList.toggle('active', mode === 'forecast');
+            document.getElementById('mode-lightning').classList.toggle('active', mode === 'lightning');
+            document.getElementById('radar-card-title').innerText = mode === 'lightning' ? 'Potentiel de foudre' : 'Radar des précipitations';
             document.getElementById('forecast-legend-grid').style.display = mode === 'forecast' ? 'flex' : 'none';
             document.getElementById('grid-model-source').style.display = mode === 'forecast' ? 'block' : 'none';
+            document.getElementById('lightning-legend-grid').style.display = mode === 'lightning' ? 'flex' : 'none';
+            document.getElementById('lightning-caveat').style.display = mode === 'lightning' ? 'block' : 'none';
 
             const slider = document.getElementById('radar-slider');
             const playBtn = document.getElementById('play-btn');
@@ -10337,21 +10842,41 @@ function updatePressureChart(dayIdx) {
                     map.removeLayer(forecastGridLayer);
                     forecastGridLayer = null;
                 }
+                if (lightningLayer) {
+                    map.removeLayer(lightningLayer);
+                    lightningLayer = null;
+                }
                 if (radarTimestamps.length > 0) {
                     slider.max = radarTimestamps.length - 1;
                     currentRadarIndex = Math.min(currentRadarIndex, radarTimestamps.length - 1);
                     slider.value = currentRadarIndex;
                     changeRadarFrame(currentRadarIndex);
                 }
-            } else {
+            } else if (mode === 'forecast') {
                 playBtn.style.display = 'none';
                 Object.keys(radarTileLayers).forEach(ts => {
                     if (map.hasLayer(radarTileLayers[ts])) map.removeLayer(radarTileLayers[ts]);
                 });
+                if (lightningLayer) {
+                    map.removeLayer(lightningLayer);
+                    lightningLayer = null;
+                }
 
                 const center = marker ? marker.getLatLng() : map.getCenter();
                 await rebuildForecastGridAt(center.lat, center.lng);
                 playBtn.style.display = 'inline-flex';
+            } else if (mode === 'lightning') {
+                playBtn.style.display = 'none';
+                Object.keys(radarTileLayers).forEach(ts => {
+                    if (map.hasLayer(radarTileLayers[ts])) map.removeLayer(radarTileLayers[ts]);
+                });
+                if (forecastGridLayer) {
+                    map.removeLayer(forecastGridLayer);
+                    forecastGridLayer = null;
+                }
+
+                const center = marker ? marker.getLatLng() : map.getCenter();
+                await rebuildLightningGridAt(center.lat, center.lng);
             }
         }
 
@@ -10360,6 +10885,10 @@ function updatePressureChart(dayIdx) {
 
             if (radarMode === 'forecast') {
                 renderForecastGrid(currentRadarIndex);
+                return;
+            }
+            if (radarMode === 'lightning') {
+                renderLightningGrid(currentRadarIndex);
                 return;
             }
 
@@ -10404,6 +10933,114 @@ function updatePressureChart(dayIdx) {
                     changeRadarFrame(currentRadarIndex);
                 }, 800);
             }
+        }
+
+        // ---- Image partageable de la météo du jour (voir bouton .btn-share-weather) ----
+        // Génère un visuel <canvas> à partir de ce qui est ACTUELLEMENT affiché dans le bandeau
+        // principal (mêmes éléments DOM que hero-temp-val, hero-cond-title, etc.) plutôt que de
+        // recalculer quoi que ce soit séparément : l'image partagée correspond donc toujours
+        // exactement à ce que l'utilisateur a sous les yeux au moment du partage (jour sélectionné,
+        // ajustement micro-climat éventuel compris). navigator.share() pour le partage natif mobile
+        // (avec fichier image), repli en téléchargement direct si l'API n'est pas supportée
+        // (desktop, ou navigateur qui ne sait pas partager un fichier).
+        const SHARE_ICON_EMOJI = {
+            'fa-sun': '☀️',
+            'fa-cloud-sun': '⛅',
+            'fa-cloud': '☁️',
+            'fa-smog': '🌫️',
+            'fa-cloud-rain': '🌧️',
+            'fa-cloud-showers-heavy': '🌧️',
+            'fa-snowflake': '❄️',
+            'fa-cloud-sun-rain': '🌦️',
+            'fa-cloud-bolt': '⛈️',
+            'fa-moon': '🌙'
+        };
+
+        function shareWeatherImage() {
+            if (!weatherData) return;
+            const size = 1080;
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            // Fond dégradé, mêmes teintes que l'app (vert sauge -> vert plus soutenu).
+            const bg = ctx.createLinearGradient(0, 0, 0, size);
+            bg.addColorStop(0, '#e5eee8');
+            bg.addColorStop(1, '#c9ddd2');
+            ctx.fillStyle = bg;
+            ctx.fillRect(0, 0, size, size);
+
+            const locationName = document.getElementById('title').innerText;
+            const dateStr = document.getElementById('hero-date-str').innerText.split('•')[0].trim();
+            const tempVal = document.getElementById('hero-temp-val').innerText;
+            const condLabel = document.getElementById('hero-cond-title').innerText;
+            const feelsVal = document.getElementById('hero-feels-val').innerText;
+            const tmin = document.getElementById('day-tmin').innerText;
+            const tmax = document.getElementById('day-tmax').innerText;
+            const iconClasses = document.getElementById('hero-main-icon').className.split(' ');
+            const iconClass = iconClasses.find(c => c.startsWith('fa-') && c !== 'fa-solid');
+            const emoji = SHARE_ICON_EMOJI[iconClass] || '🌤️';
+
+            ctx.textAlign = 'center';
+
+            ctx.fillStyle = '#1c3832';
+            ctx.font = '600 44px sans-serif';
+            ctx.fillText(locationName, size / 2, 140);
+
+            ctx.fillStyle = '#5e706a';
+            ctx.font = '400 28px sans-serif';
+            ctx.fillText(dateStr, size / 2, 185);
+
+            ctx.font = '220px sans-serif';
+            ctx.fillText(emoji, size / 2, 470);
+
+            ctx.fillStyle = '#1c3832';
+            ctx.font = '700 160px sans-serif';
+            ctx.fillText(tempVal, size / 2, 660);
+
+            ctx.fillStyle = '#3b6e61';
+            ctx.font = '500 40px sans-serif';
+            ctx.fillText(condLabel, size / 2, 715);
+
+            ctx.fillStyle = '#5e706a';
+            ctx.font = '400 30px sans-serif';
+            ctx.fillText(feelsVal, size / 2, 760);
+
+            ctx.fillStyle = '#1c3832';
+            ctx.font = '600 36px sans-serif';
+            ctx.fillText(`MIN ${tmin}   ·   MAX ${tmax}`, size / 2, 850);
+
+            ctx.fillStyle = '#3b6e61';
+            ctx.font = '600 30px sans-serif';
+            ctx.fillText('🐸 Metehop', size / 2, size - 70);
+            ctx.fillStyle = '#5e706a';
+            ctx.font = '400 22px sans-serif';
+            ctx.fillText('metehop.github.io', size / 2, size - 35);
+
+            canvas.toBlob(async (blob) => {
+                if (!blob) return;
+                const fileName = `metehop-${locationName.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.png`;
+                const file = new File([blob], fileName, { type: 'image/png' });
+
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    try {
+                        await navigator.share({ files: [file], title: 'Metehop', text: `Météo à ${locationName} : ${tempVal}, ${condLabel}` });
+                        return;
+                    } catch (e) {
+                        // partage annulé par l'utilisateur ou indisponible : repli téléchargement ci-dessous
+                    }
+                }
+                // Repli desktop / navigateurs sans Web Share API de fichiers : téléchargement direct.
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                setTimeout(() => URL.revokeObjectURL(url), 2000);
+            }, 'image/png');
         }
     </script>
 </body>
