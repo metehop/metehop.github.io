@@ -624,18 +624,6 @@
         }
         .hour-item-now .hour-time, .hour-item-now .hour-temp, .hour-item-now .hour-precip { color: #ffffff; }
         .hour-item-now .hour-icon { color: #f5d061; }
-        .evolution-pill {
-            background: var(--card-inner-bg);
-            border-radius: var(--radius-small);
-            padding: 8px 12px;
-            font-size: 0.72rem;
-            display: flex;
-            justify-content: space-between;
-            color: var(--text-muted);
-            margin-top: 8px;
-        }
-        .evolution-pill strong { color: var(--primary-dark); }
-
         /* Carte & Radar */
         .radar-header-toggle {
             display: flex;
@@ -1048,6 +1036,28 @@
         }
         .heating-status-pill.heating-on .heating-pill-value { color: #d97736; }
         .heating-status-pill.heating-off .heating-pill-value { color: #2b6cb0; }
+        .heating-pill-eta {
+            font-size: 0.62rem;
+            color: var(--text-muted);
+            margin-top: 3px;
+            line-height: 1.3;
+        }
+
+        /* Encart "orage à proximité" sous Évolution des 3 prochaines heures */
+        .storm-proximity-box {
+            margin-top: 8px;
+            padding: 8px 12px;
+            border-radius: var(--radius-medium);
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.35);
+            color: #b91c1c;
+            font-size: 0.78rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .storm-proximity-box i { color: #ef4444; }
         .heating-forecast-note {
             font-size: 0.68rem;
             color: var(--text-muted);
@@ -2029,10 +2039,6 @@
                     <div class="local-effects-list" id="local-effects-list"></div>
                 </div>
 
-                <div class="evolution-pill">
-                    <span>Prochaine évolution</span>
-                    <strong id="evolution-text">Ciel stable</strong>
-                </div>
             </div>
 
             <div class="card-sage">
@@ -2155,7 +2161,15 @@
             <div class="chart-container" id="evo-chart-container" style="height: 150px;">
                 <canvas id="evoChart"></canvas>
             </div>
-            <div class="card-sage-sub" id="evo-chart-footnote" style="margin-top: 6px; font-size: 0.65rem;">Estimation expérimentale à partir du radar RainViewer : trajectoire des précipitations extrapolée depuis les images passées récentes. Actualisé automatiquement toutes les 5 minutes. Les contours superposés montrent la prévision du modèle Open-Meteo (précipitations horaires réparties uniformément sur les tranches de 10 min, faute de résolution plus fine côté modèle).</div>
+            <div class="card-sage-sub" id="evo-chart-footnote" style="margin-top: 6px; font-size: 0.65rem;">Actualisé automatiquement toutes les 5 minutes. Les contours superposés montrent la prévision</div>
+            <!-- Suivi de proximité d'orage : visible uniquement si une cellule orageuse (grêle
+                 incluse) est suivie à moins de STORM_PROXIMITY_KM de la position — voir
+                 updateStormProximityBox(), appelée depuis loadEvoMetehop(). Actualisation accélérée
+                 à 1 minute tant qu'un orage proche est suivi (voir scheduleRadarRefresh()). -->
+            <div class="storm-proximity-box" id="storm-proximity-box" style="display:none;">
+                <i class="fa-solid fa-bolt"></i>
+                <span id="storm-proximity-text">--</span>
+            </div>
         </div>
 
 
@@ -2376,18 +2390,19 @@
             </div>
         </div>
 
-        <!-- Chauffage : quand allumer / éteindre ? — chargée à la demande (nécessite un historique
-             de plusieurs années, comme les tendances saisonnières). Méthode et sources détaillées
-             dans la modal "Sources & modèles utilisés" (groupe "Chauffage"). -->
+        <!-- Chauffage : quand allumer / éteindre ? — chargement automatique à l'ouverture de
+             l'onglet (voir setGroup), même principe que le Jardinage et le Bilan hydrique
+             ci-dessus : un seul appel archive, mis en cache, ne justifie plus de bouton "Charger
+             les données". Méthode et sources détaillées dans la modal "Sources & modèles
+             utilisés" (groupe "Chauffage"). -->
         <div class="chart-card" id="heating-card" data-groups="astrogarden" style="display:none;">
             <div class="chart-header">
                 <div>
                     <div class="card-sage-title"><i class="fa-solid fa-fire" style="color: #d97736; margin-right: 6px;"></i> Chauffage : quand allumer / éteindre ?</div>
-                    <div class="card-sage-sub" id="heating-note">Basé sur la normale climatique du lieu — chargée à la demande.</div>
+                    <div class="card-sage-sub" id="heating-note">Basé sur la normale climatique du lieu.</div>
                 </div>
             </div>
-            <button type="button" class="btn-load-data" id="heating-load-btn" onclick="triggerLoadHeatingEstimate()">Charger les données</button>
-            <div id="heating-content" style="display:none;">
+            <div id="heating-content">
                 <div class="heating-status-row">
                     <div class="heating-status-pill" id="heating-status-pill">
                         <div class="heating-pill-label">Actuellement</div>
@@ -2396,10 +2411,12 @@
                     <div class="heating-status-pill">
                         <div class="heating-pill-label">Allumage habituel</div>
                         <div class="heating-pill-value" id="heating-on-date">--</div>
+                        <div class="heating-pill-eta" id="heating-on-eta"></div>
                     </div>
                     <div class="heating-status-pill">
                         <div class="heating-pill-label">Extinction habituelle</div>
                         <div class="heating-pill-value" id="heating-off-date">--</div>
+                        <div class="heating-pill-eta" id="heating-off-eta"></div>
                     </div>
                 </div>
                 <div class="chart-container" style="height: 220px;">
@@ -3223,7 +3240,7 @@
             <div class="footer-support-row">
                 <a class="footer-support-link" href="https://buymeacoffee.com/stridemetric" target="_blank" rel="noopener">🐸 Aide-moi à nourrir la grenouille Metehop</a>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 06/09/2026 - 55</div>
+            <div class="footer-last-update">Dernière mise à jour : 06/09/2026 - 56</div>
         </footer>
 
     </div>
@@ -3678,7 +3695,7 @@
         let waterBalanceLoaded = false;   // bilan hydrique jardin (pluie vs ET0)
         let waterBalanceChart = null;
         let seasonalTrendsLoaded = false; // tendances saisonnières (bouton "Charger les données")
-        let heatingLoaded = false;        // estimation chauffage (bouton "Charger les données")
+        let heatingLoaded = false;        // estimation chauffage (chargement auto à l'ouverture de l'onglet)
         let lastHeatingResult = null;     // { onDoy, offDoy, climByDoy, ... } pour éviter de recalculer au resize
         // Station météo personnelle (Tencin, Isère) affichée dans l'onglet Hobby (Astronomie) quand
         // le lieu consulté est à proximité — source Weather Underground PWS, pas Open-Meteo.
@@ -3718,6 +3735,44 @@
         let evoChart = null;
         let metehopAnalysis = null; // dernière analyse radar : { hasHail, hasStorm, hasSnow, etaMinutes, confidence }
         let radarRefreshIntervalId = null;
+        let radarRefreshIntervalMs = 5 * 60 * 1000;
+
+        // ---- Suivi de proximité d'orage (encart sous "Évolution des 3 prochaines heures") ----
+        // Rayon en deçà duquel une cellule orageuse (ou grêle) suivie déclenche l'encart et le
+        // passage à une actualisation accélérée (1 min au lieu de 5 min habituelles).
+        const STORM_PROXIMITY_KM = 10;
+        const STORM_PROXIMITY_REFRESH_MS = 60 * 1000;
+        let stormNearbyActive = false;
+
+        // Ajuste la cadence de rafraîchissement radar (periodicRadarRefresh) sans jamais avoir
+        // plus d'un setInterval actif à la fois. N'a d'effet que si la cadence demandée diffère
+        // de la cadence en cours, pour ne pas réinitialiser inutilement le minuteur en continu.
+        function scheduleRadarRefresh(intervalMs) {
+            if (radarRefreshIntervalId && radarRefreshIntervalMs === intervalMs) return;
+            if (radarRefreshIntervalId) clearInterval(radarRefreshIntervalId);
+            radarRefreshIntervalMs = intervalMs;
+            radarRefreshIntervalId = setInterval(periodicRadarRefresh, intervalMs);
+        }
+
+        // Met à jour l'encart de proximité d'orage et la cadence de rafraîchissement en conséquence.
+        // distanceKm = null signifie "aucun orage suivi" (encart masqué, cadence normale rétablie).
+        function updateStormProximityBox(distanceKm) {
+            const box = document.getElementById('storm-proximity-box');
+            const text = document.getElementById('storm-proximity-text');
+            const nearby = typeof distanceKm === 'number' && distanceKm <= STORM_PROXIMITY_KM;
+            if (nearby) {
+                text.innerText = distanceKm <= 0.5
+                    ? "Orage actuellement sur votre position."
+                    : `Orage détecté à ~${distanceKm}km de votre position.`;
+                box.style.display = 'flex';
+            } else {
+                box.style.display = 'none';
+            }
+            if (nearby !== stormNearbyActive) {
+                stormNearbyActive = nearby;
+                scheduleRadarRefresh(nearby ? STORM_PROXIMITY_REFRESH_MS : 5 * 60 * 1000);
+            }
+        }
 
         const wmoMap = {
             0: { icon: 'fa-sun', label: 'Ensoleillé' },
@@ -4019,9 +4074,11 @@
             setTimeout(updateMoonPhase, 800);
             initTrajetDepartureBounds();
             // Tant que l'application reste ouverte, on rafraîchit les données radar (carte +
-            // graphique "Évolution 2h") et on recalcule la trajectoire Metehop toutes les 5 min.
+            // graphique "Évolution 2h") et on recalcule la trajectoire Metehop toutes les 5 min —
+            // accéléré à 1 min automatiquement si un orage est suivi à moins de STORM_PROXIMITY_KM
+            // (voir updateStormProximityBox(), appelée depuis loadEvoMetehop()).
             if (!radarRefreshIntervalId) {
-                radarRefreshIntervalId = setInterval(periodicRadarRefresh, 5 * 60 * 1000);
+                scheduleRadarRefresh(radarRefreshIntervalMs);
             }
         });
 
@@ -4466,6 +4523,13 @@
                     document.getElementById('water-balance-note').innerText = 'Données indisponibles pour le moment.';
                 });
             }
+            if (group === 'astrogarden' && !heatingLoaded && currentLat !== null) {
+                heatingLoaded = true;
+                document.getElementById('heating-note').innerText = 'Chargement de la climatologie locale...';
+                loadHeatingSeasonEstimate(currentLat, currentLon).catch(() => {
+                    document.getElementById('heating-note').innerText = 'Données indisponibles pour le moment.';
+                });
+            }
             if (group === 'astrogarden' && weatherData) {
                 renderAstroNightsRanking();
             }
@@ -4526,26 +4590,16 @@
             document.getElementById('seasonal-trends-note').innerText = "Prévisions sur 6 mois basées sur l'historique réel du lieu — chargées à la demande.";
         }
 
-        // ---- Chauffage (allumage/extinction) : chargé uniquement au clic, même logique que les
-        // tendances saisonnières (nécessite un historique pluriannuel complet, contrairement au
-        // reste de l'app qui ne charge que 6 mois glissants) ----
-        function triggerLoadHeatingEstimate() {
-            if (heatingLoaded || currentLat === null) return;
-            heatingLoaded = true;
-            document.getElementById('heating-load-btn').style.display = 'none';
-            document.getElementById('heating-content').style.display = '';
-            document.getElementById('heating-note').innerText = 'Chargement de la climatologie locale...';
-            loadHeatingSeasonEstimate(currentLat, currentLon).catch(() => {
-                document.getElementById('heating-note').innerText = 'Données indisponibles pour le moment.';
-            });
-        }
-
+        // ---- Chauffage (allumage/extinction) : chargement automatique à l'ouverture de l'onglet
+        // (voir setGroup), même principe que le Jardinage et le Bilan hydrique ci-dessus — un seul
+        // appel archive (voir loadHeatingSeasonEstimate), le coût réseau ne justifie plus un bouton
+        // "Charger les données" dédié. ----
         function resetHeatingGate() {
             heatingLoaded = false;
             lastHeatingResult = null;
-            document.getElementById('heating-load-btn').style.display = '';
-            document.getElementById('heating-content').style.display = 'none';
-            document.getElementById('heating-note').innerText = "Basé sur la normale climatique du lieu — chargée à la demande.";
+            document.getElementById('heating-note').innerText = 'Basé sur la normale climatique du lieu.';
+            document.getElementById('heating-on-eta').innerText = '';
+            document.getElementById('heating-off-eta').innerText = '';
             if (heatingChart) { heatingChart.destroy(); heatingChart = null; }
         }
 
@@ -6301,19 +6355,69 @@
         const HAIL_MIN_AREA_KM2 = 1; // une cellule doit couvrir au moins 1km² pour être classée "grêle"
         const MIN_CELL_PIXELS = 12; // taille minimale (en pixels basse résolution zoom 6) pour qu'une cellule soit suivie
 
+        // Table RGB -> dBZ officielle du barème RainViewer "Universal Blue" (celui utilisé par
+        // cette app), copiée telle quelle depuis le CSV publié par RainViewer
+        // (rainviewer.com/files/rainviewer_api_colors_table.csv, colonne "Universal Blue", table
+        // Pluie) — jamais recalculée ni approximée. Sert à retrouver, pour un pixel radar donné, le
+        // dBZ le plus proche par plus proche voisin en espace RGB. Avant cette table, un pixel
+        // n'était rangé que dans l'une de 4-5 grandes familles de teinte (bleu/jaune/rouge/magenta),
+        // avec une seule intensité FIXE par famille (voir TYPE_INTENSITY_FALLBACK plus bas) — deux
+        // pixels de teintes différentes mais dans la même famille (ex. bleu clair vs bleu soutenu,
+        // tous deux "pluie faible à modérée") donnaient donc systématiquement le même mm/h en
+        // sortie, d'où le nombre très restreint de valeurs observées sur le graphique.
+        const RAINVIEWER_DBZ_TABLE = [
+            [-10,99,97,89],[-9,102,99,90],[-8,105,102,92],[-7,108,104,93],[-6,111,107,95],
+            [-5,114,110,97],[-4,117,112,98],[-3,120,115,100],[-2,124,117,101],[-1,127,120,103],
+            [0,130,123,105],[1,133,125,106],[2,136,128,108],[3,139,130,109],[4,142,133,111],
+            [5,146,136,113],[6,158,147,117],[7,170,158,121],[8,182,169,126],[9,194,180,130],
+            [10,206,192,135],[11,210,196,139],[12,214,200,143],[13,218,204,147],[14,222,208,151],
+            [15,136,221,238],[16,108,209,235],[17,81,197,232],[18,54,186,229],[19,27,174,226],
+            [20,0,163,224],[21,0,154,213],[22,0,145,202],[23,0,136,191],[24,0,127,180],
+            [25,0,119,170],[26,0,112,163],[27,0,105,156],[28,0,98,149],[29,0,91,142],
+            [30,0,85,136],[31,0,81,128],[32,0,78,120],[33,0,74,112],[34,0,71,104],
+            [35,255,238,0],[36,255,224,0],[37,255,210,0],[38,255,197,0],[39,255,183,0],
+            [40,255,170,0],[41,255,159,0],[42,255,149,0],[43,255,139,0],[44,255,129,0],
+            [45,255,68,0],[46,242,54,0],[47,230,40,0],[48,217,27,0],[49,205,13,0],
+            [50,193,0,0],[51,168,0,0],[52,143,0,0],[53,118,0,0],[54,93,0,0],
+            [55,255,170,255],[56,255,159,255],[57,255,149,255],[58,255,139,255],[59,255,129,255],
+            [60,255,119,255],[61,255,108,255],[62,255,98,255],[63,255,88,255],[64,255,78,255],
+            [65,255,255,255]
+        ];
+        function estimateDbzFromRgb(r, g, b) {
+            let bestDbz = RAINVIEWER_DBZ_TABLE[0][0], bestDist = Infinity;
+            for (const [dbz, tr, tg, tb] of RAINVIEWER_DBZ_TABLE) {
+                const dr = r - tr, dg = g - tg, db = b - tb;
+                const dist = dr * dr + dg * dg + db * db;
+                if (dist < bestDist) { bestDist = dist; bestDbz = dbz; }
+            }
+            return bestDbz;
+        }
+        // Relation Z-R de Marshall-Palmer (Z = 200 * R^1.6), la conversion dBZ -> taux de pluie
+        // (mm/h) la plus couramment utilisée par les services météo pour ce type d'estimation à
+        // partir d'un radar. R = (10^(dBZ/10) / 200) ^ (1/1.6).
+        function dbzToRainRateMmH(dbz) {
+            const z = Math.pow(10, dbz / 10);
+            return Math.pow(z / 200, 1 / 1.6);
+        }
+
         // Classe un pixel radar en catégorie météo à partir de sa TEINTE (RGB), et non de son
         // opacité (alpha) : dans le barème officiel "Universal Blue" de RainViewer (celui utilisé
         // par cette app, voir rainviewer.com/api/color-schemes.html), l'alpha sature à 255 dès
-        // ~20 dBZ (pluie modérée) et reste maximal jusqu'aux échos les plus extrêmes — il ne
-        // distingue donc PAS l'intensité au-delà de ce seuil. C'est la teinte qui progresse avec le
-        // dBZ : bleu (faible/modéré) → jaune/orange (~35 dBZ, forte) → rouge (~45-50 dBZ, orageux)
-        // → magenta puis blanc (~55 dBZ et plus, échos extrêmes — zone où se concentrent, en
-        // météorologie, les signatures les plus associées à un risque de grêle). La distinction
+        // ~15 dBZ (voir RAINVIEWER_DBZ_TABLE) et reste maximal jusqu'aux échos les plus extrêmes —
+        // il ne distingue donc PAS l'intensité au-delà de ce seuil. C'est la teinte qui progresse
+        // avec le dBZ : bleu (faible/modéré) → jaune/orange (~35 dBZ, forte) → rouge (~45-50 dBZ,
+        // orageux) → magenta puis blanc (~55 dBZ et plus, échos extrêmes — zone où se concentrent,
+        // en météorologie, les signatures les plus associées à un risque de grêle). La distinction
         // pluie/neige s'appuie sur la température réelle prévue au lieu (RainViewer n'expose pas de
         // canal grêle/foudre dédié : cette classification reste une approximation par intensité).
         // Un pixel de teinte "extrême" n'est confirmé "grêle" qu'après vérification de la surface
         // réelle de la cellule (voir verifyHailCellArea) ; sinon il est reclassé "orage".
-        const TYPE_INTENSITY = { rain_light: 1.5, rain_heavy: 4, storm: 8, hail: 10, snow: 0.6 };
+        //
+        // Utilisée UNIQUEMENT comme filet de sécurité pour la projection de dissipation plus bas
+        // (aucun pixel réel à analyser pour une intensité "future rétrogradée d'un cran") — plus du
+        // tout pour classer un pixel réellement observé, qui utilise désormais dbzToRainRateMmH ci-
+        // dessus, continu, plutôt qu'une valeur fixe par famille de teinte.
+        const TYPE_INTENSITY_FALLBACK = { rain_light: 1.5, rain_heavy: 4, storm: 8, hail: 10, snow: 0.6 };
         const TYPE_DOWNGRADE = { hail: 'storm', storm: 'rain_heavy', rain_heavy: 'rain_light', rain_light: 'none', snow: 'none' };
         function isHailHue(r, g, b) {
             const isYellowOrange = r > 180 && g > 120 && b < 120;
@@ -6321,20 +6425,36 @@
         }
         function classifyRadarPixel(r, g, b, alpha, isSnowMode) {
             if (alpha <= ALPHA_THRESHOLD) return { type: 'none', color: 'transparent', mmEquiv: 0 };
-            if (isSnowMode) return { type: 'snow', color: '#8b5cf6', mmEquiv: TYPE_INTENSITY.snow };
+
+            const dbz = estimateDbzFromRgb(r, g, b);
+            const rainRate = dbzToRainRateMmH(dbz);
+            const round1 = v => Math.round(v * 10) / 10;
+
+            if (isSnowMode) {
+                // Pas de relation Z-S officielle appliquée ici : approximation usuelle consistant à
+                // prendre une fraction du taux "pluie équivalente" au même dBZ, un flocon produisant
+                // un écho radar pour une masse d'eau nettement plus faible que la même réflectivité
+                // en pluie liquide. Continue malgré tout (avant : 0.6 fixe pour toute neige détectée).
+                return { type: 'snow', color: '#8b5cf6', mmEquiv: Math.max(0.1, round1(rainRate * 0.3)) };
+            }
 
             const isYellowOrange = r > 180 && g > 120 && b < 120;             // pluie forte (~35-44 dBZ)
             const isRed = r > 150 && g < 110 && b < 110;                       // orage (~45-54 dBZ)
             const isMagentaOrWhite = isHailHue(r, g, b);                       // extrême (~55+ dBZ) → grêle candidate
             const isBlueFamily = b >= r && b > 90 && r < 140;                  // pluie faible à modérée (< ~35 dBZ)
 
-            if (isMagentaOrWhite) return { type: 'hail_candidate', color: '#eab308', mmEquiv: TYPE_INTENSITY.hail };
-            if (isRed) return { type: 'storm', color: '#ef4444', mmEquiv: TYPE_INTENSITY.storm };
-            if (isYellowOrange) return { type: 'rain_heavy', color: '#0284c7', mmEquiv: TYPE_INTENSITY.rain_heavy };
-            if (isBlueFamily) return { type: 'rain_light', color: '#7dd3fc', mmEquiv: TYPE_INTENSITY.rain_light };
+            if (isMagentaOrWhite) {
+                // Zone "extrême" : la relation Z-R n'est plus physiquement valable une fois de la
+                // grêle mélangée (écho gonflé par les gros grêlons, pas par de l'eau liquide) — la
+                // valeur est plafonnée plutôt que d'afficher un mm/h irréaliste.
+                return { type: 'hail_candidate', color: '#eab308', mmEquiv: round1(Math.min(50, rainRate)) };
+            }
+            if (isRed) return { type: 'storm', color: '#ef4444', mmEquiv: round1(rainRate) };
+            if (isYellowOrange) return { type: 'rain_heavy', color: '#0284c7', mmEquiv: round1(rainRate) };
+            if (isBlueFamily) return { type: 'rain_light', color: '#7dd3fc', mmEquiv: round1(rainRate) };
             // Teinte de transition non reconnue (début d'échelle, alpha encore faible) : traitée
             // par défaut comme pluie faible plutôt que d'être ignorée.
-            return { type: 'rain_light', color: '#7dd3fc', mmEquiv: TYPE_INTENSITY.rain_light };
+            return { type: 'rain_light', color: '#7dd3fc', mmEquiv: round1(rainRate) };
         }
         const TYPE_COLOR = { hail: '#eab308', storm: '#ef4444', rain_heavy: '#0284c7', rain_light: '#7dd3fc', snow: '#8b5cf6', none: 'transparent' };
 
@@ -6580,9 +6700,12 @@
                 let clsNow = classifyRadarPixel(rNow, gNow, bNow, alphaNow, isSnowMode);
                 if (clsNow.type === 'hail_candidate') {
                     const areaNow = await verifyHailCellArea(currentLat, currentLon, lastFrame);
+                    // Seuls le type et la couleur changent selon la confirmation de surface — le
+                    // mm/h reste celui déjà calculé par classifyRadarPixel pour ce pixel précis
+                    // (continu, propre à sa teinte exacte), jamais remplacé par une constante fixe.
                     clsNow = areaNow >= HAIL_MIN_AREA_KM2
-                        ? { type: 'hail', color: '#eab308', mmEquiv: TYPE_INTENSITY.hail }
-                        : { type: 'storm', color: '#ef4444', mmEquiv: TYPE_INTENSITY.storm };
+                        ? { type: 'hail', color: '#eab308', mmEquiv: clsNow.mmEquiv }
+                        : { type: 'storm', color: '#ef4444', mmEquiv: clsNow.mmEquiv };
                 }
 
                 // ---- Proposition 1 : cellules individuelles par image, puis suivi de LA cellule la
@@ -6616,6 +6739,9 @@
                         setEvoLoading('Estimation Metehop — pluie confirmée sur place, trajectoire future incertaine.');
                         metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === 'storm', hasSnow: clsNow.type === 'snow', etaMinutes: 0, confidence: 60 };
                         clearMetehopCellOnMap();
+                        // Orage/grêle littéralement sur la position (pas de suivi de trajectoire
+                        // fiable, mais la lecture directe du pixel actuel suffit ici) : distance nulle.
+                        updateStormProximityBox((clsNow.type === 'storm' || clsNow.type === 'hail') ? 0 : null);
                         renderVigilanceBanner().catch(() => {});
                         return;
                     }
@@ -6629,6 +6755,7 @@
                     setEvoLoading(`Estimation Metehop — pas de système pluvieux identifié à moins de ${METEHOP_RADIUS_KM}km.`);
                     metehopAnalysis = { hasHail: false, hasStorm: false, hasSnow: false, etaMinutes: null, confidence: dryConf[0] };
                     clearMetehopCellOnMap();
+                    updateStormProximityBox(null);
                     renderVigilanceBanner().catch(() => {});
                     return;
                 }
@@ -6655,6 +6782,17 @@
                 const speedKmh = Math.round(Math.sqrt(vx * vx + vy * vy) * kmPerPixel * 60 * 10) / 10;
                 const distanceToStormKm = Math.round(Math.hypot(lastCell.cx - cx, lastCell.cy - cy) * kmPerPixel * 10) / 10;
                 const cellCountPx = lastCell.count;
+
+                // Intensité ACTUELLE de la cellule suivie elle-même (pixel à son propre centroïde sur
+                // la dernière image radar) — distinct de la classification par tranche future ci-dessous,
+                // qui porte sur ce qui atteindra la position recherchée, pas sur la cellule en elle-même.
+                // Sert uniquement à l'encart de proximité d'orage (pas de vérification de surface grêle
+                // ici : le candidat grêle suffit à qualifier "orageux" pour cet encart).
+                const lastCellPxIdx = (Math.round(Math.min(767, Math.max(0, lastCell.cy))) * 768 + Math.round(Math.min(767, Math.max(0, lastCell.cx)))) * 4;
+                const lastCellCls = classifyRadarPixel(
+                    lastImg.data[lastCellPxIdx], lastImg.data[lastCellPxIdx + 1], lastImg.data[lastCellPxIdx + 2], lastImg.data[lastCellPxIdx + 3], isSnowMode
+                );
+                const trackedCellIsStormy = lastCellCls.type === 'storm' || lastCellCls.type === 'hail_candidate' || lastCellCls.type === 'hail';
 
                 // Pour chaque pas de 10 minutes, on regarde quel pixel de la dernière image
                 // "arrivera" sur le lieu recherché en remontant le masque de pluie le long de la
@@ -6683,9 +6821,11 @@
                     if (cls.type === 'hail_candidate') {
                         const { lat: srcLat, lon: srcLon } = stitchedPixelToLatLon(tileX, tileY, zoom, srcX, srcY);
                         const area = await verifyHailCellArea(srcLat, srcLon, lastFrame);
+                        // Même principe que ci-dessus : seuls type et couleur changent, le mm/h
+                        // continu déjà calculé pour ce pixel est conservé.
                         cls = area >= HAIL_MIN_AREA_KM2
-                            ? { type: 'hail', color: '#eab308', mmEquiv: TYPE_INTENSITY.hail }
-                            : { type: 'storm', color: '#ef4444', mmEquiv: TYPE_INTENSITY.storm };
+                            ? { type: 'hail', color: '#eab308', mmEquiv: cls.mmEquiv }
+                            : { type: 'storm', color: '#ef4444', mmEquiv: cls.mmEquiv };
                     }
 
                     // Facteur de dissipation projeté à cet horizon (borné pour rester raisonnable)
@@ -6693,9 +6833,12 @@
                     if (cls.type !== 'none' && sizeFactor < 0.35) {
                         // Cellule projetée comme très affaiblie à cette échéance : on rétrograde d'un
                         // niveau d'intensité plutôt que de garder l'intensité actuelle telle quelle.
+                        // Ici, pas de pixel réel pour ce niveau hypothétique "futur affaibli" : repli
+                        // sur la valeur représentative fixe (TYPE_INTENSITY_FALLBACK), seul cas où
+                        // elle sert encore.
                         const downgraded = TYPE_DOWNGRADE[cls.type] || 'none';
                         if (t > 0 && etaMinutes === null) dissipatesBeforeArrival = true;
-                        cls = { type: downgraded, color: TYPE_COLOR[downgraded], mmEquiv: downgraded === 'none' ? 0 : TYPE_INTENSITY[downgraded] || 0 };
+                        cls = { type: downgraded, color: TYPE_COLOR[downgraded], mmEquiv: downgraded === 'none' ? 0 : TYPE_INTENSITY_FALLBACK[downgraded] || 0 };
                     }
 
                     bins.push(cls.mmEquiv);
@@ -6748,6 +6891,7 @@
                 // en plus des seuils déjà calculés à partir des prévisions.
                 const avgConfidence = Math.round(confidence.slice(0, 12).reduce((a, b) => a + b, 0) / Math.min(12, confidence.length));
                 metehopAnalysis = { hasHail, hasStorm, hasSnow: hasSnowBin, etaMinutes, confidence: avgConfidence };
+                updateStormProximityBox(trackedCellIsStormy ? distanceToStormKm : null);
                 renderVigilanceBanner().catch(() => {});
 
             } catch (e) {
@@ -6757,6 +6901,10 @@
                 const fallbackModelBins = getModelBinsForEvo(roundedStart);
                 drawEvoChart(evoLabels(roundedStart), new Array(EVO_BIN_COUNT).fill(0), new Array(EVO_BIN_COUNT).fill('rgba(94, 156, 204, 0.15)'), 'Précipitations (radar)', 'mm', '#5a9bd4', new Array(EVO_BIN_COUNT).fill(0), fallbackModelBins ? fallbackModelBins.values : null, fallbackModelBins ? fallbackModelBins.colors : null);
                 metehopAnalysis = null;
+                // Radar indisponible : on ne peut rien affirmer sur un éventuel orage proche — encart
+                // masqué et cadence de rafraîchissement normale rétablie plutôt que de risquer un faux
+                // positif ou de rester bloqué sur une cadence accélérée obsolète.
+                updateStormProximityBox(null);
             }
         }
 
@@ -7603,29 +7751,6 @@
                     }, 0);
                 }
             }
-
-            // Prochaine évolution : si il ne pleut pas à l'heure de référence, on cherche la
-            // prochaine heure où de la pluie (cumul réel) ou une probabilité élevée (≥50%) est
-            // prévue dans le reste de la journée affichée, et on l'affiche avec son % de proba.
-            const rainAtRef = weatherData.hourly.rain ? (weatherData.hourly.rain[currentHourIdx] || 0) : (weatherData.hourly.precipitation[currentHourIdx] || 0);
-            let evolutionText = 'Ciel stable';
-            if (rainAtRef > 0.1) {
-                evolutionText = 'Pluie en cours';
-            } else {
-                let rainStartIdx = null;
-                for (let i = currentHourIdx; i < end; i++) {
-                    if (!weatherData.hourly.time[i]) break;
-                    const r = weatherData.hourly.rain ? (weatherData.hourly.rain[i] || 0) : (weatherData.hourly.precipitation[i] || 0);
-                    const prob = weatherData.hourly.precipitation_probability ? weatherData.hourly.precipitation_probability[i] : null;
-                    if (r > 0.1 || (typeof prob === 'number' && prob >= 50)) { rainStartIdx = i; break; }
-                }
-                if (rainStartIdx !== null) {
-                    const hStr = weatherData.hourly.time[rainStartIdx].split('T')[1].substring(0, 2) + 'h';
-                    const probVal = weatherData.hourly.precipitation_probability ? weatherData.hourly.precipitation_probability[rainStartIdx] : null;
-                    evolutionText = (typeof probVal === 'number') ? `Pluie possible vers ${hStr} (${Math.round(probVal)}%)` : `Pluie possible vers ${hStr}`;
-                }
-            }
-            document.getElementById('evolution-text').innerText = evolutionText;
 
             if (weatherData.daily && weatherData.daily.sunrise) {
                 document.getElementById('sw-sunrise').innerText = weatherData.daily.sunrise[dayIdx].split('T')[1];
@@ -9588,6 +9713,8 @@ function updatePressureChart(dayIdx) {
                 document.getElementById('heating-status-value').innerText = '--';
                 document.getElementById('heating-on-date').innerText = '--';
                 document.getElementById('heating-off-date').innerText = '--';
+                document.getElementById('heating-on-eta').innerText = '';
+                document.getElementById('heating-off-eta').innerText = '';
                 return;
             }
 
@@ -9599,10 +9726,15 @@ function updatePressureChart(dayIdx) {
 
             lastHeatingResult = { onDoy, offDoy, smoothClim, isHeatingSeason, yearsAvailable };
 
-            // Affinage court terme : si la date habituelle tombe dans les 16 prochains jours et que
-            // la prévision réelle du lieu est déjà chargée, on cherche un franchissement effectif
-            // dans cette prévision plutôt que de s'en tenir à la climatologie.
+            // Affinage court terme : si la prévision réelle du lieu (16 jours) est déjà chargée, on
+            // cherche un franchissement effectif du seuil dans cette prévision plutôt que de s'en
+            // tenir à la seule climatologie. Le franchissement n'est retenu que s'il est "durable" :
+            // la température moyenne journalière doit rester du nouveau côté du seuil pendant plus
+            // de 4 jours consécutifs après le passage (sinon simple à-coup météo de courte durée,
+            // sans valeur prédictive pour une date d'allumage/extinction).
+            const HEATING_FORECAST_SUSTAIN_DAYS = 4;
             let forecastNote = '';
+            let onEta = '', offEta = '';
             try {
                 if (weatherData && weatherData.daily && weatherData.daily.time && weatherData.daily.temperature_2m_max && weatherData.daily.temperature_2m_min) {
                     const fTimes = weatherData.daily.time;
@@ -9611,22 +9743,42 @@ function updatePressureChart(dayIdx) {
                         const tmin = weatherData.daily.temperature_2m_min[i];
                         return (typeof tmax === 'number' && typeof tmin === 'number') ? (tmax + tmin) / 2 : null;
                     });
-                    const relevantDoy = isHeatingSeason ? offDoy : onDoy;
-                    const daysUntilRelevant = ((Math.round(relevantDoy) - todayDoy) % 365 + 365) % 365;
-                    if (daysUntilRelevant <= 16) {
-                        for (let i = 0; i < fMean.length - 1; i++) {
-                            const v1 = fMean[i], v2 = fMean[i + 1];
-                            if (v1 === null || v2 === null) continue;
-                            const crossesUp = v1 < HEATING_THRESHOLD_C && v2 >= HEATING_THRESHOLD_C;
-                            const crossesDown = v1 >= HEATING_THRESHOLD_C && v2 < HEATING_THRESHOLD_C;
-                            if ((isHeatingSeason && crossesUp) || (!isHeatingSeason && crossesDown)) {
-                                const frac = (v1 - HEATING_THRESHOLD_C) / (v1 - v2);
-                                const crossDate = new Date(fTimes[i]);
-                                crossDate.setDate(crossDate.getDate() + Math.round(frac));
-                                const label = crossDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
-                                forecastNote = `D'après les prévisions actuelles (pas seulement la climatologie), ce basculement est attendu vers le ${label}.`;
-                            }
+
+                    // Vérifie que les jours suivant un franchissement restent bien du nouveau côté
+                    // du seuil pendant au moins HEATING_FORECAST_SUSTAIN_DAYS jours (valeurs
+                    // manquantes tolérées : elles ne comptent simplement pas dans la vérification).
+                    function isSustained(startIdx, below) {
+                        let checked = 0;
+                        for (let j = startIdx; j < fMean.length && checked < HEATING_FORECAST_SUSTAIN_DAYS; j++) {
+                            const v = fMean[j];
+                            if (v === null) continue;
+                            const onSide = below ? v < HEATING_THRESHOLD_C : v >= HEATING_THRESHOLD_C;
+                            if (!onSide) return false;
+                            checked++;
                         }
+                        return checked === HEATING_FORECAST_SUSTAIN_DAYS;
+                    }
+
+                    for (let i = 0; i < fMean.length - 1; i++) {
+                        const v1 = fMean[i], v2 = fMean[i + 1];
+                        if (v1 === null || v2 === null) continue;
+                        const crossesUp = v1 < HEATING_THRESHOLD_C && v2 >= HEATING_THRESHOLD_C;
+                        const crossesDown = v1 >= HEATING_THRESHOLD_C && v2 < HEATING_THRESHOLD_C;
+                        if (!crossesUp && !crossesDown) continue;
+                        if (!isSustained(i + 1, crossesDown)) continue;
+
+                        const frac = (v1 - HEATING_THRESHOLD_C) / (v1 - v2);
+                        const crossDate = new Date(fTimes[i]);
+                        crossDate.setDate(crossDate.getDate() + Math.round(frac));
+                        const label = crossDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+
+                        if (crossesDown && !onEta) onEta = `Prévu vers le ${label} (prévisions 16j)`;
+                        if (crossesUp && !offEta) offEta = `Prévu vers le ${label} (prévisions 16j)`;
+                    }
+
+                    const relevantEta = isHeatingSeason ? offEta : onEta;
+                    if (relevantEta) {
+                        forecastNote = `D'après les prévisions actuelles (pas seulement la climatologie), ce basculement est attendu vers le ${relevantEta.replace('Prévu vers le ', '').replace(' (prévisions 16j)', '')}.`;
                     }
                 }
             } catch (e) { /* affinage optionnel : on garde silencieusement la seule climatologie */ }
@@ -9641,6 +9793,8 @@ function updatePressureChart(dayIdx) {
             document.getElementById('heating-status-value').innerText = isHeatingSeason ? 'Chauffage 🔥' : 'Pas de chauffage ☀️';
             document.getElementById('heating-on-date').innerText = `~ ${doyToDateLabel(onDoy)}`;
             document.getElementById('heating-off-date').innerText = `~ ${doyToDateLabel(offDoy)}`;
+            document.getElementById('heating-on-eta').innerText = onEta;
+            document.getElementById('heating-off-eta').innerText = offEta;
 
             renderHeatingChart(smoothClim, todayDoy);
         }
