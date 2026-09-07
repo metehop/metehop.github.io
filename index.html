@@ -3169,7 +3169,9 @@
             </div>
         </div>
 
-        <!-- TENDANCES SAISONNIÈRES — chargées à la demande pour limiter les requêtes API -->
+        <!-- TENDANCES SAISONNIÈRES — chargement automatique à l'ouverture de l'onglet Général (voir
+             setGroup), même principe que le Jardinage/Bilan hydrique/Chauffage : un seul appel
+             archive, mis en cache, ne justifie plus un bouton "Charger les données" dédié. -->
         <div class="chart-card" data-groups="general">
             <div class="chart-header">
                 <div>
@@ -3177,9 +3179,9 @@
                         <i class="fa-solid fa-chart-line" style="color: var(--accent-blue); margin-right: 6px;"></i>
                         Tendances saisonnières · 6 prochains mois
                     </div>
-                    <div class="card-sage-sub" id="seasonal-trends-note">Prévisions sur 6 mois basées sur l'historique réel du lieu — chargées à la demande.</div>
+                    <div class="card-sage-sub" id="seasonal-trends-note">Prévisions sur 6 mois basées sur l'historique réel du lieu.</div>
                 </div>
-                <div class="astro-legend" id="seasonal-trends-legend" style="display:none;">
+                <div class="astro-legend" id="seasonal-trends-legend">
                     <span class="astro-legend-item"><span class="legend-dash" style="border-color:#d97736;"></span> Temp. max normale</span>
                     <span class="astro-legend-item"><span class="legend-dot" style="background:#d97736;"></span> Temp. max prévision</span>
                     <span class="astro-legend-item"><span class="legend-dash" style="border-color:#2b6cb0;"></span> Temp. min normale</span>
@@ -3187,13 +3189,12 @@
                     <span class="astro-legend-item"><span class="legend-dot" style="background:#5a9bd4;"></span> Précipitations</span>
                 </div>
             </div>
-            <button type="button" class="btn-load-data" id="seasonal-trends-load-btn" onclick="triggerLoadSeasonalTrends()">Charger les données</button>
-            <div class="chart-container" id="seasonal-trends-chart-container" style="display:none;">
+            <div class="chart-container" id="seasonal-trends-chart-container">
                 <canvas id="seasonalTrendsChart"></canvas>
             </div>
         </div>
 
-        <div class="table-card" id="seasonal-trends-table-card" style="display:none;">
+        <div class="table-card" id="seasonal-trends-table-card">
             <div class="section-header" style="flex-wrap: wrap; gap: 6px;">
                 <div>
                     <div class="card-sage-title">Détail par quinzaine</div>
@@ -3250,7 +3251,7 @@
             <div class="footer-support-row">
                 <a class="footer-support-link" href="https://buymeacoffee.com/stridemetric" target="_blank" rel="noopener">🐸 Aide-moi à nourrir la grenouille Metehop</a>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 06/09/2026 - 56</div>
+            <div class="footer-last-update">Dernière mise à jour : 07/09/2026 - 58</div>
         </footer>
 
     </div>
@@ -4557,6 +4558,11 @@
                     document.getElementById('heating-note').innerText = 'Données indisponibles pour le moment.';
                 });
             }
+            if (group === 'general' && !seasonalTrendsLoaded && currentLat !== null) {
+                seasonalTrendsLoaded = true;
+                document.getElementById('seasonal-trends-note').innerText = 'Chargement des moyennes historiques...';
+                loadSeasonalTrends(currentLat, currentLon).catch(() => {});
+            }
             if (group === 'astrogarden' && weatherData) {
                 renderAstroNightsRanking();
             }
@@ -4594,27 +4600,14 @@
             skiCard.style.display = (currentGroup === 'ski' && skiCard.classList.contains('visible')) ? 'block' : 'none';
         }
 
-        // ---- Tendances saisonnières : chargées uniquement au clic (optimisation API) ----
-        function triggerLoadSeasonalTrends() {
-            if (seasonalTrendsLoaded || currentLat === null) return;
-            seasonalTrendsLoaded = true;
-            document.getElementById('seasonal-trends-load-btn').style.display = 'none';
-            document.getElementById('seasonal-trends-chart-container').style.display = '';
-            document.getElementById('seasonal-trends-legend').style.display = '';
-            document.getElementById('seasonal-trends-table-card').style.display = 'block';
-            document.getElementById('seasonal-trends-note').innerText = 'Chargement des moyennes historiques...';
-            document.getElementById('seasonal-trends-tbody').innerHTML = '<tr><td colspan="9" style="text-align:center; color: var(--text-muted); padding: 16px;">Chargement...</td></tr>';
-            loadSeasonalTrends(currentLat, currentLon).catch(() => {});
-        }
-
+        // ---- Tendances saisonnières : chargement automatique à l'ouverture de l'onglet Général
+        // (voir setGroup), même principe que le Jardinage/Bilan hydrique/Chauffage ci-dessus. ----
         function resetSeasonalTrendsGate() {
             seasonalTrendsLoaded = false;
             lastSeasonalTrendsResults = null;
-            document.getElementById('seasonal-trends-load-btn').style.display = '';
-            document.getElementById('seasonal-trends-chart-container').style.display = 'none';
-            document.getElementById('seasonal-trends-legend').style.display = 'none';
-            document.getElementById('seasonal-trends-table-card').style.display = 'none';
-            document.getElementById('seasonal-trends-note').innerText = "Prévisions sur 6 mois basées sur l'historique réel du lieu — chargées à la demande.";
+            document.getElementById('seasonal-trends-note').innerText = "Prévisions sur 6 mois basées sur l'historique réel du lieu.";
+            document.getElementById('seasonal-trends-tbody').innerHTML = '<tr><td colspan="9" style="text-align:center; color: var(--text-muted); padding: 16px;">Chargement...</td></tr>';
+            if (seasonalTrendsChart) { seasonalTrendsChart.destroy(); seasonalTrendsChart = null; }
         }
 
         // ---- Chauffage (allumage/extinction) : chargement automatique à l'ouverture de l'onglet
@@ -5033,7 +5026,11 @@
                 // Chargement différé par groupe (optimisation API) : on ne recharge que les
                 // données du groupe Été/Hiver/Jardinage/Eau si son onglet est déjà actif ; sinon,
                 // elles seront chargées à la première activation via setGroup(). Les tendances
-                // saisonnières restent, elles, toujours gatées derrière leur bouton dédié.
+                // saisonnières vivent sur l'onglet Général, actif par défaut dès le premier chargement
+                // de l'app (avant même que setGroup('general') ne soit re-appelé) : elles ont donc
+                // besoin de ce même rechargement immédiat si déjà actif, sinon elles ne se
+                // chargeraient jamais tant que l'utilisateur ne change pas d'onglet puis ne revient
+                // pas sur Général.
                 extraLocalDataLoaded = (currentGroup === 'leisure' || currentGroup === 'ski');
                 if (extraLocalDataLoaded) fetchExtraLocalData(lat, lon, locationName);
                 hydroDataLoaded = (currentGroup === 'eau');
@@ -5042,6 +5039,11 @@
                 resetWaterBalanceGate();
                 resetSeasonalTrendsGate();
                 resetHeatingGate();
+                seasonalTrendsLoaded = (currentGroup === 'general');
+                if (seasonalTrendsLoaded) {
+                    document.getElementById('seasonal-trends-note').innerText = 'Chargement des moyennes historiques...';
+                    loadSeasonalTrends(lat, lon).catch(() => {});
+                }
                 // Station météo à proximité (Tencin) : visible seulement si le lieu consulté est à
                 // moins de NEARBY_STATION.maxDistanceKm ; rechargée seulement si l'onglet Hobby est
                 // déjà actif (même logique de chargement différé que Été/Hiver et Eau ci-dessus).
