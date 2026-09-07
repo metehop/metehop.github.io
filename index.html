@@ -3829,45 +3829,80 @@
             const dayStart = nowIdx;
             const dayEnd = Math.min(nowIdx + 24, hourly.time.length);
 
+            // Précise QUAND (dans cette fenêtre glissante de 24h) le pic est attendu, car "les 24
+            // prochaines heures" peut très bien signifier "demain matin" si on regarde ce message
+            // en soirée — sans cette précision le message donnait l'impression, à tort, que le pic
+            // était pour aujourd'hui. `idx` est un index global dans hourly.time (pas relatif à
+            // dayStart).
+            const todayMidnight = new Date(now); todayMidnight.setHours(0, 0, 0, 0);
+            function timingLabel(idx) {
+                if (typeof idx !== 'number' || !hourly.time[idx]) return '';
+                const t = new Date(hourly.time[idx]);
+                const tMidnight = new Date(t); tMidnight.setHours(0, 0, 0, 0);
+                const diffDays = Math.round((tMidnight - todayMidnight) / 86400000);
+                const hourStr = `${t.getHours()}h`;
+                const dayLabel = diffDays === 0 ? "aujourd'hui" : (diffDays === 1 ? 'demain' : t.toLocaleDateString('fr-FR', { weekday: 'long' }));
+                return `${dayLabel} ${hourStr}`;
+            }
+            // Renvoie l'index global (dans hourly.time) où `arr` (déjà découpé sur [dayStart,dayEnd))
+            // atteint sa valeur max/min, pour pouvoir dater précisément ce pic avec timingLabel().
+            function idxOfExtreme(arr, wantMax) {
+                let bestI = -1, bestV = wantMax ? -Infinity : Infinity;
+                arr.forEach((v, i) => {
+                    if (typeof v !== 'number') return;
+                    if ((wantMax && v > bestV) || (!wantMax && v < bestV)) { bestV = v; bestI = i; }
+                });
+                return bestI === -1 ? null : dayStart + bestI;
+            }
+
             let levelIdx = 0; // 0=vert 1=jaune 2=orange 3=rouge
             const reasons = [];
             const bump = (idx, reason) => { if (idx > levelIdx) levelIdx = idx; reasons.push(reason); };
 
-            const gusts = (hourly.wind_gusts_10m || []).slice(dayStart, dayEnd).filter(v => typeof v === 'number');
+            const gustsSlice = (hourly.wind_gusts_10m || []).slice(dayStart, dayEnd);
+            const gusts = gustsSlice.filter(v => typeof v === 'number');
             if (gusts.length) {
                 const maxGust = Math.max(...gusts);
-                if (maxGust >= 100) bump(3, `Vent violent (rafales ${Math.round(maxGust)} km/h)`);
-                else if (maxGust >= 80) bump(2, `Vent fort (rafales ${Math.round(maxGust)} km/h)`);
-                else if (maxGust >= 60) bump(1, `Vent soutenu (rafales ${Math.round(maxGust)} km/h)`);
+                const when = timingLabel(idxOfExtreme(gustsSlice, true));
+                if (maxGust >= 100) bump(3, `Vent violent (rafales ${Math.round(maxGust)} km/h, ${when})`);
+                else if (maxGust >= 80) bump(2, `Vent fort (rafales ${Math.round(maxGust)} km/h, ${when})`);
+                else if (maxGust >= 60) bump(1, `Vent soutenu (rafales ${Math.round(maxGust)} km/h, ${when})`);
             }
 
-            const rainArr = (hourly.rain || hourly.precipitation || []).slice(dayStart, dayEnd).filter(v => typeof v === 'number');
+            const rainSlice = (hourly.rain || hourly.precipitation || []).slice(dayStart, dayEnd);
+            const rainArr = rainSlice.filter(v => typeof v === 'number');
             if (rainArr.length) {
                 const maxRainH = Math.max(...rainArr);
-                if (maxRainH >= 20) bump(3, `Pluies intenses (${maxRainH.toFixed(0)}mm/h)`);
-                else if (maxRainH >= 10) bump(2, `Fortes pluies (${maxRainH.toFixed(0)}mm/h)`);
-                else if (maxRainH >= 5) bump(1, `Pluies soutenues (${maxRainH.toFixed(0)}mm/h)`);
+                const when = timingLabel(idxOfExtreme(rainSlice, true));
+                if (maxRainH >= 20) bump(3, `Pluies intenses (${maxRainH.toFixed(0)}mm/h, ${when})`);
+                else if (maxRainH >= 10) bump(2, `Fortes pluies (${maxRainH.toFixed(0)}mm/h, ${when})`);
+                else if (maxRainH >= 5) bump(1, `Pluies soutenues (${maxRainH.toFixed(0)}mm/h, ${when})`);
             }
 
-            const snowArr = (hourly.snowfall || []).slice(dayStart, dayEnd).filter(v => typeof v === 'number');
+            const snowSlice = (hourly.snowfall || []).slice(dayStart, dayEnd);
+            const snowArr = snowSlice.filter(v => typeof v === 'number');
             if (snowArr.length) {
                 const sumSnow = snowArr.reduce((a, b) => a + b, 0);
-                if (sumSnow >= 40) bump(3, `Neige abondante (${sumSnow.toFixed(0)}cm/24h)`);
-                else if (sumSnow >= 20) bump(2, `Fortes chutes de neige (${sumSnow.toFixed(0)}cm/24h)`);
-                else if (sumSnow >= 5) bump(1, `Neige (${sumSnow.toFixed(0)}cm/24h)`);
+                const when = timingLabel(idxOfExtreme(snowSlice, true));
+                if (sumSnow >= 40) bump(3, `Neige abondante (${sumSnow.toFixed(0)}cm/24h, surtout ${when})`);
+                else if (sumSnow >= 20) bump(2, `Fortes chutes de neige (${sumSnow.toFixed(0)}cm/24h, surtout ${when})`);
+                else if (sumSnow >= 5) bump(1, `Neige (${sumSnow.toFixed(0)}cm/24h, surtout ${when})`);
             }
 
-            const temps = (hourly.temperature_2m || []).slice(dayStart, dayEnd).filter(v => typeof v === 'number');
+            const tempsSlice = (hourly.temperature_2m || []).slice(dayStart, dayEnd);
+            const temps = tempsSlice.filter(v => typeof v === 'number');
             if (temps.length) {
                 const maxT = Math.max(...temps);
                 const minT = Math.min(...temps);
-                if (maxT >= 38) bump(3, `Chaleur extrême (${Math.round(maxT)}°C)`);
-                else if (maxT >= 34) bump(2, `Forte chaleur (${Math.round(maxT)}°C)`);
-                else if (maxT >= 30) bump(1, `Chaleur (${Math.round(maxT)}°C)`);
+                const whenMax = timingLabel(idxOfExtreme(tempsSlice, true));
+                const whenMin = timingLabel(idxOfExtreme(tempsSlice, false));
+                if (maxT >= 38) bump(3, `Chaleur extrême (${Math.round(maxT)}°C, ${whenMax})`);
+                else if (maxT >= 34) bump(2, `Forte chaleur (${Math.round(maxT)}°C, ${whenMax})`);
+                else if (maxT >= 30) bump(1, `Chaleur (${Math.round(maxT)}°C, ${whenMax})`);
 
-                if (minT <= -10) bump(3, `Grand froid extrême (${Math.round(minT)}°C)`);
-                else if (minT <= -5) bump(2, `Grand froid (${Math.round(minT)}°C)`);
-                else if (minT <= 0) bump(1, `Gel (${Math.round(minT)}°C)`);
+                if (minT <= -10) bump(3, `Grand froid extrême (${Math.round(minT)}°C, ${whenMin})`);
+                else if (minT <= -5) bump(2, `Grand froid (${Math.round(minT)}°C, ${whenMin})`);
+                else if (minT <= 0) bump(1, `Gel (${Math.round(minT)}°C, ${whenMin})`);
             }
 
             // Orage possible dans les 4 prochaines heures : proba de précipitation > 50% sur une heure
