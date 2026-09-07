@@ -690,7 +690,6 @@
         }
         .micro-toggle-switch input:checked + .micro-toggle-slider { background-color: var(--accent-orange); }
         .micro-toggle-switch input:checked + .micro-toggle-slider::before { transform: translateX(15px); }
-        .multicell-toggle input:checked + .micro-toggle-slider { background-color: #7048e8; }
 
         .local-effects-header {
             font-size: 0.75rem;
@@ -2078,6 +2077,7 @@
                         <input type="range" id="radar-slider" class="radar-slider-sm" min="0" max="0" value="0" oninput="changeRadarFrame(this.value)">
                         <span id="radar-time" class="radar-time-sm">--:--</span>
                     </div>
+
                     <div class="forecast-legend-grid" id="forecast-legend-grid" style="display:none;">
                         <div class="fc-leg-item"><div class="fc-leg-box" style="background:#7dd3fc;"></div> Pluie faible</div>
                         <div class="fc-leg-item"><div class="fc-leg-box" style="background:#0284c7;"></div> Pluie forte</div>
@@ -2148,15 +2148,7 @@
                     </div>
                     <div class="card-sage-sub" id="evo-chart-note">Estimation Metehop à partir du radar, par tranches de 10 minutes</div>
                 </div>
-                <!-- Mode multi-cellules (bêta) : toggle isolé, désactivé par défaut, pour comparer
-                     avec le modèle simple existant (une seule cellule suivie) sans le remplacer.
-                     Préférence mémorisée en local, voir onMultiCellToggleChange(). -->
-                <label class="micro-toggle-switch multicell-toggle" title="Suivre plusieurs cellules pluvieuses simultanément (expérimental) au lieu d'une seule">
-                    <input type="checkbox" id="multicell-toggle" onchange="onMultiCellToggleChange()">
-                    <span class="micro-toggle-slider"></span>
-                </label>
             </div>
-            <div class="card-sage-sub" id="multicell-toggle-label" style="margin-top: -6px; margin-bottom: 6px; font-size: 0.65rem;">Modèle multi-cellules : désactivé (une seule cellule suivie)</div>
             <div class="astro-legend" id="evo-legend" style="margin-bottom: 6px;">
                 <span class="astro-legend-item"><span class="legend-dot" style="background:#7dd3fc;"></span> Pluie faible</span>
                 <span class="astro-legend-item"><span class="legend-dot" style="background:#0284c7;"></span> Pluie forte</span>
@@ -3236,7 +3228,7 @@
             <div class="footer-support-row">
                 <a class="footer-support-link" href="https://buymeacoffee.com/stridemetric" target="_blank" rel="noopener">🐸 Aide-moi à nourrir la grenouille Metehop</a>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 07/09/2026 - 59</div>
+            <div class="footer-last-update">Dernière mise à jour : 07/09/2026 - 64</div>
         </footer>
 
     </div>
@@ -3502,8 +3494,8 @@
         let heatingChart = null;
         let map = null;
         let marker = null;
-        let metehopCellMarkers = []; // marqueur(s) affichant la ou les cellule(s) suivie(s) par Metehop sur la carte radar (1 en mode simple, jusqu'à MULTI_CELL_MAX en mode multi-cellules)
-        let metehopTrajectoryLines = []; // cône(s) d'incertitude violet(s) transparent(s) par cellule suivie (mode multi-cellules uniquement)
+        let metehopCellMarkers = []; // marqueurs affichant les cellules suivies par Metehop sur la carte radar (jusqu'à MULTI_CELL_MAX)
+        let metehopTrajectoryLines = []; // cône(s) d'incertitude violet(s) transparent(s) par cellule suivie
         let radarTileLayers = {};
         let radarTimestamps = [];
         let radarPastCount = 0;
@@ -3733,16 +3725,6 @@
         let metehopAnalysis = null; // dernière analyse radar : { hasHail, hasStorm, hasSnow, etaMinutes, confidence }
         let radarRefreshIntervalId = null;
         let radarRefreshIntervalMs = 5 * 60 * 1000;
-
-        // ---- Mode expérimental "multi-cellules" (toggle sous "Évolution des 3 prochaines heures")
-        // Désactivé par défaut : le modèle simple (une seule cellule, la plus proche) reste le
-        // comportement par défaut inchangé. Préférence mémorisée en local, comme microClimateEnabled
-        // ci-dessus, pour ne pas la redemander à chaque visite.
-        let multiCellMode = false;
-        try {
-            const storedMC = localStorage.getItem('metehop_multicell_enabled_v1');
-            if (storedMC !== null) multiCellMode = (storedMC === 'true');
-        } catch (e) { /* localStorage indisponible (navigation privée...) : reste désactivé par défaut */ }
 
         // ---- Suivi de proximité d'orage (encart sous "Évolution des 3 prochaines heures") ----
         // Rayon en deçà duquel une cellule orageuse (ou grêle) suivie déclenche l'encart et le
@@ -4111,12 +4093,6 @@
         window.addEventListener('DOMContentLoaded', () => {
             setGroup('general');
             updateMicroClimateToggleUI();
-            const multicellToggle = document.getElementById('multicell-toggle');
-            if (multicellToggle) multicellToggle.checked = multiCellMode;
-            const multicellLabel = document.getElementById('multicell-toggle-label');
-            if (multicellLabel) multicellLabel.innerText = multiCellMode
-                ? `Modèle multi-cellules : activé (jusqu'à ${MULTI_CELL_MAX} cellules suivies)`
-                : 'Modèle multi-cellules : désactivé (une seule cellule suivie)';
             favorites = loadFavorites();
             loadDefaultLocation();
             setTimeout(updateMoonPhase, 800);
@@ -6645,10 +6621,8 @@
         // de suivi de cellule en nowcasting radar. S'arrête dès qu'aucune correspondance plausible
         // n'est trouvée (déplacement trop important pour être réaliste entre deux images).
         // Rattache une cellule de départ (startCell, dans la dernière image) à ses positions dans
-        // les images précédentes, en remontant dans le temps. Extrait de trackCellBackward pour
-        // être partagé avec trackAllCellsBackward (mode multi-cellules, voir plus bas) : les deux
-        // modes utilisent exactement le même moteur de rattachement, seule la SÉLECTION de la ou
-        // des cellule(s) de départ diffère entre eux.
+        // les images précédentes, en remontant dans le temps. Utilisée par trackAllCellsBackward
+        // pour chacune des cellules retenues.
         function linkCellBackward(cellFramesList, times, kmPerPixel, startCell, startFrameIdx) {
             const track = [{ ...startCell, time: times[startFrameIdx] }];
             let ref = startCell;
@@ -6673,23 +6647,7 @@
             return track; // du plus ancien au plus récent
         }
 
-        // Mode simple (par défaut) : une seule cellule suivie, la plus proche du lieu recherché sur
-        // la dernière image.
-        function trackCellBackward(cellFramesList, times, kmPerPixel, refCx, refCy) {
-            const n = cellFramesList.length;
-            const lastCells = cellFramesList[n - 1];
-            if (!lastCells.length) return [];
-            // Cellule cible dans la dernière image : la plus proche du lieu réellement recherché
-            // (et non un point fixe arbitraire du canvas assemblé).
-            let targetIdx = 0, targetDist = Infinity;
-            lastCells.forEach((c, i) => {
-                const d = Math.hypot(c.cx - refCx, c.cy - refCy);
-                if (d < targetDist) { targetDist = d; targetIdx = i; }
-            });
-            return linkCellBackward(cellFramesList, times, kmPerPixel, lastCells[targetIdx], n - 1);
-        }
-
-        // ---- Mode expérimental "multi-cellules" (toggle, voir multiCellMode) ----
+        // ---- Sélection de plusieurs cellules pluvieuses suivies indépendamment ----
         // Au lieu de ne suivre QUE la cellule la plus proche du lieu recherché, sélectionne jusqu'à
         // MULTI_CELL_MAX cellules parmi les plus PERTINENTES sur la dernière image, et les fait
         // suivre chacune indépendamment en arrière dans le temps — pour ne pas ignorer un second
@@ -6819,28 +6777,13 @@
             return Math.max(20, Math.min(92, c));
         }
 
-        // Bascule du mode multi-cellules (voir multiCellMode) : relance immédiatement l'analyse
-        // Metehop avec le nouveau mode si des données radar sont déjà en mémoire pour ce lieu,
-        // pour un retour visuel instantané plutôt que d'attendre le prochain rafraîchissement.
-        function onMultiCellToggleChange() {
-            const toggle = document.getElementById('multicell-toggle');
-            multiCellMode = toggle.checked;
-            try { localStorage.setItem('metehop_multicell_enabled_v1', String(multiCellMode)); } catch (e) { /* tant pis, préférence non persistée */ }
-            const label = document.getElementById('multicell-toggle-label');
-            if (label) label.innerText = multiCellMode
-                ? `Modèle multi-cellules : activé (jusqu'à ${MULTI_CELL_MAX} cellules suivies)`
-                : 'Modèle multi-cellules : désactivé (une seule cellule suivie)';
-            if (currentLat !== null) loadEvoMetehop().catch(() => {});
-        }
-
-        // Projette une trajectoire de cellule (track, voir trackCellBackward / trackAllCellsBackward)
+        // Projette une trajectoire de cellule (track, voir trackAllCellsBackward)
         // sur les tranches de 10 min du graphique — régression de position et de surface, extrapolation
         // pixel par pixel sur la dernière image radar, dissipation. Extrait du corps de loadEvoMetehop
-        // pour être appelé une fois par cellule en mode multi-cellules (voir MULTI_CELL_MAX) comme en
-        // mode simple, garantissant un calcul RIGOUREUSEMENT identique entre les deux modes.
+        // pour être appelé une fois par cellule suivie (jusqu'à MULTI_CELL_MAX, voir loadEvoMetehop).
         // Note : lastImg et radiusPx ne sont plus utilisés dans le corps de la fonction depuis le
         // passage à une projection basée sur la position propre de la cellule (voir plus bas) —
-        // conservés dans la signature pour ne pas toucher aux deux points d'appel.
+        // conservés dans la signature pour ne pas toucher au point d'appel.
         async function projectTrackToBins(track, cx, cy, kmPerPixel, lastImg, radiusPx, isSnowMode, baseOffsetMin, tileX, tileY, zoom, lastFrame) {
             // ---- Proposition 6 (suite) : régression sur la position de la cellule suivie, plutôt
             // que différence entre les 2 dernières images uniquement. Le R² sert de mesure de
@@ -7064,14 +7007,13 @@
                         : { type: 'storm', color: '#ef4444', mmEquiv: clsNow.mmEquiv };
                 }
 
-                // ---- Proposition 1 : cellules individuelles par image, puis suivi de LA cellule la
-                // plus proche du lieu recherché à travers les images (plutôt qu'un motif global) —
-                // ou, en mode multi-cellules (voir multiCellMode), de plusieurs cellules à la fois. ----
+                // ---- Cellules individuelles par image, puis suivi indépendant de chacune des
+                // cellules retenues (jusqu'à MULTI_CELL_MAX) à travers les images — pour ne pas
+                // ignorer un second système pluvieux distinct qui approcherait par ailleurs (voir
+                // trackAllCellsBackward pour la sélection, loadEvoMetehop plus bas pour la fusion). ----
                 const cellFramesList = imageDatas.map(f => identifyRainCells(f.data, cx, cy, radiusPx));
                 const times = imageDatas.map(f => f.time);
-                const tracks = multiCellMode
-                    ? trackAllCellsBackward(cellFramesList, times, kmPerPixel, cx, cy)
-                    : (() => { const t = trackCellBackward(cellFramesList, times, kmPerPixel, cx, cy); return t.length >= 2 ? [t] : []; })();
+                const tracks = trackAllCellsBackward(cellFramesList, times, kmPerPixel, cx, cy);
 
                 // ---- Encart de proximité d'orage : calculé ICI, indépendamment du suivi de
                 // trajectoire multi-images ci-dessous (qui peut échouer — cellule qui vient d'entrer
@@ -7136,8 +7078,7 @@
                     return;
                 }
 
-                // Projection de chaque cellule retenue (1 en mode simple, jusqu'à MULTI_CELL_MAX en
-                // mode multi-cellules) — même moteur de calcul pour les deux modes, voir
+                // Projection de chaque cellule retenue (jusqu'à MULTI_CELL_MAX) — voir
                 // projectTrackToBins.
                 const results = [];
                 for (const track of tracks) {
@@ -7963,6 +7904,17 @@
             const selectedDate = new Date(weatherData.hourly.time[start]);
             const dateStr = selectedDate.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
             document.getElementById('hero-date-str').innerText = `${dateStr} • mis à jour à ${now.getHours()}h${String(now.getMinutes()).padStart(2, '0')}`;
+
+            // Corrigé le 07/09/2026 : le sous-titre du bloc "Les prochaines heures" affichait
+            // toujours "Aperçu rapide", sans préciser le jour couvert — ambigu dès qu'on change
+            // d'onglet dans le carrousel "Explorer la journée" au-dessus (ex. on reste sur "mar. 8
+            // sept." mais rien ne le rappelle dans ce bloc). On réutilise le même vocabulaire que le
+            // bandeau de vigilance (timingLabel) : "Aujourd'hui" / "Demain" / jour de la semaine.
+            const hoursSummarySubEl = document.getElementById('hours-summary-sub');
+            if (hoursSummarySubEl) {
+                const hoursDayLabel = dayIdx === 0 ? "Aujourd'hui" : (dayIdx === 1 ? 'Demain' : selectedDate.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'short' }));
+                hoursSummarySubEl.innerText = `Aperçu rapide · ${hoursDayLabel}`;
+            }
 
             let currentHourIdx = start + 12;
             if (dayIdx === 0) currentHourIdx = start + now.getHours();
@@ -11266,13 +11218,12 @@ function updatePressureChart(dayIdx) {
         // réellement au graphique affiché — voir contributingIdx dans loadEvoMetehop) au centroïde
         // géométrique de chaque cellule suivie (moyenne de position de tous les pixels pluvieux
         // connectés, voir identifyRainCells — cx/cy = sumX/count, sumY/count) : cells = [{ lat, lon,
-        // distanceKm, extentPoints?, color? }, ...] — 1 élément en mode simple, jusqu'à
-        // MULTI_CELL_MAX en mode multi-cellules (voir multiCellMode). Le centroïde d'une cellule
-        // irrégulière ou allongée peut visuellement paraître décentré par rapport à sa forme (il suit
-        // la masse des pixels, pas le milieu visuel de son enveloppe) : pour les grosses cellules,
-        // extentPoints (optionnel, voir son calcul dans loadEvoMetehop pour le mode multi-cellules)
-        // ajoute des points plus petits aux extrémités de sa boîte englobante (haut, bas, gauche,
-        // droite) pour mieux visualiser son étendue réelle, en plus du centroïde.
+        // distanceKm, extentPoints?, color? }, ...] — jusqu'à MULTI_CELL_MAX éléments. Le centroïde
+        // d'une cellule irrégulière ou allongée peut visuellement paraître décentré par rapport à sa
+        // forme (il suit la masse des pixels, pas le milieu visuel de son enveloppe) : pour les
+        // grosses cellules, extentPoints (optionnel, voir son calcul dans loadEvoMetehop) ajoute des
+        // points plus petits aux extrémités de sa boîte englobante (haut, bas, gauche, droite) pour
+        // mieux visualiser son étendue réelle, en plus du centroïde.
         function showMetehopCellsOnMap(cells) {
             if (!map || typeof L === 'undefined') return;
             clearMetehopCellOnMap();
@@ -11305,7 +11256,7 @@ function updatePressureChart(dayIdx) {
             });
         }
 
-        // Conservée pour le mode simple (une seule cellule) — délègue à showMetehopCellsOnMap.
+        // Conservée pour le cas d'une seule cellule suivie — délègue à showMetehopCellsOnMap.
         function showMetehopCellOnMap(lat, lon, distanceKm) {
             showMetehopCellsOnMap([{ lat, lon, distanceKm }]);
         }
