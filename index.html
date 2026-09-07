@@ -1227,6 +1227,91 @@
             line-height: 1.4;
         }
 
+        /* Modal de choix "mode d'affichage" (onboarding + rappel footer) — mêmes classes
+           .install-modal-overlay / .install-modal réutilisées pour la cohérence visuelle
+           (fond assombri, carte arrondie centrée), seul le contenu diffère. */
+        .mode-choice-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+            text-align: left;
+            background: var(--card-inner-bg);
+            border: 1px solid rgba(0,0,0,0.08);
+            border-radius: var(--radius-small, 10px);
+            padding: 12px 14px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .mode-choice-btn:active { transform: scale(0.98); }
+        .mode-choice-emoji { font-size: 1.4rem; flex-shrink: 0; }
+        .mode-choice-btn strong { display: block; font-size: 0.82rem; color: var(--primary-dark); }
+        .mode-choice-desc { display: block; font-size: 0.68rem; color: var(--text-muted); margin-top: 2px; }
+
+        /* Bouton "Mode : Simple/Expert" du footer — mis en évidence par rapport aux autres liens
+           du footer (À propos, Contact, Sources) car c'est le point d'entrée pour changer d'avis
+           après le choix fait à l'onboarding. */
+        #display-mode-footer-label {
+            border: 2px solid var(--accent-green);
+            background: transparent;
+            border-radius: 999px;
+            padding: 3px 10px !important;
+        }
+
+        /* Mascotte météo "Metehop" (mode Simple) */
+        .weather-buddy-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 0 4px;
+        }
+        #weather-buddy-svg-container { width: 100%; max-width: 220px; }
+        .weather-buddy-bubble {
+            position: relative;
+            background: var(--card-inner-bg);
+            border: 1px solid rgba(0,0,0,0.08);
+            border-radius: var(--radius-large, 16px);
+            padding: 10px 16px;
+            font-size: 0.78rem;
+            line-height: 1.5;
+            text-align: center;
+            max-width: 320px;
+            color: var(--primary-dark);
+        }
+        .weather-buddy-bubble::before {
+            content: '';
+            position: absolute;
+            top: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-bottom: 8px solid var(--card-inner-bg);
+        }
+
+        /* Mode Simple : mise en page resserrée pour faire remonter la mascotte au-dessus de la
+           ligne de flottaison sur smartphone (ajouté le 07/09/2026, sur demande). Classe posée sur
+           <body> par applyDisplayMode() ; ne touche à rien en mode Expert. */
+        body.simple-mode .app-container { gap: 8px; }
+        body.simple-mode .hero-banner { padding: 12px 16px; }
+        body.simple-mode .hero-date { margin-bottom: 2px; }
+        body.simple-mode .hero-temp-container { margin: 4px 0; }
+        body.simple-mode .hero-temp { font-size: 2.6rem; }
+        body.simple-mode .hero-footer { margin-top: 6px; }
+        body.simple-mode #weather-buddy-card { padding: 12px 16px; }
+        body.simple-mode #weather-buddy-card .chart-header { margin-bottom: 2px; }
+        body.simple-mode .weather-buddy-wrap { padding: 0; gap: 6px; }
+        body.simple-mode #weather-buddy-svg-container { max-width: 160px; }
+
+        /* Carrousel "Explorer la journée" : cases compactées en mode Simple (date masquée, moins
+           de padding) — ajouté le 07/09/2026, sur demande. Le min/max (au lieu du seul maximum)
+           tient sur la même ligne, donc ne fait pas regrossir la case malgré l'info en plus. */
+        body.simple-mode .day-tab { padding: 6px 12px; gap: 2px; }
+        body.simple-mode .day-tab-date { display: none; }
+        body.simple-mode .day-tab-bottom { margin-top: 2px; flex-wrap: nowrap; }
+        body.simple-mode .day-tab-temp { font-size: 0.62rem; white-space: nowrap; }
+
         .sources-modal-overlay {
             display: none;
             position: fixed;
@@ -1967,15 +2052,15 @@
             <div class="hero-footer">
                 <span>MIN <strong id="day-tmin">--</strong></span>
                 <span>MAX <strong id="day-tmax">--</strong></span>
-                <span class="hero-footer-small">PRESS. <strong id="hero-pressure-val">-- hPa</strong></span>
-                <span class="hero-footer-small">ALT. <strong id="hero-altitude-val">-- m</strong></span>
-                <span id="hero-humidity-container"><i class="fa-solid fa-droplet" style="color: var(--accent-blue);"></i> <strong id="hero-humidity-val">--%</strong> humid.</span>
-                <span id="hero-freezing-container"><i class="fa-solid fa-icicles" style="color: #00b4d8;"></i> Iso. 0° <strong id="hero-freezing-val">-- m</strong></span>
-                <span id="moon-phase-hero">🌙 <strong id="moon-phase-val">--</strong></span>
-                <span id="day-rain-container"><i class="fa-solid fa-droplet"></i> <strong id="day-precip-sum">--</strong> pluie</span>
-                <span id="day-snow-container" style="display: none;"><i class="fa-solid fa-snowflake" style="color: var(--accent-snow);"></i> <strong id="day-snow-sum">--</strong> neige</span>
-                <span id="hero-rain-prob-container"><i class="fa-solid fa-umbrella" style="color: var(--accent-blue);"></i> <strong id="hero-rain-prob-val">--%</strong> proba pluie</span>
-                <span id="hero-uv-container"><i class="fa-solid fa-sun" style="color:#f59e0b;"></i> UV <strong id="hero-uv-val">--</strong> <span id="hero-uv-label"></span></span>
+                <span class="hero-footer-small hero-advanced-stat">PRESS. <strong id="hero-pressure-val">-- hPa</strong></span>
+                <span class="hero-footer-small hero-advanced-stat">ALT. <strong id="hero-altitude-val">-- m</strong></span>
+                <span id="hero-humidity-container" class="hero-advanced-stat"><i class="fa-solid fa-droplet" style="color: var(--accent-blue);"></i> <strong id="hero-humidity-val">--%</strong> humid.</span>
+                <span id="hero-freezing-container" class="hero-advanced-stat"><i class="fa-solid fa-icicles" style="color: #00b4d8;"></i> Iso. 0° <strong id="hero-freezing-val">-- m</strong></span>
+                <span id="moon-phase-hero" class="hero-advanced-stat">🌙 <strong id="moon-phase-val">--</strong></span>
+                <span id="day-rain-container" class="hero-advanced-stat"><i class="fa-solid fa-droplet"></i> <strong id="day-precip-sum">--</strong> pluie</span>
+                <span id="day-snow-container" class="hero-advanced-stat" style="display: none;"><i class="fa-solid fa-snowflake" style="color: var(--accent-snow);"></i> <strong id="day-snow-sum">--</strong> neige</span>
+                <span id="hero-rain-prob-container" class="hero-advanced-stat"><i class="fa-solid fa-umbrella" style="color: var(--accent-blue);"></i> <strong id="hero-rain-prob-val">--%</strong> proba pluie</span>
+                <span id="hero-uv-container" class="hero-advanced-stat"><i class="fa-solid fa-sun" style="color:#f59e0b;"></i> UV <strong id="hero-uv-val">--</strong> <span id="hero-uv-label"></span></span>
             </div>
         </div>
 
@@ -1997,7 +2082,23 @@
         </div>
 
         <!-- Grille : Heures & Radar -->
-        <div class="two-cols" data-groups="general">
+        <!-- Mascotte météo "Metehop" (mode Simple uniquement) — remplace "Les prochaines heures" +
+             le radar par un personnage habillé selon la météo réelle du moment. Voir
+             renderWeatherBuddy(), appelée depuis updateDayView(). -->
+        <div class="chart-card" data-groups="general" data-simple-only="true" id="weather-buddy-card" style="display:none;">
+            <div class="chart-header">
+                <div>
+                    <div class="card-sage-title">🐸 Le conseil de Metehop</div>
+                    <div class="card-sage-sub" id="weather-buddy-sub">Sa tenue du jour, selon la météo réelle</div>
+                </div>
+            </div>
+            <div class="weather-buddy-wrap">
+                <div id="weather-buddy-svg-container"></div>
+                <div class="weather-buddy-bubble" id="weather-buddy-message">Chargement...</div>
+            </div>
+        </div>
+
+        <div class="two-cols" data-groups="general" data-simple-hide="true">
             <div class="card-sage">
                 <div class="card-sage-header">
                     <div>
@@ -2127,7 +2228,7 @@
         </div>
 
         <!-- Graphique expérimental : Évolution des 3 prochaines heures (Metehop, radar) -->
-        <div class="chart-card" data-groups="general">
+        <div class="chart-card" data-groups="general" data-level="expert">
             <div class="chart-header">
                 <div>
                     <div class="card-sage-title">
@@ -2190,7 +2291,7 @@
         </div>
 
         <!-- Graphique : Températures air & sol sur 16 jours, orienté plantations -->
-        <div class="chart-card" data-groups="astrogarden" style="display:none;">
+        <div class="chart-card" data-groups="astrogarden" data-level="expert" style="display:none;">
             <div class="chart-header">
                 <div>
                     <div class="card-sage-title">
@@ -2214,7 +2315,7 @@
         <!-- Bilan hydrique du jardin : pluie prévue vs évapotranspiration de référence (ET0 FAO
              Penman-Monteith), sur les 16 jours de prévision. Gatée par bouton comme le graphique
              sol/air ci-dessus (appel API dédié, non inclus dans fetchWeather principal). -->
-        <div class="chart-card" id="water-balance-card" data-groups="astrogarden" style="display:none;">
+        <div class="chart-card" id="water-balance-card" data-groups="astrogarden" data-level="expert" style="display:none;">
             <div class="chart-header">
                 <div>
                     <div class="card-sage-title">
@@ -2324,7 +2425,7 @@
                 trop ancien pour être fiable du tout — voir loadSynopStation().
              Carte entière gatée par data-groups="astrogarden" (seulement chargée/visible sur cet
              onglet, chargement différé via setGroup()/fetchWeather() comme les autres onglets). -->
-        <div class="chart-card" id="nearby-stations-card" data-groups="astrogarden" style="display:none;">
+        <div class="chart-card" id="nearby-stations-card" data-groups="astrogarden" data-level="expert" style="display:none;">
             <div class="chart-header">
                 <div>
                     <div class="card-sage-title"><i class="fa-solid fa-house-signal" style="color: var(--accent-blue); margin-right: 6px;"></i> Stations météo à proximité</div>
@@ -2500,7 +2601,7 @@
              de la correction relief (fond de vallée = air froid plus persistant, neige qui tient
              plus bas). Même variable microClimateEnabled, mêmes fonctions onMicroClimateToggleChange()
              / updateMicroClimateToggleUI() que l'original — voir ces fonctions pour la synchronisation. -->
-        <div class="chart-card" data-groups="ski" id="ski-microclimate-toggle-card" style="display:none;">
+        <div class="chart-card" data-groups="ski" id="ski-microclimate-toggle-card" data-level="expert" style="display:none;">
             <div class="local-effects-header-row" style="margin-bottom:0;">
                 <div class="local-effects-header" style="font-size:0.8rem;">
                     <i class="fa-solid fa-mountain-sun"></i> Micro-climat
@@ -2514,7 +2615,7 @@
         </div>
 
         <!-- Graphique : Température & Risques de Neige / Givre -->
-        <div class="chart-card" data-groups="ski" style="display:none;">
+        <div class="chart-card" data-groups="ski" data-simple-keep="true" style="display:none;">
             <div class="chart-header">
                 <div>
                     <div class="card-sage-title">
@@ -2527,6 +2628,8 @@
                     <span class="astro-legend-item"><span class="legend-dot" style="background: #d97736;"></span> Température</span>
                     <span class="astro-legend-item"><span class="legend-dot" style="background: #a2d2ff;"></span> <i class="fa-solid fa-snowflake" style="color: #a2d2ff; font-size: 0.75rem;"></i> Risque de neige (proba. précip. si neige prévue)</span>
                     <span class="astro-legend-item"><i class="fa-solid fa-icicles" style="color: #00b4d8; font-size: 0.85rem;"></i> Condition de givre</span>
+                    <span class="astro-legend-item"><i class="fa-solid fa-snowflake" style="color: #60a5fa; font-size: 0.75rem;"></i> Neige tient (sol ≤ 0°C)</span>
+                    <span class="astro-legend-item"><i class="fa-solid fa-droplet" style="color: #0d9488; font-size: 0.75rem;"></i> Neige fond (sol &gt; 0°C)</span>
                 </div>
             </div>
 
@@ -2535,6 +2638,8 @@
             </div>
 
             <div class="frost-icons-row" id="frost-icons-row"></div>
+            <div class="frost-icons-row" id="snow-hold-icons-row" style="margin-top:4px;"></div>
+            <div class="card-sage-sub" id="snow-hold-summary" style="margin-top:6px;"></div>
         </div>
 
         <!-- Graphique : Limite pluie/neige heure par heure — ajouté le 05/09/2026. Voir
@@ -2641,7 +2746,7 @@
              chargé par loadSkiSnowMap() ci-dessus) : aucun appel réseau supplémentaire au
              changement de sélection, seulement au premier chargement de la carte. Voir
              populateSkiCompareSelects() / updateSkiCompareChart(). -->
-        <div class="chart-card" data-groups="ski" id="ski-compare-card" style="display:none;">
+        <div class="chart-card" data-groups="ski" id="ski-compare-card" data-level="expert" style="display:none;">
             <div class="chart-header">
                 <div>
                     <div class="card-sage-title">
@@ -2957,7 +3062,7 @@
              (Anomaly = Prévision - Climatologie du modèle), pas recalculées par l'app. Toujours
              visible, chargée automatiquement avec le reste de l'encart général (comme la pollution
              ou la vigilance), pas de bouton "Charger les données" pour cet encart. -->
-        <div class="chart-card" data-groups="general" id="seasonal-api-card">
+        <div class="chart-card" data-groups="general" id="seasonal-api-card" data-level="expert">
             <div class="chart-header">
                 <div>
                     <div class="card-sage-title">
@@ -2991,7 +3096,7 @@
              pour la station/les mesures, et le flux GeoJSON public de Vigicrues (tronçons de
              vigilance crues avec géométrie + niveau) pour la vigilance. Chargée automatiquement,
              comme les prévisions saisonnières. -->
-        <div class="chart-card" data-groups="eau" id="hydro-card" style="display:none;">
+        <div class="chart-card" data-groups="eau" id="hydro-card" data-level="expert" style="display:none;">
             <div class="chart-header">
                 <div>
                     <div class="card-sage-title">
@@ -3076,7 +3181,7 @@
         </div>
 
         <!-- EAUX SOUTERRAINES (NAPPES PHRÉATIQUES) — API Piézométrie Hub'Eau (données ADES) -->
-        <div class="chart-card" data-groups="eau" id="nappes-card" style="display:none;">
+        <div class="chart-card" data-groups="eau" id="nappes-card" data-level="expert" style="display:none;">
             <div class="chart-header">
                 <div>
                     <div class="card-sage-title">
@@ -3139,7 +3244,7 @@
         <!-- TENDANCES SAISONNIÈRES — chargement automatique à l'ouverture de l'onglet Général (voir
              setGroup), même principe que le Jardinage/Bilan hydrique/Chauffage : un seul appel
              archive, mis en cache, ne justifie plus un bouton "Charger les données" dédié. -->
-        <div class="chart-card" data-groups="general">
+        <div class="chart-card" data-groups="general" data-level="expert">
             <div class="chart-header">
                 <div>
                     <div class="card-sage-title">
@@ -3161,7 +3266,7 @@
             </div>
         </div>
 
-        <div class="table-card" id="seasonal-trends-table-card" data-groups="astrogarden">
+        <div class="table-card" id="seasonal-trends-table-card" data-groups="astrogarden" data-level="expert">
             <div class="section-header" style="flex-wrap: wrap; gap: 6px;">
                 <div>
                     <div class="card-sage-title">Détail par quinzaine</div>
@@ -3202,6 +3307,8 @@
                 <a class="footer-icon-btn" href="mailto:stridemetric@proton.me" title="Contact">✉️</a>
                 <span class="footer-sep">|</span>
                 <button type="button" class="footer-icon-btn" onclick="openSourcesModal()" title="Sources et modèles utilisés">💡</button>
+                <span class="footer-sep">|</span>
+                <button type="button" class="footer-icon-btn" onclick="openModeModal()" title="Choisir le niveau de détail affiché" style="font-size: 0.7rem; opacity: 0.85;" id="display-mode-footer-label">Mode : Simple</button>
             </div>
             <div class="footer-install-row">
                 <span class="footer-install-label">Installe-moi !</span>
@@ -3231,6 +3338,38 @@
             </h3>
             <ol id="install-modal-steps"></ol>
             <div class="install-note">Metehop s'installe comme une application web (PWA) : pas de store, pas de téléchargement, elle se met à jour automatiquement.</div>
+        </div>
+    </div>
+
+    <!-- Modal "mode d'affichage" : proposé une seule fois au premier lancement (voir
+         DOMContentLoaded), puis rouvrable à tout moment via "Mode d'affichage" dans le footer.
+         Ne bloque rien : fermer sans choisir laisse l'appli en mode Simple (réglage par défaut). -->
+    <div class="install-modal-overlay" id="mode-modal-overlay" onclick="if(event.target===this) closeModeModal()">
+        <div class="install-modal">
+            <h3>
+                <span class="install-modal-title">👋 Bienvenue sur Metehop</span>
+                <button type="button" class="install-close" onclick="closeModeModal()">✕</button>
+            </h3>
+            <div style="font-size:0.78rem; color:var(--text-muted); line-height:1.5; margin-bottom:14px;">
+                Pour adapter ce qui s'affiche, dites-nous qui vous êtes :
+            </div>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                <button type="button" class="mode-choice-btn" onclick="chooseDisplayMode('simple')">
+                    <span class="mode-choice-emoji">🙂</span>
+                    <span>
+                        <strong>Je découvre la météo</strong>
+                        <span class="mode-choice-desc">L'essentiel, sans jargon technique</span>
+                    </span>
+                </button>
+                <button type="button" class="mode-choice-btn" onclick="chooseDisplayMode('expert')">
+                    <span class="mode-choice-emoji">🔬</span>
+                    <span>
+                        <strong>Je m'y connais</strong>
+                        <span class="mode-choice-desc">Tous les graphiques et données détaillées</span>
+                    </span>
+                </button>
+            </div>
+            <div class="install-note">Modifiable à tout moment via "Mode d'affichage" en bas de page.</div>
         </div>
     </div>
 
@@ -4080,8 +4219,82 @@
             fetchWeather(45.1885, 5.7245, "Grenoble");
         }
 
+        // ============================================================================
+        // MODE D'AFFICHAGE (Simple / Expert) — ajouté le 07/09/2026 (sur demande) : rend l'appli
+        // plus accessible à un public non familier de la météo, en masquant par défaut les encarts
+        // les plus techniques/jargonneux (bilan hydrique ET0, anomalies saisonnières, nappes
+        // phréatiques, comparateur de stations, micro-climat...), repérés via l'attribut
+        // data-level="expert" posé sur ces encarts. Rien n'est supprimé : le mode Expert réaffiche
+        // tout. Proposé une seule fois au premier lancement (modal #mode-modal-overlay), puis
+        // modifiable à tout moment via "Mode d'affichage" dans le footer.
+        // ============================================================================
+        let displayMode = 'simple';
+        const DISPLAY_MODE_KEY = 'metehop_display_mode';
+        const DISPLAY_MODE_CHOSEN_KEY = 'metehop_display_mode_chosen';
+
+        function loadDisplayMode() {
+            try {
+                const stored = localStorage.getItem(DISPLAY_MODE_KEY);
+                if (stored === 'simple' || stored === 'expert') displayMode = stored;
+            } catch (e) { /* localStorage indisponible : reste en mode Simple par défaut */ }
+        }
+
+        // Onglets masqués en mode Simple : ne restent visibles que Général (page d'accueil,
+        // toujours là), Neige/Ski (réduit à un seul encart, voir data-simple-keep) et Trajet
+        // (usage ponctuel, sans jargon). Loisir, Hobby et Eau sont jugés trop spécialisés pour
+        // un premier niveau de lecture — réaffichés intégralement en mode Expert.
+        const SIMPLE_MODE_HIDDEN_TABS = ['leisure', 'astrogarden', 'eau'];
+
+        // Ré-applique le filtre data-groups/data-level pour l'onglet courant (sans le changer, sauf
+        // si cet onglet vient justement d'être masqué par le mode Simple — voir ci-dessous) et
+        // synchronise les quelques éléments qui ne passent pas par ce mécanisme (le toggle
+        // micro-climat imbriqué dans "Les prochaines heures", et le libellé du footer).
+        function applyDisplayMode() {
+            document.body.classList.toggle('simple-mode', displayMode === 'simple');
+            document.querySelectorAll('.group-tab').forEach(tab => {
+                const hide = (displayMode === 'simple' && SIMPLE_MODE_HIDDEN_TABS.includes(tab.dataset.group));
+                tab.style.display = hide ? 'none' : '';
+            });
+            const targetGroup = (displayMode === 'simple' && SIMPLE_MODE_HIDDEN_TABS.includes(currentGroup)) ? 'general' : currentGroup;
+            setGroup(targetGroup);
+            const localEffectsCard = document.getElementById('local-effects-card');
+            if (localEffectsCard) localEffectsCard.style.display = (displayMode === 'simple') ? 'none' : '';
+            // En repassant en mode Expert, les stats avancées du bandeau (masquées sans condition en
+            // mode Simple, voir syncHeroAdvancedStatsVisibility) doivent être recalculées, pas
+            // seulement laissées telles quelles : on rejoue updateDayView() sur le jour actuellement
+            // sélectionné si des données sont déjà chargées, ce qui remet chaque élément dans l'état
+            // que sa propre logique (donnée disponible ou non) détermine normalement.
+            if (typeof weatherData !== 'undefined' && weatherData && weatherData.hourly) {
+                updateDayView(selectedDayIndex || 0);
+                renderCarousel(); // ré-affiche min/max (Simple) ou max seul (Expert) sur les cases
+            } else {
+                syncHeroAdvancedStatsVisibility();
+            }
+            const footerLabel = document.getElementById('display-mode-footer-label');
+            if (footerLabel) footerLabel.innerText = (displayMode === 'simple') ? 'Mode : Simple' : 'Mode : Expert';
+        }
+
+        function chooseDisplayMode(mode) {
+            displayMode = (mode === 'expert') ? 'expert' : 'simple';
+            try {
+                localStorage.setItem(DISPLAY_MODE_KEY, displayMode);
+                localStorage.setItem(DISPLAY_MODE_CHOSEN_KEY, 'true');
+            } catch (e) { /* tant pis, préférence non persistée */ }
+            applyDisplayMode();
+            closeModeModal();
+        }
+
+        function openModeModal() {
+            document.getElementById('mode-modal-overlay').classList.add('visible');
+        }
+        function closeModeModal() {
+            document.getElementById('mode-modal-overlay').classList.remove('visible');
+        }
+
         window.addEventListener('DOMContentLoaded', () => {
+            loadDisplayMode();
             setGroup('general');
+            applyDisplayMode();
             updateMicroClimateToggleUI();
             favorites = loadFavorites();
             loadDefaultLocation();
@@ -4093,6 +4306,14 @@
             // (voir updateStormProximityBox(), appelée depuis loadEvoMetehop()).
             if (!radarRefreshIntervalId) {
                 scheduleRadarRefresh(radarRefreshIntervalMs);
+            }
+            // Onboarding : on ne propose le choix Simple/Expert qu'au tout premier lancement —
+            // une préférence déjà choisie (même "Simple" par défaut sans avoir cliqué) n'est
+            // jamais réaffichée automatiquement, seulement rouvrable depuis le footer.
+            let modeAlreadyChosen = true;
+            try { modeAlreadyChosen = localStorage.getItem(DISPLAY_MODE_CHOSEN_KEY) === 'true'; } catch (e) { /* pas de préférence lisible : on considère le choix comme déjà fait pour ne pas insister */ }
+            if (!modeAlreadyChosen) {
+                setTimeout(openModeModal, 600);
             }
         });
 
@@ -4488,10 +4709,23 @@
             });
 
             // Affiche/masque les encarts rattachés à un groupe (attribut data-groups, liste
-            // séparée par des virgules pour les encarts partagés entre deux groupes).
+            // séparée par des virgules pour les encarts partagés entre deux groupes). Un encart
+            // marqué data-level="expert" reste en plus masqué tant que le mode d'affichage est
+            // "simple" (voir applyDisplayMode / chooseDisplayMode), quel que soit l'onglet ouvert.
+            // Dans l'onglet Neige/Ski spécifiquement, le mode "simple" va plus loin : un seul
+            // encart reste visible ("Température & risques de neige", marqué data-simple-keep),
+            // tous les autres encarts ski sont masqués (pas seulement ceux jugés "expert"). Dans
+            // l'onglet Général, "Les prochaines heures" + le radar (data-simple-hide) cèdent leur
+            // place à la mascotte météo (data-simple-only) en mode Simple — et inversement en
+            // mode Expert, où la mascotte n'a pas lieu d'être.
             document.querySelectorAll('[data-groups]').forEach(el => {
                 const groups = el.dataset.groups.split(',');
-                el.style.display = groups.includes(group) ? '' : 'none';
+                const hiddenByLevel = (displayMode === 'simple' && el.dataset.level === 'expert');
+                const hiddenBySimpleSki = (displayMode === 'simple' && groups.includes('ski') && el.dataset.simpleKeep !== 'true');
+                const hiddenBySimpleHide = (displayMode === 'simple' && el.dataset.simpleHide === 'true');
+                const hiddenBySimpleOnlyMismatch = (el.dataset.simpleOnly === 'true' && displayMode !== 'simple');
+                const hidden = hiddenByLevel || hiddenBySimpleSki || hiddenBySimpleHide || hiddenBySimpleOnlyMismatch;
+                el.style.display = (groups.includes(group) && !hidden) ? '' : 'none';
             });
             updateSeasonalDisplay();
 
@@ -4583,7 +4817,10 @@
             const marineCard = document.getElementById('marine-table-card');
             const skiCard = document.getElementById('snow-station-card');
             marineCard.style.display = (currentGroup === 'leisure' && marineCard.classList.contains('visible')) ? 'block' : 'none';
-            skiCard.style.display = (currentGroup === 'ski' && skiCard.classList.contains('visible')) ? 'block' : 'none';
+            // "Station de ski la plus proche" : masquée en mode Simple, même règle que les autres
+            // encarts ski non essentiels (voir data-simple-keep dans setGroup).
+            const skiCardAllowed = !(displayMode === 'simple' && currentGroup === 'ski');
+            skiCard.style.display = (currentGroup === 'ski' && skiCardAllowed && skiCard.classList.contains('visible')) ? 'block' : 'none';
         }
 
         // ---- Tendances saisonnières : chargement automatique à l'ouverture de l'onglet Général
@@ -4978,7 +5215,7 @@
             renderFavoritesChips();
             
             try {
-                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,apparent_temperature,dew_point_2m,precipitation,precipitation_probability,rain,cloud_cover,snowfall,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,wind_speed_200hPa,pressure_msl,relative_humidity_2m,freezing_level_height,soil_temperature_0cm,is_day&daily=sunrise,sunset,precipitation_probability_max,temperature_2m_max,temperature_2m_min,temperature_2m_mean,uv_index_max&timezone=auto&forecast_days=16`;
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,apparent_temperature,dew_point_2m,precipitation,precipitation_probability,rain,cloud_cover,snowfall,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,wind_speed_200hPa,pressure_msl,relative_humidity_2m,freezing_level_height,soil_temperature_0cm,snow_depth,is_day&daily=sunrise,sunset,precipitation_probability_max,temperature_2m_max,temperature_2m_min,temperature_2m_mean,uv_index_max&timezone=auto&forecast_days=16`;
                 const res = await fetchWithTimeout(url, { timeout: 7000 });
                 if (!res.ok) throw new Error();
                 weatherData = await res.json();
@@ -7846,6 +8083,7 @@
                 const hourOffsetsCarousel = Array.from({ length: temps.length }, (_, h) => h);
                 const adjustedTemps = applyMicroClimateToTemps(temps, hourOffsetsCarousel, idx);
                 const maxT = Math.round(Math.max(...adjustedTemps));
+                const minT = Math.round(Math.min(...adjustedTemps));
                 const code = weatherData.hourly.weather_code[start + 12] || 0;
                 const cond = wmoMap[code] || wmoMap[0];
 
@@ -7860,16 +8098,238 @@
                     updateDayView(idx);
                 };
 
+                // Mode Simple : min/max sur la même ligne (plus lisible d'un coup d'œil pour un
+                // public non familier de la météo) au lieu du seul maximum — voir aussi le CSS
+                // body.simple-mode .day-tab, qui réduit la hauteur de ces cases (ajouté le 07/09/2026,
+                // sur demande). Mode Expert inchangé : uniquement le maximum, comme avant.
+                const tempDisplay = (displayMode === 'simple') ? `${minT}° / ${maxT}°` : `${maxT}°`;
+
                 tab.innerHTML = `
                     <div class="day-tab-name">${dayName}</div>
                     <div class="day-tab-date">${dateStr}</div>
                     <div class="day-tab-bottom">
                         <i class="fa-solid ${cond.icon}"></i>
-                        <span class="day-tab-temp">${maxT}°</span>
+                        <span class="day-tab-temp">${tempDisplay}</span>
                     </div>
                 `;
                 container.appendChild(tab);
             });
+        }
+
+        // Statistiques secondaires du bandeau "Votre météo, maintenant" (pression, altitude,
+        // humidité, isotherme 0°, phase de lune, cumul pluie/neige, proba pluie, UV) — ajoutée le
+        // 07/09/2026 (sur demande) : masquées en mode Simple pour ne garder que MIN/MAX, l'essentiel
+        // pour un public non familier de la météo. Passe finale volontairement radicale (masque tout
+        // sans condition) plutôt que de dupliquer la logique data-disponible/indisponible de chaque
+        // élément ci-dessus : en mode Expert elle ne touche à rien, laissant chaque bloc dans l'état
+        // déjà déterminé par updateDayView() (visible seulement si la donnée existe réellement).
+        function syncHeroAdvancedStatsVisibility() {
+            if (displayMode !== 'simple') return;
+            document.querySelectorAll('.hero-advanced-stat').forEach(el => { el.style.display = 'none'; });
+        }
+
+        // ============================================================================
+        // MASCOTTE MÉTÉO "Metehop" (mode Simple) — ajoutée le 07/09/2026 (sur demande) : remplace
+        // "Les prochaines heures" + le radar par un petit personnage habillé selon la météo réelle
+        // du moment (grenouille, thème de l'appli — voir le logo et "nourrir la grenouille Metehop"
+        // dans le footer). Purement illustratif/ludique, mais chaque tenue est déclenchée par de
+        // vraies valeurs déjà chargées (température, code météo WMO officiel, vent, UV, jour/nuit),
+        // jamais une donnée inventée. Recalculée à chaque changement de jour depuis updateDayView().
+        // ============================================================================
+        function renderWeatherBuddy(opts) {
+            const container = document.getElementById('weather-buddy-svg-container');
+            const msgEl = document.getElementById('weather-buddy-message');
+            if (!container || !msgEl) return;
+
+            const { temp, code, windSpeed, uvMax, isDayNow } = opts;
+
+            const isRain = [51, 61, 63, 65, 80].includes(code);
+            const isSnow = [71, 73, 75, 85].includes(code);
+            const isStorm = (code === 95);
+            const isFog = (code === 45);
+            const isClearCode = [0, 1].includes(code);
+            const isWindy = (typeof windSpeed === 'number' && windSpeed >= 45);
+            const isSunny = (isDayNow === 1 && isClearCode && !isRain && !isSnow && !isStorm);
+            const isNight = (isDayNow === 0);
+            const strongUV = (typeof uvMax === 'number' && uvMax >= 6);
+
+            let tier = 'mild';
+            if (typeof temp === 'number') {
+                if (temp <= 0) tier = 'freezing';
+                else if (temp <= 8) tier = 'cold';
+                else if (temp <= 18) tier = 'mild';
+                else if (temp <= 27) tier = 'warm';
+                else if (temp <= 32) tier = 'hot';
+                else tier = 'scorching';
+            }
+
+            const wearsCoat = (tier === 'freezing' || tier === 'cold');
+            const wearsHat = (tier === 'freezing' || isSnow);
+            const wearsShorts = (tier === 'hot' || tier === 'scorching');
+            const wearsSunglasses = (wearsShorts || (isSunny && strongUV));
+            const wearsFan = (tier === 'scorching');
+            const holdsUmbrella = (isRain || isStorm);
+            const isShivering = (tier === 'freezing' || tier === 'cold');
+            const isPanting = (tier === 'scorching');
+
+            // ---- Décors (derrière le personnage), empilables ----
+            let bg = '';
+            if (isNight) {
+                bg += `<circle cx="172" cy="36" r="15" fill="#FFF3B0"/>
+                       <g fill="#FFF3B0"><circle cx="26" cy="28" r="1.6"/><circle cx="48" cy="52" r="1.3"/><circle cx="150" cy="66" r="1.3"/><circle cx="192" cy="86" r="1.6"/></g>`;
+            } else if (isSunny) {
+                bg += `<g stroke="#F5A623" stroke-width="4" stroke-linecap="round" opacity="0.85">
+                       <line x1="172" y1="8" x2="172" y2="22"/><line x1="150" y1="16" x2="159" y2="27"/><line x1="194" y1="16" x2="185" y2="27"/>
+                       <line x1="140" y1="36" x2="151" y2="36"/><line x1="204" y1="36" x2="193" y2="36"/></g>
+                       <circle cx="172" cy="36" r="15" fill="#FFD54F"/>`;
+            }
+            if (isFog) {
+                bg += `<g fill="#CFD8DC" opacity="0.65"><ellipse cx="55" cy="58" rx="32" ry="8"/><ellipse cx="150" cy="86" rx="38" ry="9"/><ellipse cx="90" cy="128" rx="28" ry="7"/></g>`;
+            }
+            if (isRain && !isStorm) {
+                bg += `<g stroke="#4FA3D1" stroke-width="3" stroke-linecap="round" opacity="0.75">
+                       <line x1="28" y1="28" x2="20" y2="52"/><line x1="52" y1="14" x2="44" y2="38"/><line x1="176" y1="34" x2="168" y2="58"/><line x1="196" y1="58" x2="188" y2="82"/></g>`;
+            }
+            if (isSnow) {
+                bg += `<g fill="#FFFFFF" opacity="0.9"><circle cx="28" cy="34" r="3"/><circle cx="52" cy="58" r="2.3"/><circle cx="180" cy="28" r="3"/><circle cx="196" cy="62" r="2.3"/><circle cx="44" cy="88" r="2"/></g>`;
+            }
+            if (isStorm) {
+                bg += `<path d="M38,24 h50 a20,20 0 0 1 0,40 h-15 l-8,15 -6,-15 h-21 a20,20 0 0 1 0,-40 Z" fill="#5C6B73"/>
+                       <path d="M150,18 L138,44 L150,44 L136,70" stroke="#F5A623" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+            }
+            if (isWindy) {
+                bg += `<g stroke="#9AA5A0" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.6">
+                       <path d="M8,112 q15,-8 30,0"/><path d="M4,127 q15,-8 30,0"/><path d="M188,142 q15,-8 30,0"/></g>`;
+            }
+
+            // ---- Visage (expression selon l'état) — centré exactement sur les yeux (78,95) et
+            // (132,95) définis plus bas dans body. Bouche remontée le 07/09/2026 (3e passe) : elle
+            // se faisait auparavant recouvrir par l'écharpe/le col (zone de chevauchement autour de
+            // y=130-140) — la voici clairement dans la zone dégagée entre les yeux et le col. ----
+            const EYE_L_X = 78, EYE_R_X = 132, EYE_Y = 95;
+            const MOUTH_Y = 118; // haut de la zone bouche, bien au-dessus de l'écharpe/du col (y≥140)
+            let face;
+            if (isShivering) {
+                face = `<path d="M${EYE_L_X - 7},${EYE_Y} q7,-5 14,0" stroke="#33422f" stroke-width="3" fill="none" stroke-linecap="round"/>
+                        <path d="M${EYE_R_X - 7},${EYE_Y} q7,-5 14,0" stroke="#33422f" stroke-width="3" fill="none" stroke-linecap="round"/>
+                        <path d="M92,${MOUTH_Y} q8,-6 16,0 q8,6 16,0" stroke="#33422f" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+            } else if (isPanting) {
+                face = `<ellipse cx="${EYE_L_X}" cy="${EYE_Y}" rx="8" ry="3" fill="#33422f"/><ellipse cx="${EYE_R_X}" cy="${EYE_Y}" rx="8" ry="3" fill="#33422f"/>
+                        <path d="M96,${MOUTH_Y} q9,13 18,0" stroke="#33422f" stroke-width="3" fill="none" stroke-linecap="round"/>
+                        <ellipse cx="105" cy="${MOUTH_Y + 9}" rx="5" ry="6" fill="#E8637A"/>`;
+            } else if (isStorm) {
+                face = `<circle cx="${EYE_L_X}" cy="${EYE_Y}" r="7" fill="#33422f"/><circle cx="${EYE_R_X}" cy="${EYE_Y}" r="7" fill="#33422f"/>
+                        <ellipse cx="105" cy="${MOUTH_Y + 6}" rx="7" ry="7" fill="#33422f"/>`;
+            } else {
+                face = `<circle cx="${EYE_L_X}" cy="${EYE_Y}" r="5.5" fill="#33422f"/><circle cx="${EYE_R_X}" cy="${EYE_Y}" r="5.5" fill="#33422f"/>
+                        <path d="M92,${MOUTH_Y} q13,8 26,0" stroke="#33422f" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+            }
+
+            // ---- Corps (grenouille, thème Metehop) ----
+            const body = `
+                <ellipse cx="78" cy="205" rx="16" ry="9" fill="#4C7A24"/>
+                <ellipse cx="132" cy="205" rx="16" ry="9" fill="#4C7A24"/>
+                <ellipse cx="105" cy="150" rx="52" ry="55" fill="#7CB342" stroke="#4C7A24" stroke-width="3"/>
+                <ellipse cx="105" cy="168" rx="32" ry="26" fill="#C5E1A5"/>
+                <circle cx="${EYE_L_X}" cy="${EYE_Y}" r="18" fill="#7CB342" stroke="#4C7A24" stroke-width="3"/>
+                <circle cx="${EYE_R_X}" cy="${EYE_Y}" r="18" fill="#7CB342" stroke="#4C7A24" stroke-width="3"/>
+                <circle cx="${EYE_L_X}" cy="${EYE_Y}" r="10" fill="#FFFFFF"/>
+                <circle cx="${EYE_R_X}" cy="${EYE_Y}" r="10" fill="#FFFFFF"/>
+                ${face}
+            `;
+            const arms = `<ellipse cx="48" cy="150" rx="13" ry="9" fill="#7CB342" stroke="#4C7A24" stroke-width="2.5" transform="rotate(-20 48 150)"/>
+                          <ellipse cx="162" cy="150" rx="13" ry="9" fill="#7CB342" stroke="#4C7A24" stroke-width="2.5" transform="rotate(20 162 150)"/>`;
+
+            // ---- Tenue + accessoires (empilables selon les conditions) ----
+            // Redessinés le 07/09/2026 (3e passe, sur demande) : col du manteau et écharpe descendus
+            // (zone de col déplacée de y=142/136 vers y=148/144) pour dégager complètement la bouche
+            // au-dessus — voir MOUTH_Y. Ourlets arrondis (Q au lieu de L) pour un tombé plus naturel.
+            let outfit = '';
+            const coatColor = (tier === 'freezing') ? '#D8534F' : '#3C6E8F';
+            if (wearsCoat) {
+                // Manches (dessinées avant le torse pour un raccord propre à l'épaule).
+                outfit += `<ellipse cx="48" cy="154" rx="16" ry="12" fill="${coatColor}" stroke="#2c2c2c" stroke-width="2" transform="rotate(-20 48 154)"/>
+                           <ellipse cx="162" cy="154" rx="16" ry="12" fill="${coatColor}" stroke="#2c2c2c" stroke-width="2" transform="rotate(20 162 154)"/>`;
+                outfit += `<path d="M62,148 Q105,140 148,148 L156,208 Q105,220 54,208 Z" fill="${coatColor}" stroke="#2c2c2c" stroke-width="2"/>
+                           <path d="M90,148 L105,166 L120,148" fill="none" stroke="#2c2c2c" stroke-width="2" stroke-linejoin="round"/>
+                           <circle cx="105" cy="173" r="2.6" fill="#2c2c2c"/>
+                           <circle cx="105" cy="186" r="2.6" fill="#2c2c2c"/>
+                           <circle cx="105" cy="199" r="2.6" fill="#2c2c2c"/>`;
+                // Écharpe : bande autour du cou + pan qui pend, bien distincte du col du manteau.
+                outfit += `<rect x="78" y="142" width="54" height="11" rx="5.5" fill="#F2E9DC" stroke="#c9a45c" stroke-width="1.5"/>
+                           <rect x="96" y="150" width="15" height="26" rx="4" fill="#F2E9DC" stroke="#c9a45c" stroke-width="1.5"/>`;
+            } else if (tier === 'mild') {
+                outfit += `<ellipse cx="48" cy="154" rx="15" ry="11" fill="#E0A458" stroke="#8a5a2b" stroke-width="2" transform="rotate(-20 48 154)"/>
+                           <ellipse cx="162" cy="154" rx="15" ry="11" fill="#E0A458" stroke="#8a5a2b" stroke-width="2" transform="rotate(20 162 154)"/>`;
+                outfit += `<path d="M68,150 Q105,136 142,150 L146,196 Q105,210 64,196 Z" fill="#E0A458" stroke="#8a5a2b" stroke-width="2"/>
+                           <path d="M92,150 L105,164 L118,150" fill="none" stroke="#8a5a2b" stroke-width="2" stroke-linejoin="round"/>`;
+            }
+            if (wearsHat) {
+                const hatColor = (tier === 'freezing') ? '#D8534F' : '#8E9AAF';
+                outfit += `<path d="M65,80 Q65,42 105,40 Q145,42 145,80 Q105,66 65,80 Z" fill="${hatColor}" stroke="#2c2c2c" stroke-width="2"/>
+                           <rect x="62" y="74" width="86" height="13" rx="6.5" fill="${hatColor}" stroke="#2c2c2c" stroke-width="2"/>
+                           <circle cx="105" cy="36" r="8" fill="#F2E9DC" stroke="#c9a45c" stroke-width="1.5"/>`;
+            }
+            if (wearsShorts) {
+                outfit += `<path d="M70,188 L140,188 L137,210 L109,210 L105,197 L101,210 L73,210 Z" fill="#4FA3D1" stroke="#2c2c2c" stroke-width="2" stroke-linejoin="round"/>
+                           <rect x="70" y="188" width="70" height="7" fill="#3C6E8F"/>`;
+            }
+            if (wearsSunglasses) {
+                outfit += `<circle cx="${EYE_L_X}" cy="${EYE_Y}" r="13" fill="#2c2c2c"/>
+                           <circle cx="${EYE_R_X}" cy="${EYE_Y}" r="13" fill="#2c2c2c"/>
+                           <circle cx="${EYE_L_X - 4}" cy="${EYE_Y - 4}" r="4" fill="#ffffff" opacity="0.35"/>
+                           <circle cx="${EYE_R_X - 4}" cy="${EYE_Y - 4}" r="4" fill="#ffffff" opacity="0.35"/>
+                           <rect x="${EYE_L_X + 13}" y="${EYE_Y - 2}" width="${EYE_R_X - 13 - (EYE_L_X + 13)}" height="4" fill="#2c2c2c"/>
+                           <line x1="${EYE_L_X - 13}" y1="${EYE_Y}" x2="${EYE_L_X - 22}" y2="${EYE_Y - 3}" stroke="#2c2c2c" stroke-width="3" stroke-linecap="round"/>
+                           <line x1="${EYE_R_X + 13}" y1="${EYE_Y}" x2="${EYE_R_X + 22}" y2="${EYE_Y - 3}" stroke="#2c2c2c" stroke-width="3" stroke-linecap="round"/>`;
+            }
+            if (wearsFan) {
+                outfit += `<path d="M150,145 L191,112 A26,26 0 0 1 184,157 Z" fill="#F2E9DC" stroke="#c9a45c" stroke-width="2"/>
+                           <g stroke="#c9a45c" stroke-width="1.3" opacity="0.8">
+                           <line x1="150" y1="145" x2="191" y2="112"/>
+                           <line x1="150" y1="145" x2="192" y2="132"/>
+                           <line x1="150" y1="145" x2="184" y2="157"/>
+                           </g>`;
+            }
+            if (holdsUmbrella) {
+                const tilt = isStorm ? -18 : 0;
+                const umbrellaColor = isStorm ? '#B0BEC5' : '#E8637A';
+                outfit += `<g transform="rotate(${tilt} 155 60)">
+                           <path d="M155,150 Q155,162 145,162 Q135,162 135,152" stroke="#5c4425" stroke-width="4" fill="none" stroke-linecap="round"/>
+                           <line x1="155" y1="60" x2="155" y2="150" stroke="#5c4425" stroke-width="4" stroke-linecap="round"/>
+                           <path d="M115,60 Q155,15 195,60 Q175,50 155,58 Q135,50 115,60 Z" fill="${umbrellaColor}" stroke="#2c2c2c" stroke-width="2" stroke-linejoin="round"/>
+                           <line x1="155" y1="60" x2="155" y2="22" stroke="#2c2c2c" stroke-width="2"/>
+                           <g stroke="#2c2c2c" stroke-width="1" opacity="0.45">
+                           <line x1="135" y1="58" x2="141" y2="27"/>
+                           <line x1="175" y1="58" x2="169" y2="27"/>
+                           </g>
+                           </g>`;
+            }
+
+            container.innerHTML = `<svg viewBox="0 0 210 230" width="100%" height="100%" style="max-width:220px; display:block; margin:0 auto;">
+                ${bg}
+                ${body}
+                ${arms}
+                ${outfit}
+            </svg>`;
+
+            // ---- Message associé, en langage simple ----
+            const phrases = [];
+            if (tier === 'freezing') phrases.push("Grand froid : sors la doudoune, le bonnet et l'écharpe ! 🥶");
+            else if (tier === 'cold') phrases.push("Ça pique un peu, prends un manteau.");
+            else if (tier === 'mild') phrases.push("Météo agréable, une petite laine suffit.");
+            else if (tier === 'warm') phrases.push("Beau temps, tenue légère parfaite.");
+            else if (tier === 'hot') phrases.push("Il fait chaud, sors le short et les lunettes ! 😎");
+            else phrases.push("Grosse chaleur : reste au frais, bois de l'eau, évite le soleil de midi. 🥵");
+
+            if (isStorm) phrases.push("Orage annoncé : mieux vaut rester à l'abri.");
+            else if (isRain) phrases.push("Pense au parapluie, il pleut ou ça va pleuvoir. ☔");
+            if (isSnow) phrases.push("De la neige est prévue, prudence sur les trottoirs. ❄️");
+            if (isFog) phrases.push("Brouillard : visibilité réduite, roulez doucement.");
+            if (isWindy) phrases.push("Ça souffle fort, tenez bien votre chapeau !");
+            if (strongUV && isSunny) phrases.push("Fort ensoleillement : pensez à la crème solaire.");
+
+            msgEl.innerText = phrases.join(' ');
         }
 
         function updateDayView(dayIdx) {
@@ -8156,6 +8616,11 @@
             updateAstroChart(dayIdx);
             updatePressureChart(dayIdx);
             updateSnowLimitChart(dayIdx);
+
+            // Mascotte météo (mode Simple) : recalculée à chaque changement de jour/heure avec les
+            // mêmes valeurs "maintenant" que le bandeau principal, réellement issues du modèle.
+            renderWeatherBuddy({ temp: displayTemp, code: currentCode, windSpeed: windSpeedVal, uvMax: uvMax, isDayNow: isDayNow });
+            syncHeroAdvancedStatsVisibility();
         }
 
         function updateChart(dayIdx) {
@@ -8659,6 +9124,53 @@ function updatePressureChart(dayIdx) {
                 if (isFrost) cell.innerHTML = `<i class="fa-solid fa-icicles" style="color: #00b4d8;" title="Risque de givre"></i>`;
                 frostRowContainer.appendChild(cell);
             });
+
+            // ---- Tenue de la neige au sol ----
+            // Deux vraies sorties Open-Meteo, aucune valeur inventée : soil_temperature_0cm (°C,
+            // température de surface du sol) et snow_depth (m, épaisseur de neige au sol simulée par
+            // le modèle). Tant qu'il y a de la neige au sol ET que le sol reste ≤ 0°C, elle tient
+            // (pas de fonte par en dessous) ; si le sol repasse > 0°C alors qu'il y a encore de la
+            // neige, elle est en train de fondre. Sans neige au sol prévue, aucune icône.
+            const soilTempsHold = weatherData.hourly.soil_temperature_0cm ? weatherData.hourly.soil_temperature_0cm.slice(start, end) : null;
+            const snowDepthsHold = weatherData.hourly.snow_depth ? weatherData.hourly.snow_depth.slice(start, end) : null;
+            const snowHoldRowContainer = document.getElementById('snow-hold-icons-row');
+            const snowHoldSummaryEl = document.getElementById('snow-hold-summary');
+            if (snowHoldRowContainer) snowHoldRowContainer.innerHTML = '';
+            if (snowHoldSummaryEl) snowHoldSummaryEl.innerText = '';
+
+            if (snowHoldRowContainer && soilTempsHold && snowDepthsHold) {
+                let holdHours = 0, meltHours = 0, snowPresentHours = 0;
+                temps.forEach((_, i) => {
+                    const depth = snowDepthsHold[i];
+                    const soilT = soilTempsHold[i];
+                    const cell = document.createElement('div');
+                    cell.className = 'frost-cell';
+                    const hasSnow = typeof depth === 'number' && depth >= 0.01; // >= 1cm au sol
+                    if (hasSnow && typeof soilT === 'number') {
+                        snowPresentHours++;
+                        if (soilT <= 0) {
+                            holdHours++;
+                            cell.innerHTML = `<i class="fa-solid fa-snowflake" style="color: #60a5fa;" title="Neige au sol, sol ≤ 0°C : elle tient"></i>`;
+                        } else {
+                            meltHours++;
+                            cell.innerHTML = `<i class="fa-solid fa-droplet" style="color: #0d9488;" title="Neige au sol, sol > 0°C : fonte possible"></i>`;
+                        }
+                    }
+                    snowHoldRowContainer.appendChild(cell);
+                });
+
+                if (snowHoldSummaryEl) {
+                    if (snowPresentHours === 0) {
+                        snowHoldSummaryEl.innerText = "Pas de neige au sol prévue ce jour-là (donnée modèle).";
+                    } else if (meltHours === 0) {
+                        snowHoldSummaryEl.innerText = "La neige au sol devrait tenir toute la journée (sol ≤ 0°C).";
+                    } else if (holdHours === 0) {
+                        snowHoldSummaryEl.innerText = "Le sol repasse au-dessus de 0°C : fonte de la neige au sol probable.";
+                    } else {
+                        snowHoldSummaryEl.innerText = `La neige au sol tient ${holdHours}h et pourrait fondre ${meltHours}h ce jour-là (sol repassant > 0°C).`;
+                    }
+                }
+            }
 
             // "snowfall_probability" n'est PAS un paramètre valide de l'API Open-Meteo standard
             // (spécifique au modèle américain NBM, absent du modèle par défaut) : il retombait
