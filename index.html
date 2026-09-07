@@ -690,6 +690,7 @@
         }
         .micro-toggle-switch input:checked + .micro-toggle-slider { background-color: var(--accent-orange); }
         .micro-toggle-switch input:checked + .micro-toggle-slider::before { transform: translateX(15px); }
+        .multicell-toggle input:checked + .micro-toggle-slider { background-color: #7048e8; }
 
         .local-effects-header {
             font-size: 0.75rem;
@@ -2052,7 +2053,7 @@
                 <div class="map-wrapper" id="map-wrapper">
                     <div class="map-toolbar">
                         <div class="radar-header-toggle">
-                            <button id="mode-radar" class="mode-btn active" onclick="setRadarMode('radar')">En direct</button>
+                            <button id="mode-radar" class="mode-btn active" onclick="goLiveRadar()">En direct</button>
                             <button id="mode-forecast" class="mode-btn" onclick="setRadarMode('forecast')">Prévisions 6h</button>
                             <button id="mode-lightning" class="mode-btn" onclick="setRadarMode('lightning')">Foudre</button>
                             <button type="button" class="map-recenter-btn" onclick="recenterRadarMap()" title="Recentrer sur le lieu de prévision">
@@ -2147,7 +2148,15 @@
                     </div>
                     <div class="card-sage-sub" id="evo-chart-note">Estimation Metehop à partir du radar, par tranches de 10 minutes</div>
                 </div>
+                <!-- Mode multi-cellules (bêta) : toggle isolé, désactivé par défaut, pour comparer
+                     avec le modèle simple existant (une seule cellule suivie) sans le remplacer.
+                     Préférence mémorisée en local, voir onMultiCellToggleChange(). -->
+                <label class="micro-toggle-switch multicell-toggle" title="Suivre plusieurs cellules pluvieuses simultanément (expérimental) au lieu d'une seule">
+                    <input type="checkbox" id="multicell-toggle" onchange="onMultiCellToggleChange()">
+                    <span class="micro-toggle-slider"></span>
+                </label>
             </div>
+            <div class="card-sage-sub" id="multicell-toggle-label" style="margin-top: -6px; margin-bottom: 6px; font-size: 0.65rem;">Modèle multi-cellules : désactivé (une seule cellule suivie)</div>
             <div class="astro-legend" id="evo-legend" style="margin-bottom: 6px;">
                 <span class="astro-legend-item"><span class="legend-dot" style="background:#7dd3fc;"></span> Pluie faible</span>
                 <span class="astro-legend-item"><span class="legend-dot" style="background:#0284c7;"></span> Pluie forte</span>
@@ -2161,6 +2170,7 @@
             <div class="chart-container" id="evo-chart-container" style="height: 150px;">
                 <canvas id="evoChart"></canvas>
             </div>
+            <div class="card-sage-sub" id="evo-chart-cumul" style="margin-top: 4px; font-size: 0.65rem;"></div>
             <div class="card-sage-sub" id="evo-chart-footnote" style="margin-top: 6px; font-size: 0.65rem;">Actualisé automatiquement toutes les 5 minutes. Les contours superposés montrent la prévision</div>
             <!-- Suivi de proximité d'orage : visible uniquement si une cellule orageuse (grêle
                  incluse) est suivie à moins de STORM_PROXIMITY_KM de la position — voir
@@ -3506,7 +3516,8 @@
         let heatingChart = null;
         let map = null;
         let marker = null;
-        let metehopCellMarker = null; // marqueur affichant la cellule suivie par Metehop sur la carte radar
+        let metehopCellMarkers = []; // marqueur(s) affichant la ou les cellule(s) suivie(s) par Metehop sur la carte radar (1 en mode simple, jusqu'à MULTI_CELL_MAX en mode multi-cellules)
+        let metehopTrajectoryLines = []; // cône(s) d'incertitude violet(s) transparent(s) par cellule suivie (mode multi-cellules uniquement)
         let radarTileLayers = {};
         let radarTimestamps = [];
         let radarPastCount = 0;
@@ -3736,6 +3747,16 @@
         let metehopAnalysis = null; // dernière analyse radar : { hasHail, hasStorm, hasSnow, etaMinutes, confidence }
         let radarRefreshIntervalId = null;
         let radarRefreshIntervalMs = 5 * 60 * 1000;
+
+        // ---- Mode expérimental "multi-cellules" (toggle sous "Évolution des 3 prochaines heures")
+        // Désactivé par défaut : le modèle simple (une seule cellule, la plus proche) reste le
+        // comportement par défaut inchangé. Préférence mémorisée en local, comme microClimateEnabled
+        // ci-dessus, pour ne pas la redemander à chaque visite.
+        let multiCellMode = false;
+        try {
+            const storedMC = localStorage.getItem('metehop_multicell_enabled_v1');
+            if (storedMC !== null) multiCellMode = (storedMC === 'true');
+        } catch (e) { /* localStorage indisponible (navigation privée...) : reste désactivé par défaut */ }
 
         // ---- Suivi de proximité d'orage (encart sous "Évolution des 3 prochaines heures") ----
         // Rayon en deçà duquel une cellule orageuse (ou grêle) suivie déclenche l'encart et le
@@ -4069,6 +4090,12 @@
         window.addEventListener('DOMContentLoaded', () => {
             setGroup('general');
             updateMicroClimateToggleUI();
+            const multicellToggle = document.getElementById('multicell-toggle');
+            if (multicellToggle) multicellToggle.checked = multiCellMode;
+            const multicellLabel = document.getElementById('multicell-toggle-label');
+            if (multicellLabel) multicellLabel.innerText = multiCellMode
+                ? `Modèle multi-cellules : activé (jusqu'à ${MULTI_CELL_MAX} cellules suivies)`
+                : 'Modèle multi-cellules : désactivé (une seule cellule suivie)';
             favorites = loadFavorites();
             loadDefaultLocation();
             setTimeout(updateMoonPhase, 800);
@@ -6259,7 +6286,7 @@
                 // visuellement les deux sans que l'une ne masque l'autre.
                 datasets.push({
                     type: 'bar', label: 'Prévision modèle (Open-Meteo)', data: modelValues,
-                    backgroundColor: 'transparent', borderColor: modelColors, borderWidth: 1.25, borderSkipped: false,
+                    backgroundColor: 'transparent', borderColor: modelColors, borderWidth: 0.75, borderSkipped: false,
                     borderRadius: 4, barThickness: 13, yAxisID: 'yPrecip', order: 1
                 });
             }
@@ -6276,7 +6303,14 @@
             const scales = {
                 // grouped:false superpose les barres au même x plutôt que de les placer côte à côte
                 x: { grid: { display: false }, ticks: { font: { size: 9 }, color: '#5e706a', maxTicksLimit: 8 }, grouped: false },
-                yPrecip: { position: 'left', beginAtZero: true, grid: { color: 'rgba(0, 0, 0, 0.04)' }, ticks: { font: { size: 9 }, color: precipAxisColor, callback: v => `${v}${precipUnit}` } }
+                // L'unité (mm/10min ou cm/10min) n'est plus répétée sur chaque graduation : un seul
+                // titre d'axe, aligné en haut ('end' = début de l'axe vertical, donc le haut pour un
+                // axe qui part de 0 en bas), allège visuellement le graphique.
+                yPrecip: {
+                    position: 'left', beginAtZero: true, grid: { color: 'rgba(0, 0, 0, 0.04)' },
+                    title: { display: true, text: precipUnit, align: 'end', font: { size: 9, weight: 'normal' }, color: precipAxisColor, padding: { bottom: 2 } },
+                    ticks: { font: { size: 9 }, color: precipAxisColor }
+                }
             };
             if (confidenceValues) {
                 scales.yConfidence = { position: 'right', min: 0, max: 100, grid: { display: false }, ticks: { font: { size: 9 }, color: '#14532d', stepSize: 25, callback: v => `${v}%` } };
@@ -6291,6 +6325,21 @@
                     scales
                 }
             });
+
+            // Cumul attendu sur toute la période affichée (somme des tranches de 10 min, déjà en
+            // mm accumulés depuis l'harmonisation des unités) — un seul chiffre récapitulatif,
+            // plus lisible qu'une lecture barre par barre pour estimer "combien va-t-il tomber".
+            const cumulEl = document.getElementById('evo-chart-cumul');
+            if (cumulEl) {
+                const totalRadar = Math.round(precipValues.reduce((a, b) => a + b, 0) * 10) / 10;
+                const cumulUnit = precipUnit.split('/')[0]; // "mm" ou "cm", sans le "/10min"
+                let text = `Cumul attendu sur ${(EVO_BIN_COUNT * EVO_BIN_MINUTES / 60)}h (radar) : ~${totalRadar}${cumulUnit}`;
+                if (modelValues) {
+                    const totalModel = Math.round(modelValues.reduce((a, b) => a + b, 0) * 10) / 10;
+                    text += ` — modèle : ~${totalModel}${cumulUnit}`;
+                }
+                cumulEl.innerText = text;
+            }
         }
 
         function setEvoLoading(msg) {
@@ -6432,20 +6481,27 @@
             const isYellowOrange = r > 180 && g > 120 && b < 120;
             return r > 200 && b > 150 && !isYellowOrange;
         }
+        // Classification à partir d'un dBZ déjà connu (extrait de classifyRadarPixel pour être
+        // réutilisable sans repartir d'un pixel RVB — sert à classer l'intensité MOYENNE d'une
+        // cellule entière, voir avgDbz dans identifyRainCells et son usage dans projectTrackToBins).
+        function classifyByDbz(dbz, rainRate, isSnowMode) {
+            const round1 = v => Math.round(v * 10) / 10;
+            if (isSnowMode) {
+                return { type: 'snow', color: '#8b5cf6', mmEquiv: Math.max(0.1, round1(rainRate * 0.3)) };
+            }
+            if (dbz >= 55) {
+                return { type: 'hail_candidate', color: '#eab308', mmEquiv: round1(Math.min(50, rainRate)) };
+            }
+            if (dbz >= 45) return { type: 'storm', color: '#ef4444', mmEquiv: round1(rainRate) };
+            if (dbz >= 35) return { type: 'rain_heavy', color: '#0284c7', mmEquiv: round1(rainRate) };
+            return { type: 'rain_light', color: '#7dd3fc', mmEquiv: round1(rainRate) };
+        }
+
         function classifyRadarPixel(r, g, b, alpha, isSnowMode) {
             if (alpha <= ALPHA_THRESHOLD) return { type: 'none', color: 'transparent', mmEquiv: 0 };
 
             const dbz = estimateDbzFromRgb(r, g, b);
             const rainRate = dbzToRainRateMmH(dbz);
-            const round1 = v => Math.round(v * 10) / 10;
-
-            if (isSnowMode) {
-                // Pas de relation Z-S officielle appliquée ici : approximation usuelle consistant à
-                // prendre une fraction du taux "pluie équivalente" au même dBZ, un flocon produisant
-                // un écho radar pour une masse d'eau nettement plus faible que la même réflectivité
-                // en pluie liquide. Continue malgré tout (avant : 0.6 fixe pour toute neige détectée).
-                return { type: 'snow', color: '#8b5cf6', mmEquiv: Math.max(0.1, round1(rainRate * 0.3)) };
-            }
 
             // Seuils directement sur le dBZ estimé (et non plus sur 4 heuristiques de teinte RVB
             // codées séparément) : le TYPE affiché et le mm/h calculé proviennent désormais
@@ -6454,15 +6510,7 @@
             // retombait par défaut sur "pluie faible" tout en gardant son débit RÉEL (potentiellement
             // très élevé, ex. teinte extrême mal reconnue) — d'où des cas observés de "pluie faible"
             // affichant un débit supérieur à "orage".
-            if (dbz >= 55) {
-                // Zone "extrême" : la relation Z-R n'est plus physiquement valable une fois de la
-                // grêle mélangée (écho gonflé par les gros grêlons, pas par de l'eau liquide) — la
-                // valeur est plafonnée plutôt que d'afficher un mm/h irréaliste.
-                return { type: 'hail_candidate', color: '#eab308', mmEquiv: round1(Math.min(50, rainRate)) };
-            }
-            if (dbz >= 45) return { type: 'storm', color: '#ef4444', mmEquiv: round1(rainRate) };
-            if (dbz >= 35) return { type: 'rain_heavy', color: '#0284c7', mmEquiv: round1(rainRate) };
-            return { type: 'rain_light', color: '#7dd3fc', mmEquiv: round1(rainRate) };
+            return classifyByDbz(dbz, rainRate, isSnowMode);
         }
         const TYPE_COLOR = { hail: '#eab308', storm: '#ef4444', rain_heavy: '#0284c7', rain_light: '#7dd3fc', snow: '#8b5cf6', none: 'transparent' };
 
@@ -6535,15 +6583,19 @@
 
                     const stack = [[sx, sy]];
                     visited[key] = 1;
-                    let sumX = 0, sumY = 0, count = 0, maxAlpha = 0;
+                    let sumX = 0, sumY = 0, count = 0, maxAlpha = 0, sumDbz = 0;
+                    let minPx = sx, maxPx = sx, minPy = sy, maxPy = sy;
                     let peakDbz = -Infinity, peakR = 0, peakG = 0, peakB = 0, peakAlpha = 0;
                     while (stack.length) {
                         const [x, y] = stack.pop();
                         const idx = (y * 768 + x) * 4;
                         const a = data[idx + 3];
                         sumX += x; sumY += y; count++;
+                        if (x < minPx) minPx = x; if (x > maxPx) maxPx = x;
+                        if (y < minPy) minPy = y; if (y > maxPy) maxPy = y;
                         if (a > maxAlpha) maxAlpha = a;
                         const dbz = estimateDbzFromRgb(data[idx], data[idx + 1], data[idx + 2]);
+                        sumDbz += dbz;
                         if (dbz > peakDbz) {
                             peakDbz = dbz;
                             peakR = data[idx]; peakG = data[idx + 1]; peakB = data[idx + 2]; peakAlpha = a;
@@ -6561,7 +6613,7 @@
                             stack.push([nx, ny]);
                         }
                     }
-                    if (count >= MIN_CELL_PIXELS) cells.push({ cx: sumX / count, cy: sumY / count, count, maxAlpha, peakR, peakG, peakB, peakAlpha });
+                    if (count >= MIN_CELL_PIXELS) cells.push({ cx: sumX / count, cy: sumY / count, count, maxAlpha, peakR, peakG, peakB, peakAlpha, minPx, maxPx, minPy, maxPy, avgDbz: sumDbz / count });
                 }
             }
             return cells;
@@ -6571,21 +6623,15 @@
         // plus proche voisin (le centroïde le plus proche dans l'image précédente) — méthode standard
         // de suivi de cellule en nowcasting radar. S'arrête dès qu'aucune correspondance plausible
         // n'est trouvée (déplacement trop important pour être réaliste entre deux images).
-        function trackCellBackward(cellFramesList, times, kmPerPixel, refCx, refCy) {
-            const n = cellFramesList.length;
-            const lastCells = cellFramesList[n - 1];
-            if (!lastCells.length) return [];
-            // Cellule cible dans la dernière image : la plus proche du lieu réellement recherché
-            // (et non un point fixe arbitraire du canvas assemblé).
-            let targetIdx = 0, targetDist = Infinity;
-            lastCells.forEach((c, i) => {
-                const d = Math.hypot(c.cx - refCx, c.cy - refCy);
-                if (d < targetDist) { targetDist = d; targetIdx = i; }
-            });
-
-            const track = [{ ...lastCells[targetIdx], time: times[n - 1] }];
-            let ref = lastCells[targetIdx];
-            for (let i = n - 2; i >= 0; i--) {
+        // Rattache une cellule de départ (startCell, dans la dernière image) à ses positions dans
+        // les images précédentes, en remontant dans le temps. Extrait de trackCellBackward pour
+        // être partagé avec trackAllCellsBackward (mode multi-cellules, voir plus bas) : les deux
+        // modes utilisent exactement le même moteur de rattachement, seule la SÉLECTION de la ou
+        // des cellule(s) de départ diffère entre eux.
+        function linkCellBackward(cellFramesList, times, kmPerPixel, startCell, startFrameIdx) {
+            const track = [{ ...startCell, time: times[startFrameIdx] }];
+            let ref = startCell;
+            for (let i = startFrameIdx - 1; i >= 0; i--) {
                 const cells = cellFramesList[i];
                 if (!cells.length) break;
                 const dtMin = Math.max(1, (times[i + 1] - times[i]) / 60);
@@ -6604,6 +6650,86 @@
                 ref = cells[bestIdx];
             }
             return track; // du plus ancien au plus récent
+        }
+
+        // Mode simple (par défaut) : une seule cellule suivie, la plus proche du lieu recherché sur
+        // la dernière image.
+        function trackCellBackward(cellFramesList, times, kmPerPixel, refCx, refCy) {
+            const n = cellFramesList.length;
+            const lastCells = cellFramesList[n - 1];
+            if (!lastCells.length) return [];
+            // Cellule cible dans la dernière image : la plus proche du lieu réellement recherché
+            // (et non un point fixe arbitraire du canvas assemblé).
+            let targetIdx = 0, targetDist = Infinity;
+            lastCells.forEach((c, i) => {
+                const d = Math.hypot(c.cx - refCx, c.cy - refCy);
+                if (d < targetDist) { targetDist = d; targetIdx = i; }
+            });
+            return linkCellBackward(cellFramesList, times, kmPerPixel, lastCells[targetIdx], n - 1);
+        }
+
+        // ---- Mode expérimental "multi-cellules" (toggle, voir multiCellMode) ----
+        // Au lieu de ne suivre QUE la cellule la plus proche du lieu recherché, sélectionne jusqu'à
+        // MULTI_CELL_MAX cellules parmi les plus PERTINENTES sur la dernière image, et les fait
+        // suivre chacune indépendamment en arrière dans le temps — pour ne pas ignorer un second
+        // système pluvieux distinct qui approcherait par ailleurs (voir loadEvoMetehop pour la
+        // fusion des trajectoires obtenues).
+        const MULTI_CELL_MAX = 3;
+        // Seuil de taille minimale (bruit radar isolé exclu), mais PAS de seuil minimal sur la
+        // longueur de la trajectoire liée : une cellule qui vient tout juste d'apparaître (1 seule
+        // image, pas encore de vitesse mesurable) ou de se former (2 images) doit rester éligible —
+        // c'est justement le cas d'une cellule orageuse qui se forme ou s'intensifie vite tout près
+        // du lieu recherché, le cas le plus important à ne pas manquer. Un temps, ce module excluait
+        // ces trajectoires courtes pour éviter un cône d'incertitude artificiellement étroit (une
+        // droite passe exactement par 1 ou 2 points, résidu nul par définition) — mais l'exclusion
+        // revenait à ignorer purement et simplement la cellule plutôt que d'afficher son incertitude
+        // correctement. Le vrai correctif est dans projectTrackToBins (coneHalfWidthPx) : une
+        // incertitude forfaitaire pour les trajectoires courtes, pas une exclusion.
+        const MULTI_CELL_MIN_PIXELS = 20;
+        function trackAllCellsBackward(cellFramesList, times, kmPerPixel, refCx, refCy) {
+            const n = cellFramesList.length;
+            const lastCells = cellFramesList[n - 1];
+            if (!lastCells.length) return [];
+
+            // Sélection par distance MINIMALE au lieu recherché sur TOUTE la fenêtre de prévision
+            // [0, horizonMin] — pas seulement à l'horizon final (3h). Une cellule énorme et déjà
+            // très proche MAINTENANT reste hautement pertinente même si sa trajectoire s'en écarte
+            // ensuite (elle peut apporter de la pluie dans les toutes prochaines minutes avant de
+            // s'éloigner) ; ne regarder que la distance à l'horizon final la classait à tort comme
+            // "loin", au profit de cellules plus lointaines mais dont la trajectoire projetée reste
+            // proche du lieu à 3h. Le mouvement étant supposé linéaire à vitesse constante (même
+            // modèle que projectTrackToBins), le point d'approche le plus proche sur [0, horizonMin]
+            // se calcule directement (projection du vecteur cellule->cible sur le vecteur vitesse,
+            // bornée à l'intervalle), sans avoir à échantillonner plusieurs instants.
+            const horizonMin = EVO_HORIZON_HOURS * 60;
+            const candidates = lastCells
+                .filter(c => c.count >= MULTI_CELL_MIN_PIXELS)
+                .map(c => {
+                    const track = linkCellBackward(cellFramesList, times, kmPerPixel, c, n - 1);
+                    let vx = 0, vy = 0; // à défaut de trajectoire exploitable (1 seule image), reste sur place
+                    if (track.length >= 2) {
+                        const t0 = track[0].time;
+                        const relTimes = track.map(p => (p.time - t0) / 60);
+                        const regX = linearRegression(relTimes, track.map(p => p.cx));
+                        const regY = linearRegression(relTimes, track.map(p => p.cy));
+                        vx = regX.slope;
+                        vy = regY.slope;
+                    }
+                    const relX = c.cx - refCx, relY = c.cy - refCy; // vecteur cible -> cellule à t=0
+                    const speed2 = vx * vx + vy * vy;
+                    let tClosest = 0;
+                    if (speed2 > 1e-9) {
+                        tClosest = Math.max(0, Math.min(horizonMin, -(relX * vx + relY * vy) / speed2));
+                    }
+                    const closestX = c.cx + vx * tClosest, closestY = c.cy + vy * tClosest;
+                    const minDist = Math.hypot(closestX - refCx, closestY - refCy);
+                    return { track, projectedDist: minDist };
+                });
+
+            return candidates
+                .sort((a, b) => a.projectedDist - b.projectedDist)
+                .slice(0, MULTI_CELL_MAX)
+                .map(({ track }) => track);
         }
 
         // Régression linéaire simple (moindres carrés) : renvoie la pente, l'ordonnée à l'origine, et
@@ -6672,6 +6798,195 @@
             return Math.max(20, Math.min(92, c));
         }
 
+        // Bascule du mode multi-cellules (voir multiCellMode) : relance immédiatement l'analyse
+        // Metehop avec le nouveau mode si des données radar sont déjà en mémoire pour ce lieu,
+        // pour un retour visuel instantané plutôt que d'attendre le prochain rafraîchissement.
+        function onMultiCellToggleChange() {
+            const toggle = document.getElementById('multicell-toggle');
+            multiCellMode = toggle.checked;
+            try { localStorage.setItem('metehop_multicell_enabled_v1', String(multiCellMode)); } catch (e) { /* tant pis, préférence non persistée */ }
+            const label = document.getElementById('multicell-toggle-label');
+            if (label) label.innerText = multiCellMode
+                ? `Modèle multi-cellules : activé (jusqu'à ${MULTI_CELL_MAX} cellules suivies)`
+                : 'Modèle multi-cellules : désactivé (une seule cellule suivie)';
+            if (currentLat !== null) loadEvoMetehop().catch(() => {});
+        }
+
+        // Projette une trajectoire de cellule (track, voir trackCellBackward / trackAllCellsBackward)
+        // sur les tranches de 10 min du graphique — régression de position et de surface, extrapolation
+        // pixel par pixel sur la dernière image radar, dissipation. Extrait du corps de loadEvoMetehop
+        // pour être appelé une fois par cellule en mode multi-cellules (voir MULTI_CELL_MAX) comme en
+        // mode simple, garantissant un calcul RIGOUREUSEMENT identique entre les deux modes.
+        // Note : lastImg et radiusPx ne sont plus utilisés dans le corps de la fonction depuis le
+        // passage à une projection basée sur la position propre de la cellule (voir plus bas) —
+        // conservés dans la signature pour ne pas toucher aux deux points d'appel.
+        async function projectTrackToBins(track, cx, cy, kmPerPixel, lastImg, radiusPx, isSnowMode, baseOffsetMin, tileX, tileY, zoom, lastFrame) {
+            // ---- Proposition 6 (suite) : régression sur la position de la cellule suivie, plutôt
+            // que différence entre les 2 dernières images uniquement. Le R² sert de mesure de
+            // cohérence du mouvement pour la confiance (proposition 5). ----
+            const t0 = track[0].time;
+            const relTimes = track.map(p => (p.time - t0) / 60); // minutes depuis la 1re image suivie
+            const regX = linearRegression(relTimes, track.map(p => p.cx));
+            const regY = linearRegression(relTimes, track.map(p => p.cy));
+            const vx = regX.slope; // px/min
+            const vy = regY.slope;
+            const trajectoryR2 = (regX.r2 + regY.r2) / 2;
+
+            // ---- Largeur du cône d'incertitude à l'horizon de prévision (carte, mode multi-
+            // cellules) ----
+            // Trajectoire bien établie (≥3 images liées, donc ≥2 segments de mouvement) : dispersion
+            // RÉELLEMENT mesurée — écart quadratique moyen (RMS) entre les positions observées de la
+            // cellule et la droite de régression ajustée — projetée en racine carrée du temps
+            // (modèle de marche aléatoire : une incertitude qui s'accumule progressivement).
+            // Trajectoire courte (1 ou 2 images) : ce résidu est mathématiquement nul ou quasi nul
+            // (une droite passe exactement par 1 ou 2 points, par définition) — INEXPLOITABLE comme
+            // mesure de confiance. Plutôt que d'exclure ces cellules (une cellule qui vient de se
+            // former ou d'apparaître tout près est justement le cas le plus important à ne pas
+            // manquer), on leur applique une incertitude FORFAITAIRE, volontairement large, à défaut
+            // de pouvoir la mesurer.
+            const horizonMin = EVO_HORIZON_HOURS * 60;
+            const lastCellForHorizon = track[track.length - 1];
+            const futureXAtHorizon = lastCellForHorizon.cx + regX.slope * horizonMin;
+            const futureYAtHorizon = lastCellForHorizon.cy + regY.slope * horizonMin;
+            const traveledPxAtHorizon = Math.hypot(futureXAtHorizon - lastCellForHorizon.cx, futureYAtHorizon - lastCellForHorizon.cy);
+            let coneHalfWidthPx;
+            if (track.length < 3) {
+                coneHalfWidthPx = Math.max(traveledPxAtHorizon * 0.4, 3 / kmPerPixel);
+            } else {
+                let sumSqResidual = 0;
+                for (let i = 0; i < track.length; i++) {
+                    const predX = regX.intercept + regX.slope * relTimes[i];
+                    const predY = regY.intercept + regY.slope * relTimes[i];
+                    const dxr = track[i].cx - predX, dyr = track[i].cy - predY;
+                    sumSqResidual += dxr * dxr + dyr * dyr;
+                }
+                const residualStdPx = Math.sqrt(sumSqResidual / track.length);
+                const observedSpanMin = relTimes[relTimes.length - 1] - relTimes[0];
+                const growthRatio = Math.sqrt(horizonMin / Math.max(1, observedSpanMin));
+                coneHalfWidthPx = Math.min(
+                    Math.max(residualStdPx * growthRatio, 3 / kmPerPixel),
+                    traveledPxAtHorizon * 1.5
+                );
+            }
+
+            // ---- Proposition 3 : tendance de croissance/dissipation de la cellule suivie ----
+            // Régression de la surface (nb de pixels) dans le temps ; une pente négative marquée
+            // indique une cellule qui s'affaiblit — la prévision en tient compte plutôt que de
+            // supposer une intensité constante jusqu'à l'arrivée.
+            const regArea = linearRegression(relTimes, track.map(p => p.count));
+            const lastCell = track[track.length - 1];
+            const areaTrendPerMin = lastCell.count > 0 ? regArea.slope / lastCell.count : 0;
+
+            const speedKmh = Math.round(Math.sqrt(vx * vx + vy * vy) * kmPerPixel * 60 * 10) / 10;
+            const distanceToStormKm = Math.round(Math.hypot(lastCell.cx - cx, lastCell.cy - cy) * kmPerPixel * 10) / 10;
+            const cellCountPx = lastCell.count;
+
+            // Pour chaque pas de 10 minutes, on projette la position FUTURE de LA CELLULE ELLE-MÊME
+            // (son centre suivi, avancé selon sa propre vitesse vx/vy) et on vérifie si cette
+            // position tombe dans son rayon (son étendue réelle, tirée de cellCountPx, ajustée par
+            // la dissipation projetée à cet horizon) — pas en resamplant un pixel quelconque de la
+            // dernière image radar au point "d'où viendrait la pluie" par rétro-extrapolation.
+            //
+            // Ce changement corrige un bug de fond du mode multi-cellules (repéré via une carte où
+            // des cellules s'éloignant clairement de la position suivie étaient marquées comme
+            // contribuant à la prévision) : l'ancienne méthode traitait implicitement TOUTE l'image
+            // radar comme un bloc unique se déplaçant à la vitesse de LA cellule suivie, et
+            // rétro-échantillonnait un pixel à cette position — sans jamais vérifier que ce pixel
+            // appartenait réellement à la cellule suivie. Si la vitesse d'une cellule éloignée et
+            // sans rapport pointait, une fois inversée, vers une tout autre cellule proche (par pure
+            // coïncidence géométrique), l'ancien code attribuait la pluie de cette AUTRE cellule à la
+            // cellule suivie — d'où des cellules s'éloignant marquées à tort comme "sur le point
+            // d'arriver". Avec la projection sur la cellule elle-même, une cellule qui s'éloigne
+            // s'éloigne aussi dans le calcul, point.
+            const cellRadiusPx = Math.sqrt(cellCountPx / Math.PI); // rayon "équivalent" (cellule ~ disque de même surface)
+            // Intensité de repli (baseCls) si l'échantillonnage réel ci-dessous n'est pas exploitable
+            // pour une tranche donnée : dBZ MOYEN de la cellule (avgDbz, voir identifyRainCells —
+            // moyenne sur tous ses pixels), pas son pic. Le pic sert à détecter "y a-t-il un cœur
+            // orageux quelque part dans cette cellule" (encart de proximité, et confirmation grêle
+            // ci-dessous) ; la moyenne est plus représentative de l'intensité TYPIQUE en cas de repli.
+            const avgRainRate = dbzToRainRateMmH(lastCell.avgDbz);
+            let baseCls = classifyByDbz(lastCell.avgDbz, avgRainRate, isSnowMode);
+            // Confirmation grêle UNE SEULE fois pour la cellule (sur son pic, là où elle a le plus de
+            // chances d'être confirmée), pas à chaque tranche — sert de repli ET à résoudre les
+            // pixels "extrêmes" échantillonnés plus bas sans refaire un appel réseau par tranche.
+            let cellConfirmedHail = false;
+            if (baseCls.type === 'hail_candidate' || classifyRadarPixel(lastCell.peakR, lastCell.peakG, lastCell.peakB, lastCell.peakAlpha, isSnowMode).type === 'hail_candidate') {
+                const { lat: cellLat, lon: cellLon } = stitchedPixelToLatLon(tileX, tileY, zoom, Math.round(lastCell.cx), Math.round(lastCell.cy));
+                cellConfirmedHail = (await verifyHailCellArea(cellLat, cellLon, lastFrame)) >= HAIL_MIN_AREA_KM2;
+                if (baseCls.type === 'hail_candidate') {
+                    baseCls = cellConfirmedHail
+                        ? { type: 'hail', color: '#eab308', mmEquiv: baseCls.mmEquiv }
+                        : { type: 'storm', color: '#ef4444', mmEquiv: baseCls.mmEquiv };
+                }
+            }
+
+            const bins = [];
+            const colors = [];
+            const confidence = [];
+            let etaMinutes = null;
+            let hasHail = false, hasStorm = false, hasSnowBin = false;
+            let dissipatesBeforeArrival = false;
+            for (let s = 0; s < EVO_BIN_COUNT; s++) {
+                const t = baseOffsetMin + s * EVO_BIN_MINUTES;
+                const cellCenterXAtT = lastCell.cx + vx * t;
+                const cellCenterYAtT = lastCell.cy + vy * t;
+                const distToTargetPx = Math.hypot(cellCenterXAtT - cx, cellCenterYAtT - cy);
+
+                // Facteur de dissipation projeté à cet horizon (borné pour rester raisonnable) — le
+                // rayon de la cellule évolue avec sa surface, donc en racine carrée du facteur.
+                const sizeFactor = Math.max(0.1, Math.min(2, 1 + areaTrendPerMin * t));
+                const radiusAtTPx = cellRadiusPx * Math.sqrt(sizeFactor);
+
+                let cls = { type: 'none', color: 'transparent', mmEquiv: 0 };
+                if (distToTargetPx <= radiusAtTPx) {
+                    // La cellule se déplace comme un bloc rigide (translation uniforme, sans
+                    // rotation ni déformation autre que la dissipation globale) : le point de LA
+                    // CELLULE qui recouvrira la cible au temps t est donc celui qui, sur la DERNIÈRE
+                    // image observée, se trouvait en (cx - vx·t, cy - vy·t) — capture la vraie
+                    // variation d'intensité en son sein (bord plus faible, cœur plus fort) plutôt
+                    // qu'une seule valeur moyenne appliquée partout. Le point échantillonné est
+                    // vérifié comme appartenant bien à CETTE cellule (dans sa boîte englobante, avec
+                    // de la pluie effectivement présente) avant d'être utilisé, pour ne jamais
+                    // retomber sur une autre cellule sans rapport ; sinon repli sur baseCls.
+                    const srcX = Math.round(cx - vx * t);
+                    const srcY = Math.round(cy - vy * t);
+                    let sampled = null;
+                    if (srcX >= lastCell.minPx && srcX <= lastCell.maxPx && srcY >= lastCell.minPy && srcY <= lastCell.maxPy) {
+                        const idx = (srcY * 768 + srcX) * 4;
+                        if (lastImg.data[idx + 3] > ALPHA_THRESHOLD) {
+                            sampled = classifyRadarPixel(lastImg.data[idx], lastImg.data[idx + 1], lastImg.data[idx + 2], lastImg.data[idx + 3], isSnowMode);
+                            if (sampled.type === 'hail_candidate') {
+                                // Pas de second appel réseau par tranche : résolu à partir de la
+                                // confirmation déjà faite une fois pour la cellule (cellConfirmedHail).
+                                sampled = cellConfirmedHail
+                                    ? { type: 'hail', color: '#eab308', mmEquiv: sampled.mmEquiv }
+                                    : { type: 'storm', color: '#ef4444', mmEquiv: sampled.mmEquiv };
+                            }
+                        }
+                    }
+                    cls = sampled || baseCls;
+
+                    if (cls.type !== 'none' && sizeFactor < 0.35) {
+                        // Cellule projetée comme très affaiblie à cette échéance : on rétrograde d'un
+                        // niveau d'intensité plutôt que de garder l'intensité actuelle telle quelle.
+                        const downgraded = TYPE_DOWNGRADE[cls.type] || 'none';
+                        if (t > 0 && etaMinutes === null) dissipatesBeforeArrival = true;
+                        cls = { type: downgraded, color: TYPE_COLOR[downgraded], mmEquiv: downgraded === 'none' ? 0 : TYPE_INTENSITY_FALLBACK[downgraded] || 0 };
+                    }
+                }
+
+                bins.push(Math.round(cls.mmEquiv * RATE_TO_10MIN_MM * 100) / 100);
+                colors.push(cls.color === 'transparent' ? 'rgba(94, 156, 204, 0.12)' : cls.color);
+                confidence.push(confidenceForBin(t, cls.type, distanceToStormKm, trajectoryR2, cellCountPx, speedKmh, sizeFactor));
+                if (cls.type !== 'none' && etaMinutes === null) etaMinutes = t;
+                if (cls.type === 'hail') hasHail = true;
+                if (cls.type === 'storm') hasStorm = true;
+                if (cls.type === 'snow') hasSnowBin = true;
+            }
+
+            return { bins, colors, confidence, etaMinutes, hasHail, hasStorm, hasSnowBin, dissipatesBeforeArrival, distanceToStormKm, speedKmh, lastCell, trajectoryR2, cellCountPx, trackLength: track.length, vx, vy, coneHalfWidthPx };
+        }
+
         async function loadEvoMetehop() {
             const summaryEl = document.getElementById('metehop-summary');
             summaryEl.style.display = 'block';
@@ -6729,10 +7044,13 @@
                 }
 
                 // ---- Proposition 1 : cellules individuelles par image, puis suivi de LA cellule la
-                // plus proche du lieu recherché à travers les images (plutôt qu'un motif global). ----
+                // plus proche du lieu recherché à travers les images (plutôt qu'un motif global) —
+                // ou, en mode multi-cellules (voir multiCellMode), de plusieurs cellules à la fois. ----
                 const cellFramesList = imageDatas.map(f => identifyRainCells(f.data, cx, cy, radiusPx));
                 const times = imageDatas.map(f => f.time);
-                const track = trackCellBackward(cellFramesList, times, kmPerPixel, cx, cy);
+                const tracks = multiCellMode
+                    ? trackAllCellsBackward(cellFramesList, times, kmPerPixel, cx, cy)
+                    : (() => { const t = trackCellBackward(cellFramesList, times, kmPerPixel, cx, cy); return t.length >= 2 ? [t] : []; })();
 
                 // ---- Encart de proximité d'orage : calculé ICI, indépendamment du suivi de
                 // trajectoire multi-images ci-dessous (qui peut échouer — cellule qui vient d'entrer
@@ -6755,7 +7073,7 @@
                 }
                 updateStormProximityBox(nearestStormKm);
 
-                if (track.length < 2) {
+                if (tracks.length === 0) {
                     if (alreadyRaining) {
                         // On SAIT avec certitude qu'il pleut MAINTENANT (lecture directe du pixel sur
                         // la dernière image radar) — même si le suivi multi-images de la trajectoire a
@@ -6797,134 +7115,207 @@
                     return;
                 }
 
-                // ---- Proposition 6 (suite) : régression sur la position de la cellule suivie, plutôt
-                // que différence entre les 2 dernières images uniquement. Le R² sert de mesure de
-                // cohérence du mouvement pour la confiance (proposition 5). ----
-                const t0 = track[0].time;
-                const relTimes = track.map(p => (p.time - t0) / 60); // minutes depuis la 1re image suivie
-                const regX = linearRegression(relTimes, track.map(p => p.cx));
-                const regY = linearRegression(relTimes, track.map(p => p.cy));
-                const vx = regX.slope; // px/min
-                const vy = regY.slope;
-                const trajectoryR2 = (regX.r2 + regY.r2) / 2;
-
-                // ---- Proposition 3 : tendance de croissance/dissipation de la cellule suivie ----
-                // Régression de la surface (nb de pixels) dans le temps ; une pente négative marquée
-                // indique une cellule qui s'affaiblit — la prévision en tient compte plutôt que de
-                // supposer une intensité constante jusqu'à l'arrivée.
-                const regArea = linearRegression(relTimes, track.map(p => p.count));
-                const lastCell = track[track.length - 1];
-                const areaTrendPerMin = lastCell.count > 0 ? regArea.slope / lastCell.count : 0;
-
-                const speedKmh = Math.round(Math.sqrt(vx * vx + vy * vy) * kmPerPixel * 60 * 10) / 10;
-                const distanceToStormKm = Math.round(Math.hypot(lastCell.cx - cx, lastCell.cy - cy) * kmPerPixel * 10) / 10;
-                const cellCountPx = lastCell.count;
-
-                // Pour chaque pas de 10 minutes, on regarde quel pixel de la dernière image
-                // "arrivera" sur le lieu recherché en remontant le masque de pluie le long de la
-                // trajectoire de la cellule suivie (à rebours). On ignore toute source hors du rayon
-                // d'observation. Un facteur de dissipation (proposition 3) atténue/rétrograde
-                // l'intensité classée pour les échéances où la cellule serait, selon sa tendance,
-                // nettement plus petite qu'actuellement.
-                const bins = [];
-                const colors = [];
-                const confidence = [];
-                let etaMinutes = null;
-                let hasHail = false, hasStorm = false, hasSnowBin = false;
-                let dissipatesBeforeArrival = false;
-                for (let s = 0; s < EVO_BIN_COUNT; s++) {
-                    const t = baseOffsetMin + s * EVO_BIN_MINUTES;
-                    const srcX = Math.round(cx - vx * t);
-                    const srcY = Math.round(cy - vy * t);
-                    let alpha = 0, r = 0, g = 0, b = 0;
-                    const ddx = srcX - cx, ddy = srcY - cy;
-                    const withinRadius = (ddx * ddx + ddy * ddy) <= radiusPx * radiusPx;
-                    if (withinRadius && srcX >= 0 && srcX < 768 && srcY >= 0 && srcY < 768) {
-                        const idx = (srcY * 768 + srcX) * 4;
-                        r = lastImg.data[idx]; g = lastImg.data[idx + 1]; b = lastImg.data[idx + 2]; alpha = lastImg.data[idx + 3];
-                    }
-                    let cls = classifyRadarPixel(r, g, b, alpha, isSnowMode);
-                    if (cls.type === 'hail_candidate') {
-                        const { lat: srcLat, lon: srcLon } = stitchedPixelToLatLon(tileX, tileY, zoom, srcX, srcY);
-                        const area = await verifyHailCellArea(srcLat, srcLon, lastFrame);
-                        // Même principe que ci-dessus : seuls type et couleur changent, le mm/h
-                        // continu déjà calculé pour ce pixel est conservé.
-                        cls = area >= HAIL_MIN_AREA_KM2
-                            ? { type: 'hail', color: '#eab308', mmEquiv: cls.mmEquiv }
-                            : { type: 'storm', color: '#ef4444', mmEquiv: cls.mmEquiv };
-                    }
-
-                    // Facteur de dissipation projeté à cet horizon (borné pour rester raisonnable)
-                    const sizeFactor = Math.max(0.1, Math.min(2, 1 + areaTrendPerMin * t));
-                    if (cls.type !== 'none' && sizeFactor < 0.35) {
-                        // Cellule projetée comme très affaiblie à cette échéance : on rétrograde d'un
-                        // niveau d'intensité plutôt que de garder l'intensité actuelle telle quelle.
-                        // Ici, pas de pixel réel pour ce niveau hypothétique "futur affaibli" : repli
-                        // sur la valeur représentative fixe (TYPE_INTENSITY_FALLBACK), seul cas où
-                        // elle sert encore.
-                        const downgraded = TYPE_DOWNGRADE[cls.type] || 'none';
-                        if (t > 0 && etaMinutes === null) dissipatesBeforeArrival = true;
-                        cls = { type: downgraded, color: TYPE_COLOR[downgraded], mmEquiv: downgraded === 'none' ? 0 : TYPE_INTENSITY_FALLBACK[downgraded] || 0 };
-                    }
-
-                    bins.push(Math.round(cls.mmEquiv * RATE_TO_10MIN_MM * 100) / 100);
-                    colors.push(cls.color === 'transparent' ? 'rgba(94, 156, 204, 0.12)' : cls.color);
-                    confidence.push(confidenceForBin(t, cls.type, distanceToStormKm, trajectoryR2, cellCountPx, speedKmh, sizeFactor));
-                    if (cls.type !== 'none' && etaMinutes === null) etaMinutes = t;
-                    if (cls.type === 'hail') hasHail = true;
-                    if (cls.type === 'storm') hasStorm = true;
-                    if (cls.type === 'snow') hasSnowBin = true;
+                // Projection de chaque cellule retenue (1 en mode simple, jusqu'à MULTI_CELL_MAX en
+                // mode multi-cellules) — même moteur de calcul pour les deux modes, voir
+                // projectTrackToBins.
+                const results = [];
+                for (const track of tracks) {
+                    results.push(await projectTrackToBins(track, cx, cy, kmPerPixel, lastImg, radiusPx, isSnowMode, baseOffsetMin, tileX, tileY, zoom, lastFrame));
                 }
 
-                let intensityLabel = 'faible';
-                if (hasHail) intensityLabel = 'grêle';
-                else if (hasStorm) intensityLabel = 'orageuse / forte';
-                else if (hasSnowBin) intensityLabel = 'neige';
-                else if (alreadyRaining && (clsNow.type === 'rain_heavy' || clsNow.type === 'storm')) intensityLabel = 'forte';
+                if (results.length === 1) {
+                    // ---- Mode simple (ou multi-cellules n'ayant retenu qu'une seule cellule
+                    // exploitable) : rendu identique à l'ancien comportement, une seule cellule. ----
+                    const { bins, colors, confidence, etaMinutes, hasHail, hasStorm, hasSnowBin, dissipatesBeforeArrival, distanceToStormKm, speedKmh, lastCell, trackLength } = results[0];
 
-                const modelBins = getModelBinsForEvo(roundedStart);
-                drawEvoChart(evoLabels(roundedStart), bins, colors, `Précipitations (radar, indicatif)`, precipUnit, precipAxisColor, confidence, modelBins ? modelBins.values : null, modelBins ? modelBins.colors : null);
+                    let intensityLabel = 'faible';
+                    if (hasHail) intensityLabel = 'grêle';
+                    else if (hasStorm) intensityLabel = 'orageuse / forte';
+                    else if (hasSnowBin) intensityLabel = 'neige';
+                    else if (alreadyRaining && (clsNow.type === 'rain_heavy' || clsNow.type === 'storm')) intensityLabel = 'forte';
 
-                // ---- Proposition 4 : recoupement avec la probabilité de précipitation du modèle ----
-                const modelProb = getModelPrecipProbability(EVO_HORIZON_HOURS / 2);
-                let consistencyWarning = '';
-                if (etaMinutes === null && modelProb !== null && modelProb >= 55) {
-                    consistencyWarning = ` ⚠️ À noter : le modèle météo prévoit ${Math.round(modelProb)}% de risque de précipitation sur cette période alors que le radar n'en détecte pas ici — le radar peut être temporairement incomplet à cet endroit.`;
-                } else if (etaMinutes !== null && modelProb !== null && modelProb <= 15) {
-                    consistencyWarning = ` ⚠️ À confirmer : le modèle météo ne prévoit que ${Math.round(modelProb)}% de risque sur cette période, à surveiller.`;
-                }
+                    const modelBins = getModelBinsForEvo(roundedStart);
+                    drawEvoChart(evoLabels(roundedStart), bins, colors, `Précipitations (radar, indicatif)`, precipUnit, precipAxisColor, confidence, modelBins ? modelBins.values : null, modelBins ? modelBins.colors : null);
 
-                const trendNote = dissipatesBeforeArrival ? ' La cellule suivie tend à s\'affaiblir sur les dernières images.' : '';
+                    // ---- Proposition 4 : recoupement avec la probabilité de précipitation du modèle ----
+                    const modelProb = getModelPrecipProbability(EVO_HORIZON_HOURS / 2);
+                    let consistencyWarning = '';
+                    if (etaMinutes === null && modelProb !== null && modelProb >= 55) {
+                        consistencyWarning = ` ⚠️ À noter : le modèle météo prévoit ${Math.round(modelProb)}% de risque de précipitation sur cette période alors que le radar n'en détecte pas ici — le radar peut être temporairement incomplet à cet endroit.`;
+                    } else if (etaMinutes !== null && modelProb !== null && modelProb <= 15) {
+                        consistencyWarning = ` ⚠️ À confirmer : le modèle météo ne prévoit que ${Math.round(modelProb)}% de risque sur cette période, à surveiller.`;
+                    }
 
-                // Affiche la cellule suivie sur la carte radar visible, pour vérifier concrètement
-                // ce que Metehop a détecté (une cellule à 100-200km peut être hors du cadre visible
-                // par défaut, d'où le lien "Voir sur la carte radar" ci-dessous).
-                const { lat: cellLat, lon: cellLon } = stitchedPixelToLatLon(tileX, tileY, zoom, Math.round(lastCell.cx), Math.round(lastCell.cy));
-                showMetehopCellOnMap(cellLat, cellLon, distanceToStormKm);
-                const seeOnMapLink = ` <a href="#" onclick="showMetehopCellOnRadarView(); return false;" style="color:#7048e8; font-weight:700; text-decoration:underline;">Voir sur la carte radar</a>`;
+                    const trendNote = dissipatesBeforeArrival ? ' La cellule suivie tend à s\'affaiblir sur les dernières images.' : '';
 
-                if (alreadyRaining) {
-                    summaryEl.innerHTML = `<strong>Metehop :</strong> précipitations déjà présentes sur votre position (intensité ${intensityLabel}). Voir la courbe de confiance ci-dessous.${consistencyWarning}`;
-                } else if (etaMinutes !== null) {
-                    summaryEl.innerHTML = `<strong>Metehop :</strong> précipitations estimées dans <strong>~${Math.round(etaMinutes)} min</strong> (intensité ${intensityLabel} à l'arrivée), cellule suivie à ~${distanceToStormKm}km se déplaçant à ~${speedKmh} km/h.${trendNote}${consistencyWarning}${seeOnMapLink}`;
+                    // Affiche la cellule suivie sur la carte radar visible, pour vérifier concrètement
+                    // ce que Metehop a détecté (une cellule à 100-200km peut être hors du cadre visible
+                    // par défaut, d'où le lien "Voir sur la carte radar" ci-dessous).
+                    const { lat: cellLat, lon: cellLon } = stitchedPixelToLatLon(tileX, tileY, zoom, Math.round(lastCell.cx), Math.round(lastCell.cy));
+                    showMetehopCellOnMap(cellLat, cellLon, distanceToStormKm);
+                    const seeOnMapLink = ` <a href="#" onclick="showMetehopCellOnRadarView(); return false;" style="color:#7048e8; font-weight:700; text-decoration:underline;">Voir sur la carte radar</a>`;
+
+                    if (alreadyRaining) {
+                        summaryEl.innerHTML = `<strong>Metehop :</strong> précipitations déjà présentes sur votre position (intensité ${intensityLabel}). Voir la courbe de confiance ci-dessous.${consistencyWarning}`;
+                    } else if (etaMinutes !== null) {
+                        summaryEl.innerHTML = `<strong>Metehop :</strong> précipitations estimées dans <strong>~${Math.round(etaMinutes)} min</strong> (intensité ${intensityLabel} à l'arrivée), cellule suivie à ~${distanceToStormKm}km se déplaçant à ~${speedKmh} km/h.${trendNote}${consistencyWarning}${seeOnMapLink}`;
+                    } else {
+                        summaryEl.innerHTML = `<strong>Metehop :</strong> une cellule pluvieuse est suivie sur le radar (à ~${distanceToStormKm}km) mais sa trajectoire actuelle ne semble pas croiser ce lieu dans les ${EVO_HORIZON_HOURS}h.${trendNote}${consistencyWarning}${seeOnMapLink}`;
+                    }
+                    setEvoLoading(`Estimation Metehop — cellule suivie individuellement sur ${trackLength} images, extrapolée sur les ${EVO_HORIZON_HOURS}h à venir (rayon d'observation : ${METEHOP_RADIUS_KM}km, ${MAX_STORM_SPEED_KMH}km/h max × ${EVO_HORIZON_HOURS}h).`);
+
+                    // Transmis en supplément au bandeau de vigilance météo (mode "Metehop" de repli) :
+                    // grêle, orage ou neige détectés sur le radar font remonter le niveau de vigilance,
+                    // en plus des seuils déjà calculés à partir des prévisions.
+                    const avgConfidence = Math.round(confidence.slice(0, 12).reduce((a, b) => a + b, 0) / Math.min(12, confidence.length));
+                    metehopAnalysis = { hasHail, hasStorm, hasSnow: hasSnowBin, etaMinutes, confidence: avgConfidence };
+                    renderVigilanceBanner().catch(() => {});
+
                 } else {
-                    summaryEl.innerHTML = `<strong>Metehop :</strong> une cellule pluvieuse est suivie sur le radar (à ~${distanceToStormKm}km) mais sa trajectoire actuelle ne semble pas croiser ce lieu dans les ${EVO_HORIZON_HOURS}h.${trendNote}${consistencyWarning}${seeOnMapLink}`;
-                }
-                setEvoLoading(`Estimation Metehop — cellule suivie individuellement sur ${track.length} images, extrapolée sur les ${EVO_HORIZON_HOURS}h à venir (rayon d'observation : ${METEHOP_RADIUS_KM}km, ${MAX_STORM_SPEED_KMH}km/h max × ${EVO_HORIZON_HOURS}h).`);
+                    // ---- Mode multi-cellules avec ≥2 cellules exploitables : fusion des résultats. ----
+                    // Pour chaque tranche de 10 min, on retient la cellule dont la contribution est la
+                    // plus forte à cet instant (couleur/confiance associées), plutôt que de sommer les
+                    // cumuls de plusieurs cellules qui ne se superposeraient physiquement que
+                    // partiellement — un maximum par tranche reste la simplification la plus sûre pour
+                    // ne pas gonfler artificiellement le cumul affiché.
+                    const bins = new Array(EVO_BIN_COUNT).fill(0);
+                    const colors = new Array(EVO_BIN_COUNT).fill('rgba(94, 156, 204, 0.12)');
+                    const confidence = new Array(EVO_BIN_COUNT).fill(0);
+                    // Indices (dans results) des cellules qui "gagnent" au moins une tranche avec une
+                    // valeur non nulle — donc qui contribuent RÉELLEMENT à ce qui est affiché dans le
+                    // graphique, pas juste suivies en parallèle sans jamais influencer le résultat.
+                    // Sert à distinguer visuellement ces cellules sur la carte (voir plus bas).
+                    const contributingIdx = new Set();
+                    for (let s = 0; s < EVO_BIN_COUNT; s++) {
+                        let bestIdx = 0;
+                        for (let i = 1; i < results.length; i++) if (results[i].bins[s] > results[bestIdx].bins[s]) bestIdx = i;
+                        bins[s] = results[bestIdx].bins[s];
+                        colors[s] = results[bestIdx].colors[s];
+                        confidence[s] = results[bestIdx].confidence[s];
+                        if (bins[s] > 0) contributingIdx.add(bestIdx);
+                    }
+                    let etaMinutes = null, hasHail = false, hasStorm = false, hasSnowBin = false, dissipatesBeforeArrival = false;
+                    for (const r of results) {
+                        if (r.etaMinutes !== null && (etaMinutes === null || r.etaMinutes < etaMinutes)) etaMinutes = r.etaMinutes;
+                        hasHail = hasHail || r.hasHail;
+                        hasStorm = hasStorm || r.hasStorm;
+                        hasSnowBin = hasSnowBin || r.hasSnowBin;
+                        dissipatesBeforeArrival = dissipatesBeforeArrival || r.dissipatesBeforeArrival;
+                    }
 
-                // Transmis en supplément au bandeau de vigilance météo (mode "Metehop" de repli) :
-                // grêle, orage ou neige détectés sur le radar font remonter le niveau de vigilance,
-                // en plus des seuils déjà calculés à partir des prévisions.
-                const avgConfidence = Math.round(confidence.slice(0, 12).reduce((a, b) => a + b, 0) / Math.min(12, confidence.length));
-                metehopAnalysis = { hasHail, hasStorm, hasSnow: hasSnowBin, etaMinutes, confidence: avgConfidence };
-                renderVigilanceBanner().catch(() => {});
+                    let intensityLabel = 'faible';
+                    if (hasHail) intensityLabel = 'grêle';
+                    else if (hasStorm) intensityLabel = 'orageuse / forte';
+                    else if (hasSnowBin) intensityLabel = 'neige';
+                    else if (alreadyRaining && (clsNow.type === 'rain_heavy' || clsNow.type === 'storm')) intensityLabel = 'forte';
+
+                    const modelBins = getModelBinsForEvo(roundedStart);
+                    drawEvoChart(evoLabels(roundedStart), bins, colors, `Précipitations (radar, ${results.length} cellules)`, precipUnit, precipAxisColor, confidence, modelBins ? modelBins.values : null, modelBins ? modelBins.colors : null);
+
+                    const modelProb = getModelPrecipProbability(EVO_HORIZON_HOURS / 2);
+                    let consistencyWarning = '';
+                    if (etaMinutes === null && modelProb !== null && modelProb >= 55) {
+                        consistencyWarning = ` ⚠️ À noter : le modèle météo prévoit ${Math.round(modelProb)}% de risque de précipitation sur cette période alors que le radar n'en détecte pas ici — le radar peut être temporairement incomplet à cet endroit.`;
+                    } else if (etaMinutes !== null && modelProb !== null && modelProb <= 15) {
+                        consistencyWarning = ` ⚠️ À confirmer : le modèle météo ne prévoit que ${Math.round(modelProb)}% de risque sur cette période, à surveiller.`;
+                    }
+                    const trendNote = dissipatesBeforeArrival ? ' Au moins une des cellules suivies tend à s\'affaiblir sur les dernières images.' : '';
+
+                    // Un point violet par cellule suivie sur la carte (voir le toggle "multi-cellules").
+                    // Grosse cellule (seuil arbitraire, ~160km² à ce zoom/latitude) : au centroïde
+                    // s'ajoutent 4 points plus petits aux extrémités de sa boîte englobante (haut,
+                    // bas, gauche, droite — voir minPx/maxPx/minPy/maxPy dans identifyRainCells), pour
+                    // mieux visualiser son étendue réelle qu'un centroïde seul, qui peut paraître
+                    // décentré sur une cellule irrégulière ou allongée (il suit la masse des pixels,
+                    // pas le milieu visuel de l'enveloppe).
+                    const LARGE_CELL_PIXEL_THRESHOLD = 40;
+                    // Rose (#ec4899) = cellule qui contribue réellement au graphique affiché (voir
+                    // contributingIdx ci-dessus) ; violet (#7048e8) = suivie en parallèle mais sans
+                    // influence sur ce qui est actuellement affiché (trop loin, trop lente, ou
+                    // dominée par une autre cellule sur toute la période).
+                    const cellPositions = results.map((r, i) => {
+                        const c = r.lastCell;
+                        const color = contributingIdx.has(i) ? '#ec4899' : '#7048e8';
+                        const { lat, lon } = stitchedPixelToLatLon(tileX, tileY, zoom, Math.round(c.cx), Math.round(c.cy));
+                        let extentPoints, areaCorners;
+                        if (c.count >= LARGE_CELL_PIXEL_THRESHOLD && typeof c.minPx === 'number') {
+                            const midY = Math.round((c.minPy + c.maxPy) / 2), midX = Math.round((c.minPx + c.maxPx) / 2);
+                            extentPoints = [
+                                stitchedPixelToLatLon(tileX, tileY, zoom, midX, c.minPy),
+                                stitchedPixelToLatLon(tileX, tileY, zoom, midX, c.maxPy),
+                                stitchedPixelToLatLon(tileX, tileY, zoom, c.minPx, midY),
+                                stitchedPixelToLatLon(tileX, tileY, zoom, c.maxPx, midY)
+                            ];
+                            // Boîte englobante de la cellule (mêmes bornes min/max que les points
+                            // d'étendue ci-dessus), remplie en transparent de la couleur du point —
+                            // pour visualiser la SURFACE couverte, pas juste ses 4 extrémités.
+                            areaCorners = [
+                                stitchedPixelToLatLon(tileX, tileY, zoom, c.minPx, c.minPy),
+                                stitchedPixelToLatLon(tileX, tileY, zoom, c.maxPx, c.minPy),
+                                stitchedPixelToLatLon(tileX, tileY, zoom, c.maxPx, c.maxPy),
+                                stitchedPixelToLatLon(tileX, tileY, zoom, c.minPx, c.maxPy)
+                            ];
+                        }
+                        return { lat, lon, distanceKm: r.distanceToStormKm, extentPoints, areaCorners, color };
+                    });
+                    showMetehopCellsOnMap(cellPositions);
+
+                    // Cône d'incertitude de chaque cellule : étroit à la position actuelle, s'évasant
+                    // vers l'horizon de prévision (EVO_HORIZON_HOURS) par extrapolation linéaire à
+                    // vitesse constante (vx, vy issus de la régression dans projectTrackToBins) — le
+                    // même modèle que celui utilisé pour les tranches du graphique. Largeur
+                    // (coneHalfWidthPx) calculée dans projectTrackToBins : dispersion RÉELLEMENT
+                    // mesurée pour les trajectoires bien établies, incertitude forfaitaire pour les
+                    // trajectoires trop courtes pour fournir une mesure fiable (voir son commentaire).
+                    const cones = results.map((r, i) => {
+                        const horizonMin = EVO_HORIZON_HOURS * 60;
+                        const futureX = r.lastCell.cx + r.vx * horizonMin;
+                        const futureY = r.lastCell.cy + r.vy * horizonMin;
+                        const halfWidthPx = r.coneHalfWidthPx; // voir son calcul dans projectTrackToBins
+
+                        const dx = futureX - r.lastCell.cx, dy = futureY - r.lastCell.cy;
+                        const len = Math.hypot(dx, dy) || 1;
+                        const px = -dy / len, py = dx / len; // vecteur perpendiculaire unitaire
+
+                        const apex = stitchedPixelToLatLon(tileX, tileY, zoom, Math.round(r.lastCell.cx), Math.round(r.lastCell.cy));
+                        const baseA = stitchedPixelToLatLon(tileX, tileY, zoom, Math.round(futureX + px * halfWidthPx), Math.round(futureY + py * halfWidthPx));
+                        const baseB = stitchedPixelToLatLon(tileX, tileY, zoom, Math.round(futureX - px * halfWidthPx), Math.round(futureY - py * halfWidthPx));
+                        return {
+                            apex: [apex.lat, apex.lon],
+                            baseA: [baseA.lat, baseA.lon],
+                            baseB: [baseB.lat, baseB.lon],
+                            color: contributingIdx.has(i) ? '#ec4899' : '#7048e8'
+                        };
+                    });
+                    showMetehopTrajectoryConesOnMap(cones);
+
+                    const seeOnMapLink = ` <a href="#" onclick="showMetehopCellOnRadarView(); return false;" style="color:#7048e8; font-weight:700; text-decoration:underline;">Voir sur la carte radar</a>`;
+
+                    const nearest = results.slice().sort((a, b) => a.distanceToStormKm - b.distanceToStormKm)[0];
+                    if (alreadyRaining) {
+                        summaryEl.innerHTML = `<strong>Metehop (multi-cellules) :</strong> ${results.length} cellules suivies, précipitations déjà présentes sur votre position (intensité ${intensityLabel}).${consistencyWarning}`;
+                    } else if (etaMinutes !== null) {
+                        summaryEl.innerHTML = `<strong>Metehop (multi-cellules) :</strong> ${results.length} cellules suivies simultanément — la plus proche à ~${nearest.distanceToStormKm}km. Précipitations estimées dans <strong>~${Math.round(etaMinutes)} min</strong> (intensité ${intensityLabel} à l'arrivée).${trendNote}${consistencyWarning}${seeOnMapLink}`;
+                    } else {
+                        summaryEl.innerHTML = `<strong>Metehop (multi-cellules) :</strong> ${results.length} cellules suivies (la plus proche à ~${nearest.distanceToStormKm}km) mais aucune trajectoire ne semble croiser ce lieu dans les ${EVO_HORIZON_HOURS}h.${trendNote}${consistencyWarning}${seeOnMapLink}`;
+                    }
+                    setEvoLoading(`Estimation Metehop — mode expérimental multi-cellules (${results.length} cellules suivies indépendamment, rayon d'observation : ${METEHOP_RADIUS_KM}km).`);
+
+                    const avgConfidence = Math.round(confidence.slice(0, 12).reduce((a, b) => a + b, 0) / Math.min(12, confidence.length));
+                    metehopAnalysis = { hasHail, hasStorm, hasSnow: hasSnowBin, etaMinutes, confidence: avgConfidence };
+                    renderVigilanceBanner().catch(() => {});
+                }
 
             } catch (e) {
                 document.getElementById('metehop-summary').style.display = 'none';
                 setEvoLoading("Metehop indisponible pour le moment (données radar insuffisantes ou inaccessibles pour ce lieu).");
                 clearMetehopCellOnMap();
                 const fallbackModelBins = getModelBinsForEvo(roundedStart);
-                drawEvoChart(evoLabels(roundedStart), new Array(EVO_BIN_COUNT).fill(0), new Array(EVO_BIN_COUNT).fill('rgba(94, 156, 204, 0.15)'), 'Précipitations (radar)', 'mm', '#5a9bd4', new Array(EVO_BIN_COUNT).fill(0), fallbackModelBins ? fallbackModelBins.values : null, fallbackModelBins ? fallbackModelBins.colors : null);
+                drawEvoChart(evoLabels(roundedStart), new Array(EVO_BIN_COUNT).fill(0), new Array(EVO_BIN_COUNT).fill('rgba(94, 156, 204, 0.15)'), 'Précipitations (radar)', 'mm/10min', '#5a9bd4', new Array(EVO_BIN_COUNT).fill(0), fallbackModelBins ? fallbackModelBins.values : null, fallbackModelBins ? fallbackModelBins.colors : null);
+                // Radar indisponible : le cumul "~0mm" affiché par défaut par drawEvoChart serait
+                // trompeur ici (laisserait croire à une absence de pluie confirmée) — on l'efface.
+                const cumulElErr = document.getElementById('evo-chart-cumul');
+                if (cumulElErr) cumulElErr.innerText = '';
                 metehopAnalysis = null;
                 // Radar indisponible : on ne peut rien affirmer sur un éventuel orage proche — encart
                 // masqué et cadence de rafraîchissement normale rétablie plutôt que de risquer un faux
@@ -10806,29 +11197,85 @@ function updatePressureChart(dayIdx) {
         }
 
         // Affiche sur la carte radar visible la position réelle de la cellule que Metehop suit et
-        // extrapole — sans ça, une cellule détectée à 100-200km peut être totalement hors du cadre
-        // visible par défaut (zoom 7, ~100-150km de rayon affiché), ce qui rend l'estimation
-        // invérifiable à l'œil. Le marqueur est retiré dès qu'aucune cellule n'est suivie.
-        function showMetehopCellOnMap(lat, lon, distanceKm) {
+        // Un point à la couleur donnée (violet par défaut, rose pour une cellule qui contribue
+        // réellement au graphique affiché — voir contributingIdx dans loadEvoMetehop) au centroïde
+        // géométrique de chaque cellule suivie (moyenne de position de tous les pixels pluvieux
+        // connectés, voir identifyRainCells — cx/cy = sumX/count, sumY/count) : cells = [{ lat, lon,
+        // distanceKm, extentPoints?, color? }, ...] — 1 élément en mode simple, jusqu'à
+        // MULTI_CELL_MAX en mode multi-cellules (voir multiCellMode). Le centroïde d'une cellule
+        // irrégulière ou allongée peut visuellement paraître décentré par rapport à sa forme (il suit
+        // la masse des pixels, pas le milieu visuel de son enveloppe) : pour les grosses cellules,
+        // extentPoints (optionnel, voir son calcul dans loadEvoMetehop pour le mode multi-cellules)
+        // ajoute des points plus petits aux extrémités de sa boîte englobante (haut, bas, gauche,
+        // droite) pour mieux visualiser son étendue réelle, en plus du centroïde.
+        function showMetehopCellsOnMap(cells) {
             if (!map || typeof L === 'undefined') return;
-            if (metehopCellMarker) map.removeLayer(metehopCellMarker);
-            metehopCellMarker = L.marker([lat, lon], {
-                icon: L.divIcon({
-                    className: '',
-                    html: '<div style="width:14px;height:14px;border-radius:50%;background:#7048e8;border:3px solid #ffffff;box-shadow:0 1px 4px rgba(0,0,0,0.4);"></div>',
-                    iconSize: [14, 14], iconAnchor: [7, 7]
-                })
-            }).addTo(map).bindPopup(`Cellule suivie par Metehop (~${distanceKm}km)`);
+            clearMetehopCellOnMap();
+            const iconCache = {};
+            const centerIcon = color => iconCache[color] || (iconCache[color] = L.divIcon({
+                className: '',
+                html: `<div style="width:14px;height:14px;border-radius:50%;background:${color};border:3px solid #ffffff;box-shadow:0 1px 4px rgba(0,0,0,0.4);"></div>`,
+                iconSize: [14, 14], iconAnchor: [7, 7]
+            }));
+            const extentIcon = color => iconCache['ext:' + color] || (iconCache['ext:' + color] = L.divIcon({
+                className: '',
+                html: `<div style="width:8px;height:8px;border-radius:50%;background:${color};opacity:0.55;border:2px solid #ffffff;box-shadow:0 1px 3px rgba(0,0,0,0.35);"></div>`,
+                iconSize: [8, 8], iconAnchor: [4, 4]
+            }));
+            metehopCellMarkers = [];
+            cells.forEach(({ lat, lon, distanceKm, extentPoints, areaCorners, color }) => {
+                const c = color || '#7048e8';
+                // Surface couverte par la cellule (boîte englobante, voir areaCorners dans
+                // loadEvoMetehop) : remplie en transparent de la même couleur que ses points,
+                // dessinée AVANT les marqueurs pour qu'elle reste en dessous d'eux.
+                if (areaCorners) {
+                    metehopCellMarkers.push(L.polygon(areaCorners.map(p => [p.lat, p.lon]), {
+                        color: c, weight: 1, opacity: 0.4, fillColor: c, fillOpacity: 0.12
+                    }).addTo(map));
+                }
+                metehopCellMarkers.push(L.marker([lat, lon], { icon: centerIcon(c) }).addTo(map).bindPopup(`Cellule suivie par Metehop (~${distanceKm}km)`));
+                (extentPoints || []).forEach(p => {
+                    metehopCellMarkers.push(L.marker([p.lat, p.lon], { icon: extentIcon(c) }).addTo(map).bindPopup('Étendue de la cellule'));
+                });
+            });
+        }
+
+        // Conservée pour le mode simple (une seule cellule) — délègue à showMetehopCellsOnMap.
+        function showMetehopCellOnMap(lat, lon, distanceKm) {
+            showMetehopCellsOnMap([{ lat, lon, distanceKm }]);
         }
 
         function clearMetehopCellOnMap() {
-            if (map && metehopCellMarker) { map.removeLayer(metehopCellMarker); metehopCellMarker = null; }
+            if (map) {
+                metehopCellMarkers.forEach(m => map.removeLayer(m));
+                metehopTrajectoryLines.forEach(l => map.removeLayer(l));
+            }
+            metehopCellMarkers = [];
+            metehopTrajectoryLines = [];
         }
 
-        // Dézoome/recadre la carte radar pour montrer à la fois votre position et la cellule suivie
-        // par Metehop, pour vérifier visuellement ce qui a été détecté.
+        // Trace un CÔNE d'incertitude par cellule suivie, plutôt qu'un simple trait — mode multi-
+        // cellules uniquement. cones = [{ apex: [lat,lon], baseA: [lat,lon], baseB: [lat,lon],
+        // color? }, ...] : un triangle par cellule, étroit à la position actuelle (apex), s'évasant
+        // vers l'horizon de prévision (base) — la largeur à cet horizon grandissant avec la distance
+        // parcourue ET avec l'incertitude de la trajectoire (voir son calcul dans loadEvoMetehop,
+        // basé sur trajectoryR2), pour représenter visuellement une confiance qui se dégrade avec
+        // l'éloignement dans le temps, pas juste une direction. color (violet par défaut, rose pour
+        // une cellule qui contribue réellement au graphique affiché) reprend la même couleur que le
+        // point de la cellule, voir contributingIdx dans loadEvoMetehop.
+        function showMetehopTrajectoryConesOnMap(cones) {
+            if (!map || typeof L === 'undefined') return;
+            metehopTrajectoryLines.forEach(l => map.removeLayer(l));
+            metehopTrajectoryLines = cones.map(({ apex, baseA, baseB, color }) => L.polygon([apex, baseA, baseB], {
+                color: color || '#7048e8', weight: 1.5, dashArray: '4, 4', opacity: 0.6,
+                fillColor: color || '#7048e8', fillOpacity: 0.15
+            }).addTo(map));
+        }
+
+        // Dézoome/recadre la carte radar pour montrer à la fois votre position et la ou les
+        // cellule(s) suivie(s) par Metehop, pour vérifier visuellement ce qui a été détecté.
         function showMetehopCellOnRadarView() {
-            if (!map || !metehopCellMarker) return;
+            if (!map || metehopCellMarkers.length === 0) return;
             if (radarMode !== 'radar') setRadarMode('radar');
 
             // Se remet systématiquement sur la dernière trame RÉELLEMENT observée (pas une trame
@@ -10842,11 +11289,11 @@ function updatePressureChart(dayIdx) {
                 changeRadarFrame(latestRealIndex);
             }
 
-            const cellLatLng = metehopCellMarker.getLatLng();
             // maxZoom borne le cadrage automatique au même plafond que celui appliqué ailleurs en
-            // mode radar (RADAR_MAX_ZOOM), pour éviter tout comportement inattendu si les deux
-            // points sont proches l'un de l'autre.
-            map.fitBounds([[currentLat, currentLon], [cellLatLng.lat, cellLatLng.lng]], { padding: [40, 40], maxZoom: RADAR_MAX_ZOOM });
+            // mode radar (RADAR_MAX_ZOOM), pour éviter tout comportement inattendu si les points
+            // sont proches les uns des autres.
+            const bounds = [[currentLat, currentLon], ...metehopCellMarkers.map(m => { const ll = m.getLatLng(); return [ll.lat, ll.lng]; })];
+            map.fitBounds(bounds, { padding: [40, 40], maxZoom: RADAR_MAX_ZOOM });
             document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
@@ -10930,7 +11377,12 @@ function updatePressureChart(dayIdx) {
                 if (radarTimestamps.length > 0) {
                     const slider = document.getElementById('radar-slider');
                     slider.max = radarTimestamps.length - 1;
-                    currentRadarIndex = radarTimestamps.length - 1;
+                    // Position par défaut sur la dernière image RÉELLEMENT observée (radarPastCount),
+                    // pas sur le dernier élément de la liste combinée qui peut être un "nowcast" —
+                    // une projection déjà extrapolée par RainViewer, pas une vraie observation. Même
+                    // principe que celui déjà appliqué dans showMetehopCellOnRadarView. Le curseur
+                    // reste libre d'aller plus loin (vers les nowcasts) si déplacé manuellement.
+                    currentRadarIndex = Math.max(0, (radarPastCount || radarTimestamps.length) - 1);
                     slider.value = currentRadarIndex;
                     if (map) changeRadarFrame(currentRadarIndex);
                 }
@@ -11000,6 +11452,15 @@ function updatePressureChart(dayIdx) {
             setFullscreenIcon(!!document.webkitFullscreenElement);
             refreshMapAfterResize();
         });
+
+        // Bouton "En direct" : contrairement à un simple changement d'onglet (setRadarMode), un clic
+        // ici doit systématiquement redemander les dernières images à RainViewer plutôt que de
+        // réafficher ce qui est déjà en mémoire (potentiellement vieux de plusieurs minutes) — c'est
+        // tout l'intérêt d'un bouton "en direct" plutôt qu'un simple onglet.
+        async function goLiveRadar() {
+            if (radarMode !== 'radar') await setRadarMode('radar');
+            await refreshRadarFrames();
+        }
 
         async function setRadarMode(mode) {
             radarMode = mode;
