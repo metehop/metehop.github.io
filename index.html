@@ -1459,18 +1459,6 @@
         .marine-table-card.visible {
             display: block;
         }
-        .marine-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            background: rgba(43, 108, 176, 0.12);
-            color: var(--accent-blue);
-            font-size: 0.7rem;
-            font-weight: 700;
-            padding: 3px 8px;
-            border-radius: 20px;
-            margin-bottom: 8px;
-        }
         .marine-table {
             width: 100%;
             border-collapse: collapse;
@@ -2753,17 +2741,19 @@
             </div>
 
             <div id="marine-data-content">
-                <div class="marine-badge" id="marine-beach-badge">
-                    <i class="fa-solid fa-umbrella-beach"></i>
-                    <span id="marine-beach-name">--</span>
-                </div>
-
-                <div class="card-sage-sub" id="marine-water-summary" style="margin-top:2px; margin-bottom:8px; font-size:0.72rem;">
-                    <i class="fa-solid fa-temperature-half" style="color: var(--accent-blue); margin-right:4px;"></i>
-                    Eau : <strong id="marine-water-forecast">--</strong> <span style="color:var(--text-muted); font-size:0.62rem;">prév.</span>
-                    &nbsp;·&nbsp;
-                    <span id="marine-water-obs-badge">--</span> <span style="color:var(--text-muted); font-size:0.62rem;">obs.</span>
-                </div>
+                <!-- Le badge "🏖️ nom (distance · département)" et la ligne "Eau : X°C prév. · -- obs."
+                     ont été retirés le 07/09/2026 : redondants avec, respectivement, le sélecteur
+                     juste au-dessus (marine-card-select, qui affiche déjà le nom/distance/département
+                     de la station choisie) et la colonne EAU du tableau juste en dessous (qui donne
+                     déjà la température heure par heure, dont celle de "maintenant"). Le "-- obs."
+                     n'affichait de toute façon jamais de vraie valeur observée (mwo0/mwo1 toujours mis
+                     à "--" dans le code, aucune source d'observation réelle branchée). Les ids
+                     marine-beach-badge / marine-beach-name / marine-water-summary /
+                     marine-water-forecast / marine-water-obs-badge disparaissent avec eux ; comme pour
+                     le retrait similaire du 07/09/2026 plus haut (voir fetchExtraLocalData), tout le
+                     code qui les référence encore (renderMarineTable, showMarineNoData, etc.) le fait
+                     via document.getElementById(...) suivi d'un test de nullité, donc leur absence ne
+                     casse rien — resté défensif par design, pas de nettoyage JS nécessaire ici. -->
 
                 <!-- APERÇU DES MARÉES -->
                 <div id="marine-tide-section" class="marine-tide-container" style="display:none;">
@@ -3228,7 +3218,7 @@
             <div class="footer-support-row">
                 <a class="footer-support-link" href="https://buymeacoffee.com/stridemetric" target="_blank" rel="noopener">🐸 Aide-moi à nourrir la grenouille Metehop</a>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 07/09/2026 - 64</div>
+            <div class="footer-last-update">Dernière mise à jour : 07/09/2026 - 65</div>
         </footer>
 
     </div>
