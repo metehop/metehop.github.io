@@ -8165,12 +8165,23 @@
 
             const wearsCoat = (tier === 'freezing' || tier === 'cold');
             const wearsHat = (tier === 'freezing' || isSnow);
-            const wearsShorts = (tier === 'hot' || tier === 'scorching');
-            const wearsSunglasses = (wearsShorts || (isSunny && strongUV));
-            const wearsFan = (tier === 'scorching');
+            // Réattribué le 07/09/2026 (sur demande) : le maillot de bain coquillage est la SEULE
+            // tenue du palier canicule (scorching, >32°C) — plus de short en dessous (sur demande).
+            // Le palier "warm" garde son short + t-shirt classique.
+            const wearsShorts = (tier === 'hot' || tier === 'warm');
+            const wearsTshirt = (tier === 'warm');
+            const wearsSwimsuit = (tier === 'scorching');
+            // Lunettes de soleil : gardées sur les mêmes paliers qu'avant (hot/scorching, ou fort UV
+            // par grand soleil) — dissocié de `wearsShorts` maintenant que "warm" porte aussi un short,
+            // pour ne pas ajouter des lunettes à ce palier sans que ça ait été demandé.
+            const wearsSunglasses = (tier === 'hot' || tier === 'scorching' || (isSunny && strongUV));
+            // Éventail retiré du palier canicule (sur demande, 07/09/2026) — wearsFan supprimé.
             const holdsUmbrella = (isRain || isStorm);
             const isShivering = (tier === 'freezing' || tier === 'cold');
             const isPanting = (tier === 'scorching');
+            // "Alerte forte chaleur" = notre palier le plus extrême (scorching, >32°C) : gouttes de
+            // sueur façon emoji 🥵 (ajouté le 07/09/2026, sur demande).
+            const isSweating = (tier === 'scorching');
 
             // ---- Décors (derrière le personnage), empilables ----
             let bg = '';
@@ -8225,6 +8236,17 @@
                         <path d="M92,${MOUTH_Y} q13,8 26,0" stroke="#33422f" stroke-width="3" fill="none" stroke-linecap="round"/>`;
             }
 
+            // Gouttes de sueur façon emoji 🥵 (redessinées le 07/09/2026, sur demande — l'ancienne
+            // forme en losange/pétale ne se lisait pas comme une goutte) : vraie silhouette de goutte
+            // (pointe en haut, renflement arrondi en bas via un arc) + un petit reflet blanc pour le
+            // volume, construite dans un repère local (translate+scale) pour rester correcte à
+            // n'importe quelle position/taille sans recalculer chaque coordonnée à la main.
+            const dropShape = (cx, cy, s) => `<g transform="translate(${cx},${cy}) scale(${s / 10})">
+                <path d="M0,-10 C6,-10 11,-3.5 11,3 A11,11 0 1,1 -11,3 C-11,-3.5 -6,-10 0,-10 Z" fill="#7EC8E3" stroke="#2b6f93" stroke-width="1.3"/>
+                <ellipse cx="-3.5" cy="1" rx="2.5" ry="3.5" fill="#ffffff" opacity="0.5"/>
+            </g>`;
+            const sweatDrops = isSweating ? (dropShape(60, 78, 8) + dropShape(150, 78, 8) + dropShape(105, 48, 6.5)) : '';
+
             // ---- Corps (grenouille, thème Metehop) ----
             const body = `
                 <ellipse cx="78" cy="205" rx="16" ry="9" fill="#4C7A24"/>
@@ -8236,6 +8258,7 @@
                 <circle cx="${EYE_L_X}" cy="${EYE_Y}" r="10" fill="#FFFFFF"/>
                 <circle cx="${EYE_R_X}" cy="${EYE_Y}" r="10" fill="#FFFFFF"/>
                 ${face}
+                ${sweatDrops}
             `;
             const arms = `<ellipse cx="48" cy="150" rx="13" ry="9" fill="#7CB342" stroke="#4C7A24" stroke-width="2.5" transform="rotate(-20 48 150)"/>
                           <ellipse cx="162" cy="150" rx="13" ry="9" fill="#7CB342" stroke="#4C7A24" stroke-width="2.5" transform="rotate(20 162 150)"/>`;
@@ -8264,6 +8287,15 @@
                 outfit += `<path d="M68,150 Q105,136 142,150 L146,196 Q105,210 64,196 Z" fill="#E0A458" stroke="#8a5a2b" stroke-width="2"/>
                            <path d="M92,150 L105,164 L118,150" fill="none" stroke="#8a5a2b" stroke-width="2" stroke-linejoin="round"/>`;
             }
+            if (wearsTshirt) {
+                // T-shirt classique pour le palier "warm" (18-27°C) — manches courtes (calottes,
+                // plus petites que les manches du manteau/pull) + col rond, porté avec le short
+                // (ajouté le 07/09/2026, sur demande).
+                outfit += `<ellipse cx="52" cy="150" rx="12" ry="9" fill="#F5F1E8" stroke="#B0A99B" stroke-width="2" transform="rotate(-20 52 150)"/>
+                           <ellipse cx="158" cy="150" rx="12" ry="9" fill="#F5F1E8" stroke="#B0A99B" stroke-width="2" transform="rotate(20 158 150)"/>
+                           <path d="M70,146 Q105,134 140,146 L138,188 Q105,198 72,188 Z" fill="#F5F1E8" stroke="#B0A99B" stroke-width="2"/>
+                           <path d="M93,146 Q105,154 117,146" fill="none" stroke="#B0A99B" stroke-width="2"/>`;
+            }
             if (wearsHat) {
                 const hatColor = (tier === 'freezing') ? '#D8534F' : '#8E9AAF';
                 outfit += `<path d="M65,80 Q65,42 105,40 Q145,42 145,80 Q105,66 65,80 Z" fill="${hatColor}" stroke="#2c2c2c" stroke-width="2"/>
@@ -8274,6 +8306,23 @@
                 outfit += `<path d="M70,188 L140,188 L137,210 L109,210 L105,197 L101,210 L73,210 Z" fill="#4FA3D1" stroke="#2c2c2c" stroke-width="2" stroke-linejoin="round"/>
                            <rect x="70" y="188" width="70" height="7" fill="#3C6E8F"/>`;
             }
+            if (wearsSwimsuit) {
+                // Maillot de bain coquillage : deux coquilles Saint-Jacques (forme en éventail, côtes
+                // radiales) sur le haut du ventre + une ficelle qui les relie et deux bretelles qui
+                // rejoignent les bras, façon haut de bikini (ajouté le 07/09/2026, sur demande).
+                const shell = (cx, cy) => `<path d="M${cx - 14},${cy + 8} Q${cx - 14},${cy - 9} ${cx},${cy - 13} Q${cx + 14},${cy - 9} ${cx + 14},${cy + 8} Q${cx},${cy + 2} ${cx - 14},${cy + 8} Z" fill="#F6C6BB" stroke="#B5675A" stroke-width="2"/>
+                    <g stroke="#B5675A" stroke-width="1" opacity="0.7">
+                    <line x1="${cx}" y1="${cy + 8}" x2="${cx - 10}" y2="${cy - 6}"/>
+                    <line x1="${cx}" y1="${cy + 8}" x2="${cx - 4}" y2="${cy - 12}"/>
+                    <line x1="${cx}" y1="${cy + 8}" x2="${cx + 4}" y2="${cy - 12}"/>
+                    <line x1="${cx}" y1="${cy + 8}" x2="${cx + 10}" y2="${cy - 6}"/>
+                    </g>`;
+                outfit += `<path d="M48,150 Q68,144 85,152" stroke="#B5675A" stroke-width="2" fill="none"/>
+                           <path d="M162,150 Q142,144 125,152" stroke="#B5675A" stroke-width="2" fill="none"/>
+                           ${shell(85, 158)}
+                           ${shell(125, 158)}
+                           <path d="M99,160 Q105,166 111,160" stroke="#B5675A" stroke-width="2" fill="none"/>`;
+            }
             if (wearsSunglasses) {
                 outfit += `<circle cx="${EYE_L_X}" cy="${EYE_Y}" r="13" fill="#2c2c2c"/>
                            <circle cx="${EYE_R_X}" cy="${EYE_Y}" r="13" fill="#2c2c2c"/>
@@ -8282,14 +8331,6 @@
                            <rect x="${EYE_L_X + 13}" y="${EYE_Y - 2}" width="${EYE_R_X - 13 - (EYE_L_X + 13)}" height="4" fill="#2c2c2c"/>
                            <line x1="${EYE_L_X - 13}" y1="${EYE_Y}" x2="${EYE_L_X - 22}" y2="${EYE_Y - 3}" stroke="#2c2c2c" stroke-width="3" stroke-linecap="round"/>
                            <line x1="${EYE_R_X + 13}" y1="${EYE_Y}" x2="${EYE_R_X + 22}" y2="${EYE_Y - 3}" stroke="#2c2c2c" stroke-width="3" stroke-linecap="round"/>`;
-            }
-            if (wearsFan) {
-                outfit += `<path d="M150,145 L191,112 A26,26 0 0 1 184,157 Z" fill="#F2E9DC" stroke="#c9a45c" stroke-width="2"/>
-                           <g stroke="#c9a45c" stroke-width="1.3" opacity="0.8">
-                           <line x1="150" y1="145" x2="191" y2="112"/>
-                           <line x1="150" y1="145" x2="192" y2="132"/>
-                           <line x1="150" y1="145" x2="184" y2="157"/>
-                           </g>`;
             }
             if (holdsUmbrella) {
                 const tilt = isStorm ? -18 : 0;
@@ -8318,9 +8359,9 @@
             if (tier === 'freezing') phrases.push("Grand froid : sors la doudoune, le bonnet et l'écharpe ! 🥶");
             else if (tier === 'cold') phrases.push("Ça pique un peu, prends un manteau.");
             else if (tier === 'mild') phrases.push("Météo agréable, une petite laine suffit.");
-            else if (tier === 'warm') phrases.push("Beau temps, tenue légère parfaite.");
+            else if (tier === 'warm') phrases.push("Beau temps, short et t-shirt sont parfaits.");
             else if (tier === 'hot') phrases.push("Il fait chaud, sors le short et les lunettes ! 😎");
-            else phrases.push("Grosse chaleur : reste au frais, bois de l'eau, évite le soleil de midi. 🥵");
+            else phrases.push("Grosse chaleur : sors le maillot de bain, reste au frais et bois de l'eau ! 🐚🥵");
 
             if (isStorm) phrases.push("Orage annoncé : mieux vaut rester à l'abri.");
             else if (isRain) phrases.push("Pense au parapluie, il pleut ou ça va pleuvoir. ☔");
@@ -8504,6 +8545,21 @@
             const sumR = rain.reduce((a, b) => a + (b || 0), 0).toFixed(1);
             const sumS = snowfall.reduce((a, b) => a + (b || 0), 0).toFixed(1);
 
+            // Température "remarquable" du jour, pour la tenue de la mascotte (mode Simple) —
+            // corrigé le 07/09/2026 (sur demande) : utiliser bêtement le maximum du jour habille trop
+            // chaud un jour frais le matin mais qui grimpe un peu l'après-midi. Règle avec seuil à
+            // 20°C sur la MOYENNE du jour (voir avgTemp plus bas) : sous 20°C de moyenne, la journée
+            // reste fraîche dans l'ensemble, donc c'est le matin (8h) qui est le plus "remarquable"
+            // pour savoir comment s'habiller en sortant ; à 20°C de moyenne ou plus, c'est la chaleur
+            // de l'après-midi (15h) qui compte le plus.
+            const morningTemp = Math.round(adjustedTemps[8] ?? adjustedTemps[0]);
+            const afternoonTemp = Math.round(adjustedTemps[15] ?? adjustedTemps[adjustedTemps.length - 1]);
+            // Seuil des 20°C calculé sur la MOYENNE du jour (sur demande, 07/09/2026) — plus
+            // représentatif de la journée dans son ensemble que le seul maximum, qui peut dépasser
+            // 20°C sur une seule heure d'après-midi sans que la journée soit vraiment "chaude".
+            const avgTemp = adjustedTemps.reduce((a, b) => a + b, 0) / adjustedTemps.length;
+            const outfitTemp = (avgTemp < 20) ? morningTemp : afternoonTemp;
+
             document.getElementById('day-tmin').innerText = `${minT}°C`;
             document.getElementById('day-tmax').innerText = `${maxT}°C`;
             document.getElementById('day-precip-sum').innerText = `${sumR}mm`;
@@ -8617,9 +8673,9 @@
             updatePressureChart(dayIdx);
             updateSnowLimitChart(dayIdx);
 
-            // Mascotte météo (mode Simple) : recalculée à chaque changement de jour/heure avec les
-            // mêmes valeurs "maintenant" que le bandeau principal, réellement issues du modèle.
-            renderWeatherBuddy({ temp: displayTemp, code: currentCode, windSpeed: windSpeedVal, uvMax: uvMax, isDayNow: isDayNow });
+            // Mascotte météo (mode Simple) — utilise désormais `outfitTemp` (règle matin/après-midi
+            // avec seuil 20°C, voir calcul plus haut) plutôt que `maxT` seul.
+            renderWeatherBuddy({ temp: outfitTemp, code: currentCode, windSpeed: windSpeedVal, uvMax: uvMax, isDayNow: isDayNow });
             syncHeroAdvancedStatsVisibility();
         }
 
