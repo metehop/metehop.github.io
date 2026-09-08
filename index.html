@@ -5778,16 +5778,45 @@
                 };
             }));
             const allPoints = [{ lat, lon }, ...ringsPoints.flat()];
+            const latsParam = allPoints.map(p => p.lat.toFixed(5)).join(',');
+            const lonsParam = allPoints.map(p => p.lon.toFixed(5)).join(',');
+            const elevUrl = `https://api.open-meteo.com/v1/elevation?latitude=${latsParam}&longitude=${lonsParam}`;
+
+            // ---- 2. BÂTI ET COURS D'EAU : Overpass API ----
+            const bQuery = `[out:json][timeout:20];way(around:700,${lat},${lon})[building];out tags 300;`;
+            const bUrl = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(bQuery)}`;
+
+            const wQuery = `[out:json][timeout:20];(way(around:800,${lat},${lon})[waterway~"^(river|canal)$"];way(around:800,${lat},${lon})[natural=water];relation(around:800,${lat},${lon})[natural=water];);out center tags 5;`;
+            const wUrl = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(wQuery)}`;
+
+            // ---- 2bis. POPULATION DE REPLI (si non fournie par l'appelant, ex. lieu chargé par
+            // défaut, géolocalisation ou clic carte plutôt que recherche par nom) : nœud/way OSM
+            // taggé place=* avec un attribut population=*, le plus proche dans un rayon de 5km. ----
+            const needPopulationFallback = (typeof population !== 'number' || population <= 0);
+            const pQuery = `[out:json][timeout:20];(node(around:5000,${lat},${lon})["place"]["population"];way(around:5000,${lat},${lon})["place"]["population"];);out center tags 10;`;
+            const pUrl = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(pQuery)}`;
+
+            // Accéléré le 07/09/2026 (signalé lent) : ces 4 requêtes sont indépendantes les unes des
+            // autres (aucune n'a besoin du résultat d'une autre), mais étaient auparavant enchaînées
+            // en séquence avec `await` — jusqu'à 8s + 15s + 15s + 15s de timeouts cumulés dans le pire
+            // cas, essentiellement à cause d'Overpass qui peut être lent à répondre. Lancées en
+            // parallèle avec Promise.allSettled, la durée totale se rapproche de la requête la PLUS
+            // LENTE plutôt que de leur somme. Promise.allSettled plutôt que Promise.all : l'échec
+            // d'une requête ne doit pas annuler les autres — chaque signal reste indépendamment
+            // "indisponible" en cas d'échec, exactement comme avant (chaque bloc try/catch traitait
+            // déjà son échec séparément).
+            const [elevSettled, buildingSettled, waterSettled, popSettled] = await Promise.allSettled([
+                fetchWithTimeout(elevUrl, { timeout: 8000 }),
+                fetchWithTimeout(bUrl, { timeout: 15000 }),
+                fetchWithTimeout(wUrl, { timeout: 15000 }),
+                needPopulationFallback ? fetchWithTimeout(pUrl, { timeout: 15000 }) : Promise.resolve(null)
+            ]);
 
             let reliefIndex = null; // moyenne(anneau retenu) - centre, en mètres. Positif = cuvette/vallée.
             let reliefRadiusKm = null; // rayon (2 ou 6km) qui a produit le signal le plus marqué
             try {
-                const latsParam = allPoints.map(p => p.lat.toFixed(5)).join(',');
-                const lonsParam = allPoints.map(p => p.lon.toFixed(5)).join(',');
-                const elevUrl = `https://api.open-meteo.com/v1/elevation?latitude=${latsParam}&longitude=${lonsParam}`;
-                const elevRes = await fetchWithTimeout(elevUrl, { timeout: 8000 });
-                if (elevRes.ok) {
-                    const elevData = await elevRes.json();
+                if (elevSettled.status === 'fulfilled' && elevSettled.value && elevSettled.value.ok) {
+                    const elevData = await elevSettled.value.json();
                     const elevs = elevData.elevation;
                     if (Array.isArray(elevs) && elevs.length === allPoints.length && elevs.every(v => typeof v === 'number')) {
                         const centerElev = elevs[0];
@@ -5804,26 +5833,18 @@
                 }
             } catch (e) { /* relief indisponible : on continue sans ce signal */ }
 
-            // ---- 2. BÂTI ET COURS D'EAU : Overpass API ----
             let buildingCount = null;
-            let nearestWater = null; // { type, distM }
-
             try {
-                const bQuery = `[out:json][timeout:20];way(around:700,${lat},${lon})[building];out tags 300;`;
-                const bUrl = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(bQuery)}`;
-                const bRes = await fetchWithTimeout(bUrl, { timeout: 15000 });
-                if (bRes.ok) {
-                    const bData = await bRes.json();
+                if (buildingSettled.status === 'fulfilled' && buildingSettled.value && buildingSettled.value.ok) {
+                    const bData = await buildingSettled.value.json();
                     buildingCount = Array.isArray(bData.elements) ? bData.elements.length : null;
                 }
             } catch (e) { /* densité bâtie indisponible */ }
 
+            let nearestWater = null; // { type, distM }
             try {
-                const wQuery = `[out:json][timeout:20];(way(around:800,${lat},${lon})[waterway~"^(river|canal)$"];way(around:800,${lat},${lon})[natural=water];relation(around:800,${lat},${lon})[natural=water];);out center tags 5;`;
-                const wUrl = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(wQuery)}`;
-                const wRes = await fetchWithTimeout(wUrl, { timeout: 15000 });
-                if (wRes.ok) {
-                    const wData = await wRes.json();
+                if (waterSettled.status === 'fulfilled' && waterSettled.value && waterSettled.value.ok) {
+                    const wData = await waterSettled.value.json();
                     let best = null;
                     (wData.elements || []).forEach(el => {
                         const elLat = el.lat ?? (el.center && el.center.lat);
@@ -5837,17 +5858,11 @@
                 }
             } catch (e) { /* cours d'eau indisponible */ }
 
-            // ---- 2bis. POPULATION DE REPLI (si non fournie par l'appelant, ex. lieu chargé par
-            // défaut, géolocalisation ou clic carte plutôt que recherche par nom) : nœud/way OSM
-            // taggé place=* avec un attribut population=*, le plus proche dans un rayon de 5km. ----
             let resolvedPopulation = population;
-            if (typeof resolvedPopulation !== 'number' || resolvedPopulation <= 0) {
+            if (needPopulationFallback) {
                 try {
-                    const pQuery = `[out:json][timeout:20];(node(around:5000,${lat},${lon})["place"]["population"];way(around:5000,${lat},${lon})["place"]["population"];);out center tags 10;`;
-                    const pUrl = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(pQuery)}`;
-                    const pRes = await fetchWithTimeout(pUrl, { timeout: 15000 });
-                    if (pRes.ok) {
-                        const pData = await pRes.json();
+                    if (popSettled.status === 'fulfilled' && popSettled.value && popSettled.value.ok) {
+                        const pData = await popSettled.value.json();
                         let best = null;
                         (pData.elements || []).forEach(el => {
                             const elLat = el.lat ?? (el.center && el.center.lat);
