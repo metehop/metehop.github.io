@@ -708,6 +708,40 @@
             flex-wrap: wrap;
             gap: 6px;
         }
+        /* Frise horaire "Risque de foudre" — TOUJOURS active dès qu'un orage est prévu
+           aujourd'hui/demain, indépendante du toggle micro-climat (voir loadStormRiskForLocation) :
+           volontairement en dehors de .local-effects-list pour ne jamais être effacée quand le
+           micro-climat est désactivé (updateMicroClimateToggleUI vide ce dernier). */
+        .local-effects-lightning {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px dashed rgba(0,0,0,0.1);
+        }
+        .local-effects-lightning-label {
+            font-size: 0.68rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .storm-risk-frise {
+            display: flex;
+            gap: 3px;
+            flex-wrap: wrap;
+        }
+        .storm-risk-dot {
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+            background: #e2e8f0; /* sous le seuil de risque (voir LIGHTNING_MIN_LPI) */
+            flex-shrink: 0;
+        }
+        .storm-risk-dot.no-data {
+            background: transparent;
+            border: 1px dashed #cbd5e1;
+        }
         /* Puce compacte emoji + signification, sans texte explicatif (voir Sources & modèles
            utilisés pour la méthodologie complète). */
         .local-effect-chip {
@@ -2185,6 +2219,16 @@
                     </div>
                     <div class="local-effects-note" id="local-effects-note">Analyse du relief et du bâti local...</div>
                     <div class="local-effects-list" id="local-effects-list"></div>
+                    <!-- Risque de foudre heure par heure — voir loadStormRiskForLocation() / renderStormRiskRow().
+                         Masqué par défaut : n'apparaît que si un orage est prévu aujourd'hui ou demain
+                         (jamais au-delà, hors de portée d'ICON-D2). TOUJOURS actif, y compris micro-climat désactivé. -->
+                    <div class="local-effects-lightning" id="local-effects-lightning" style="display:none;">
+                        <div class="local-effects-lightning-label">
+                            <i class="fa-solid fa-bolt" style="color:#d97736;"></i>
+                            <span id="local-effects-lightning-title">Risque de foudre heure par heure</span>
+                        </div>
+                        <div class="storm-risk-frise" id="storm-risk-frise"></div>
+                    </div>
                 </div>
 
             </div>
@@ -5455,6 +5499,9 @@
                 } else {
                     updateMicroClimateToggleUI();
                 }
+                // Risque de foudre heure par heure (aujourd'hui/demain) : TOUJOURS actif, indépendamment
+                // du micro-climat — voir loadStormRiskForLocation().
+                loadStormRiskForLocation(lat, lon).catch(() => {});
                 // Un changement de lieu (recherche classique ou fonction cible sur la carte) ferme
                 // le mode sélection s'il était resté actif.
                 pickingLocation = false;
@@ -8102,6 +8149,100 @@
                 : `${dayStr} ${timeStr} · aucun risque détecté`;
         }
 
+        // ---- Risque de foudre heure par heure pour AUJOURD'HUI et DEMAIN (encart "Effets locaux") ----
+        // Fonctionnalité TOUJOURS active, indépendante du toggle micro-climat : dès qu'Open-Meteo
+        // prévoit un code météo orage (95/96/99, WMO) à un moment de la journée pour aujourd'hui ou
+        // demain, on relance l'algo LPI (même source que le calque radar "Foudre" ci-dessus, ICON-D2)
+        // sur ce point précis (un seul lieu à renseigner, pas de grille comme pour le radar) pour
+        // obtenir un risque heure par heure sur toute la journée concernée — plus informatif qu'un
+        // simple pictogramme "orage" ponctuel.
+        //
+        // Volontairement borné à J+0/J+1 : lightning_potential n'existe que dans ICON-D2, dont
+        // l'horizon réel est ~48h — au-delà, la donnée n'existe pas et on ne l'invente pas. Un jour
+        // orageux à J+2 ou plus loin n'affiche donc simplement rien de plus ici (pas de message
+        // d'erreur, pas de faux "aucun risque" : l'info n'existe que pour J+0/J+1).
+        const STORM_WEATHER_CODES = [95, 96, 99];
+        let stormRiskDays = { 0: null, 1: null }; // { [dayIdx]: [{ h, time, lpi }] | null } — null = pas de journée orageuse détectée (ou pas encore chargé/indisponible)
+        let stormRiskFetchToken = 0;
+
+        function dayHasStormForecast(dayIdx) {
+            if (!weatherData || !weatherData.hourly || !weatherData.hourly.weather_code) return false;
+            const start = dayIdx * 24;
+            const codes = weatherData.hourly.weather_code.slice(start, start + 24);
+            return codes.some(c => STORM_WEATHER_CODES.includes(c));
+        }
+
+        // Charge le LPI heure par heure pour aujourd'hui/demain, SEULEMENT si l'un de ces deux jours a
+        // un code météo orage prévu (sinon aucun appel réseau : pas la peine d'interroger ICON-D2 par
+        // pur principe un jour calme). Appelée depuis fetchWeather() à chaque nouveau lieu.
+        async function loadStormRiskForLocation(lat, lon) {
+            const myToken = ++stormRiskFetchToken;
+            stormRiskDays = { 0: null, 1: null };
+            renderStormRiskRow(selectedDayIndex); // masque immédiatement une éventuelle frise de l'ancien lieu
+
+            const stormyDays = [0, 1].filter(dayHasStormForecast);
+            if (stormyDays.length === 0) return;
+
+            try {
+                // models=icon_d2 forcé et hourly=lightning_potential (pas minutely_15 ici) : on veut un
+                // point par heure sur toute la journée, comme demandé, pas un pas plus fin sur un
+                // horizon court (voir la fonction Foudre/Trajet plus haut pour ces autres granularités).
+                const url = `https://api.open-meteo.com/v1/dwd-icon?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&hourly=lightning_potential&models=icon_d2&timezone=auto&forecast_days=2`;
+                const res = await fetchWithTimeout(url, { timeout: 12000 });
+                if (myToken !== stormRiskFetchToken) return; // lieu changé entre-temps
+                if (!res.ok) throw new Error('Réponse API invalide');
+                const data = await res.json();
+                const lpiTimes = (data.hourly && data.hourly.time) || [];
+                const lpiValues = (data.hourly && data.hourly.lightning_potential) || [];
+
+                stormyDays.forEach(dayIdx => {
+                    const start = dayIdx * 24;
+                    const hours = [];
+                    for (let h = 0; h < 24; h++) {
+                        const targetTime = new Date(weatherData.hourly.time[start + h]);
+                        const idx = lpiTimes.findIndex(t => new Date(t).getTime() >= targetTime.getTime());
+                        const lpi = (idx !== -1 && typeof lpiValues[idx] === 'number') ? lpiValues[idx] : null;
+                        hours.push({ h, time: targetTime, lpi });
+                    }
+                    // Si aucune valeur numérique n'a pu être trouvée pour ce jour (hors couverture
+                    // ICON-D2, ou horizon de la requête insuffisant), on ne l'affiche pas plutôt que
+                    // d'afficher une frise entièrement vide et trompeuse.
+                    stormRiskDays[dayIdx] = hours.some(x => typeof x.lpi === 'number') ? hours : null;
+                });
+            } catch (e) {
+                if (myToken !== stormRiskFetchToken) return;
+                stormRiskDays = { 0: null, 1: null }; // indisponible : pas d'affichage plutôt qu'une donnée inventée
+            }
+            renderStormRiskRow(selectedDayIndex);
+        }
+
+        // Affiche (ou masque) la frise horaire de risque de foudre pour le jour actuellement affiché.
+        // Purement local (aucun appel réseau) : rappelée à chaque changement de jour, voir updateDayView().
+        function renderStormRiskRow(dayIdx) {
+            const box = document.getElementById('local-effects-lightning');
+            const frise = document.getElementById('storm-risk-frise');
+            const hours = (dayIdx === 0 || dayIdx === 1) ? stormRiskDays[dayIdx] : null;
+            if (!hours) {
+                box.style.display = 'none';
+                frise.innerHTML = '';
+                return;
+            }
+            document.getElementById('local-effects-lightning-title').innerText =
+                `Risque de foudre heure par heure (${dayIdx === 0 ? "aujourd'hui" : 'demain'})`;
+            frise.innerHTML = hours.map(pt => {
+                const timeLabel = pt.time.toLocaleTimeString('fr-FR', { hour: '2-digit' });
+                if (typeof pt.lpi !== 'number') {
+                    return `<div class="storm-risk-dot no-data" title="${timeLabel} : donnée indisponible"></div>`;
+                }
+                if (pt.lpi < LIGHTNING_MIN_LPI) {
+                    return `<div class="storm-risk-dot" title="${timeLabel} : pas de risque significatif (${Math.round(pt.lpi)} J/kg)"></div>`;
+                }
+                const color = lightningColorFor(pt.lpi);
+                return `<div class="storm-risk-dot" style="background:${color};" title="${timeLabel} : ${Math.round(pt.lpi)} J/kg"></div>`;
+            }).join('');
+            box.style.display = 'block';
+        }
+
         function interpolateHourlyData(times, values, targetTime) {
             // Interpolation linéaire entre deux points horaires
             for (let i = 0; i < times.length - 1; i++) {
@@ -8645,6 +8786,9 @@
             // relit simplement les signaux déjà en cache pour ce lieu — donc l'appeler à chaque
             // changement de jour est sans coût perceptible.
             renderLocalEffectsPanel(dayIdx);
+            // Risque de foudre heure par heure (voir loadStormRiskForLocation) : purement local, pas
+            // d'appel réseau ici, seulement l'affichage/masquage selon le jour désormais sélectionné.
+            renderStormRiskRow(dayIdx);
             // Corrigé le 07/09/2026 : le tableau des marées (renderMarineTable) n'était appelé qu'une
             // seule fois, au chargement initial de la plage (loadMarineDataForBeach), jamais depuis
             // ce changement de jour — il restait donc figé sur le jour de la première sélection quel
