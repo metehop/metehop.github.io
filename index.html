@@ -2237,7 +2237,7 @@
                         <div class="fc-leg-item"><div class="fc-leg-box" style="background:#d97736;"></div> Modéré</div>
                         <div class="fc-leg-item"><div class="fc-leg-box" style="background:#c0392b;"></div> Élevé</div>
                     </div>
-                    <div class="card-sage-sub" id="lightning-caveat" style="display:none; padding: 0 4px 4px; font-size: 0.62rem;">Indice prévisionnel (potentiel de foudre, DWD ICON-D2) — pas une détection d'éclairs déjà tombés.</div>
+                    <div class="card-sage-sub" id="lightning-caveat" style="display:none; padding: 0 4px 4px; font-size: 0.62rem;">Indice prévisionnel (potentiel de foudre, DWD ICON-D2), pas à pas 15 min sur 3h — pas une détection d'éclairs déjà tombés.</div>
                     <div class="grid-model-source" id="grid-model-source" style="display:none;"></div>
                 </div>
             </div>
@@ -7921,7 +7921,13 @@
         // Convection at DWD", 2024) — en dessous, le bruit du modèle domine le signal.
         const LIGHTNING_GRID_RADIUS_KM = 40;
         const LIGHTNING_GRID_STEP_KM = 16;
-        const LIGHTNING_FRAME_HOURS = 12; // horizon affiché : +0h à +12h, un point par heure
+        // Pas de 15 minutes : c'est la plus fine granularité RÉELLEMENT fournie par le modèle
+        // ICON-D2 pour le potentiel de foudre (paramètre &minutely_15= d'Open-Meteo/DWD — voir
+        // open-meteo.com/en/docs/dwd-api, section "15-Minutely Weather Variables"). Un pas de
+        // 10 min n'existe pas côté modèle ; on ne l'invente pas par interpolation, on utilise donc
+        // le pas le plus fin réellement disponible (15 min), sur un horizon de 3h comme demandé.
+        const LIGHTNING_STEP_MINUTES = 15;
+        const LIGHTNING_DURATION_MINUTES = 180; // horizon affiché : +0 à +3h
         const LIGHTNING_MIN_LPI = 5; // J/kg — en dessous, cellule non affichée (bruit de modèle)
 
         function generateLightningGrid(centerLat, centerLon) {
@@ -7945,10 +7951,11 @@
             return '#f4c07a';
         }
 
-        // Charge le LPI pour la grille autour du lieu donné et construit LIGHTNING_FRAME_HOURS+1
-        // trames horaires (+0h à +12h). Ne recharge pas si déjà fait pour ce centre (~2km près),
-        // même logique que la grille de précipitations 6h — donnée de prévision à courte échéance,
-        // pas d'intérêt à mettre en cache au-delà de la session en cours (pas de localStorage ici).
+        // Charge le LPI pour la grille autour du lieu donné et construit les trames par pas de
+        // LIGHTNING_STEP_MINUTES (15 min) sur LIGHTNING_DURATION_MINUTES (3h) : +0min à +180min.
+        // Ne recharge pas si déjà fait pour ce centre (~2km près), même logique que la grille de
+        // précipitations 6h — donnée de prévision à courte échéance, pas d'intérêt à mettre en
+        // cache au-delà de la session en cours (pas de localStorage ici).
         async function loadLightningGrid(centerLat, centerLon) {
             if (lightningFrames.length > 0 && lightningCenterLat !== null && lightningCenterLon !== null &&
                 calculateDistance(centerLat, centerLon, lightningCenterLat, lightningCenterLon) < 2) {
@@ -7958,6 +7965,10 @@
             const points = generateLightningGrid(centerLat, centerLon);
             const latList = points.map(p => p.lat.toFixed(4)).join(',');
             const lonList = points.map(p => p.lon.toFixed(4)).join(',');
+            // Nombre de pas de 15 min à demander pour couvrir tout l'horizon (+1 pour inclure le
+            // pas t=0 lui-même, +1 de marge pour ne jamais tomber court sur l'arrondi de l'heure
+            // courante côté API).
+            const stepsNeeded = Math.ceil(LIGHTNING_DURATION_MINUTES / LIGHTNING_STEP_MINUTES) + 2;
 
             let results = null;
             let anyDataAvailable = false;
@@ -7971,7 +7982,10 @@
                 // d'autres endpoints (API Marine, github.com/open-meteo/open-meteo/issues/1364).
                 // Conséquence directe si on omet ce paramètre : le calque peut rester vide même en
                 // pleine zone orageuse, sans aucune erreur réseau pour le signaler.
-                const url = `https://api.open-meteo.com/v1/dwd-icon?latitude=${latList}&longitude=${lonList}&hourly=lightning_potential&models=icon_d2&timezone=auto&forecast_days=2`;
+                // minutely_15 (et non hourly) : seul moyen d'obtenir un pas plus fin que l'heure
+                // pour ce champ ; forecast_minutely_15 limite la réponse aux pas réellement
+                // nécessaires (3h + marge) plutôt que de télécharger toute la journée.
+                const url = `https://api.open-meteo.com/v1/dwd-icon?latitude=${latList}&longitude=${lonList}&minutely_15=lightning_potential&models=icon_d2&timezone=auto&forecast_minutely_15=${stepsNeeded}`;
                 const res = await fetchWithTimeout(url, { timeout: 15000 });
                 if (!res.ok) throw new Error('Réponse API invalide');
                 results = await res.json();
@@ -7980,8 +7994,8 @@
                 // "aucune donnée disponible ici" (ICON-D2 ne couvre que l'Europe centrale, ~48h) —
                 // sans ce contrôle, les deux cas affichaient la même carte vide, trompeur pour un
                 // lieu hors zone de couverture plutôt qu'un lieu réellement calme.
-                anyDataAvailable = results.some(d => d && d.hourly && Array.isArray(d.hourly.lightning_potential) &&
-                    d.hourly.lightning_potential.some(v => typeof v === 'number'));
+                anyDataAvailable = results.some(d => d && d.minutely_15 && Array.isArray(d.minutely_15.lightning_potential) &&
+                    d.minutely_15.lightning_potential.some(v => typeof v === 'number'));
             } catch (e) {
                 lightningFrames = [];
                 lightningDataAvailable = false;
@@ -8004,15 +8018,16 @@
 
             const now = new Date();
             const frames = [];
-            for (let h = 0; h <= LIGHTNING_FRAME_HOURS; h++) {
-                const frameTime = new Date(now.getTime() + h * 3600000);
+            const totalSteps = LIGHTNING_DURATION_MINUTES / LIGHTNING_STEP_MINUTES;
+            for (let s = 0; s <= totalSteps; s++) {
+                const frameTime = new Date(now.getTime() + s * LIGHTNING_STEP_MINUTES * 60000);
                 const framePoints = [];
                 points.forEach((pt, i) => {
                     const data = results[i];
-                    if (!data || !data.hourly || !data.hourly.time || !data.hourly.lightning_potential) return;
-                    const idx = data.hourly.time.findIndex(t => new Date(t).getTime() >= frameTime.getTime());
+                    if (!data || !data.minutely_15 || !data.minutely_15.time || !data.minutely_15.lightning_potential) return;
+                    const idx = data.minutely_15.time.findIndex(t => new Date(t).getTime() >= frameTime.getTime());
                     if (idx === -1) return;
-                    const lpi = data.hourly.lightning_potential[idx];
+                    const lpi = data.minutely_15.lightning_potential[idx];
                     if (typeof lpi !== 'number' || lpi < LIGHTNING_MIN_LPI) return;
                     framePoints.push({ lat: pt.lat, lon: pt.lon, lpi });
                 });
