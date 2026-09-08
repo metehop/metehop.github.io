@@ -3490,7 +3490,7 @@
                 </div>
                 <div class="sources-item">
                     <strong>"Ville en cuvette" — deux mécanismes distincts (calibrés sur observation réelle)</strong>
-                    <span>Quand une agglomération est à la fois en fond de vallée/cuvette marqué ET suffisamment urbanisée (cas de Grenoble par exemple), le relief encaissant a deux effets opposés, traités séparément :<br>1. <em>Inversion nocturne atténuée</em> (×0,3) : la chaleur et le brassage turbulent de la ville limitent le refroidissement radiatif nocturne, donc l'inversion réelle du matin est plus faible qu'en vallée rurale équivalente.<br>2. <em>Échauffement diurne amplifié</em> (×1,5, appliqué après le facteur général ci-dessus) : une cuvette peu ventilée retient davantage la chaleur urbaine l'après-midi qu'un terrain ouvert équivalent.<br>Calibré le 04/09/2026 sur Grenoble : inversion -2,8°C calculée vs -0,7°C observée ; îlot de chaleur +6,8°C brut → +1,4°C après le facteur général → encore +2°C observé au maximum de l'après-midi, d'où le facteur d'amplification ×1,5. Chaque coefficient repose sur un seul point de calibration à ce stade, à affiner avec d'autres observations de terrain ; les vallées rurales isolées et les villes de plaine (sans les deux effets combinés) ne sont pas concernées.</span>
+                    <span>Quand une agglomération est à la fois en fond de vallée/cuvette marqué ET suffisamment urbanisée (cas de Grenoble par exemple), le relief encaissant a deux effets opposés, traités séparément :<br>1. <em>Inversion nocturne atténuée</em> (×0,5) : la chaleur et le brassage turbulent de la ville limitent le refroidissement radiatif nocturne, donc l'inversion réelle du matin est plus faible qu'en vallée rurale équivalente.<br>2. <em>Échauffement diurne amplifié</em> (×1,5, appliqué après le facteur général ci-dessus) : une cuvette peu ventilée retient davantage la chaleur urbaine l'après-midi qu'un terrain ouvert équivalent.<br>Calibré le 04/09/2026 sur Grenoble : inversion -2,8°C calculée vs -0,7°C observée (coefficient 0,3) ; îlot de chaleur +6,8°C brut → +1,4°C après le facteur général → encore +2°C observé au maximum de l'après-midi, d'où le facteur d'amplification ×1,5. 2e point le 07/09/2026 (toujours Grenoble) : 18,8°C observés vs 22°C affichés — écart plus fort que le 1er point, ce qui donnerait plutôt un coefficient de 0,79. Les deux points tirant dans des sens opposés, valeur médiane provisoire de 0,5 retenue en attendant d'autres observations. Ordres de grandeur à affiner ; les vallées rurales isolées et les villes de plaine (sans les deux effets combinés) ne sont pas concernées.</span>
                 </div>
                 <div class="sources-item">
                     <strong>Application aux prévisions affichées</strong>
@@ -6001,8 +6001,25 @@
             //
             // 1. INVERSION NOCTURNE ATTÉNUÉE : la chaleur et le brassage turbulent générés par la ville
             //    limitent le refroidissement radiatif nocturne, donc l'inversion réelle du matin est
-            //    plus faible que dans une vallée rurale équivalente. Calibré le 04/09/2026 sur Grenoble :
-            //    inversion -2,8°C calculée vs -0,7°C observée → coefficient retenu 0,3.
+            //    plus faible que dans une vallée rurale équivalente.
+            //    Calibration initiale (04/09/2026, Grenoble) : inversion -2,8°C calculée vs -0,7°C
+            //    observée → coefficient 0,3.
+            //    2e point (07/09/2026, Grenoble, signalé) : 18,8°C observé vs 22°C affiché par Metehop
+            //    (donc DÉJÀ avec le ×0,3 appliqué) — écart -3,2°C, dans le sens opposé au 1er point.
+            //    Une partie de l'écart (~1°C) est attribuée à une surestimation du modèle brut
+            //    Open-Meteo/AROME ce matin-là (hors inversion), non isolable précisément faute de
+            //    valeur "sans inversion" mesurée séparément ; hypothèse de travail retenue : 21°C
+            //    comme référence pré-inversion, à corriger jusqu'à 18,8°C → delta cible -2,2°C. En
+            //    reprenant -2,8°C comme ordre de grandeur du calcul brut par matinée dégagée/calme
+            //    comparable (aucune nouvelle valeur brute recalculée ce jour-là) : 2,2/2,8 ≈ 0,79
+            //    donnerait un coefficient collant exactement à ce 2e point. ATTENTION : n=2 points qui
+            //    tirent dans des sens opposés (l'un dit l'inversion réelle est PLUS FAIBLE que le
+            //    calcul brut, l'autre PLUS FORTE) — la variabilité nuit à nuit (à quel point le ciel a
+            //    été RÉELLEMENT dégagé/calme, pas seulement prévu) est probablement le facteur
+            //    dominant, qu'un coefficient fixe unique ne capturera jamais bien. Décision retenue
+            //    (07/09/2026, sur demande) : plutôt que coller pile à l'un ou l'autre point, valeur
+            //    médiane 0,5 entre les deux (0,3 et 0,79) en attendant d'autres observations pour
+            //    trancher plus finement.
             //
             // 2. ÉCHAUFFEMENT DIURNE AMPLIFIÉ : une cuvette peu ventilée retient davantage la chaleur
             //    urbaine l'après-midi qu'un terrain ouvert équivalent (moins de dispersion par le vent).
@@ -6010,10 +6027,12 @@
             //    déjà appliqué ci-dessus (+6,8°C brut × 0,2 = +1,4°C "après-midi générique") : écart
             //    encore observé jusqu'à +2°C → coefficient d'amplification retenu 1,5.
             //
-            // Ces deux coefficients reposent chacun sur un seul point de calibration à ce stade, à
-            // réévaluer avec d'autres observations de terrain (voir contexte.txt). Les vallées rurales
-            // isolées et les villes de plaine (sans les deux effets combinés) ne sont pas concernées.
-            const VALLEY_URBAN_SUPPRESSION = 0.3; // inversion nocturne atténuée par la chaleur urbaine
+            // Le coefficient d'inversion nocturne repose maintenant sur 2 points de calibration
+            // (conflictuels en magnitude, voir ci-dessus — valeur médiane retenue en attendant mieux) ;
+            // celui d'échauffement diurne encore sur un seul — à réévaluer avec d'autres observations
+            // de terrain (voir contexte.txt). Les vallées rurales isolées et les villes de plaine
+            // (sans les deux effets combinés) ne sont pas concernées.
+            const VALLEY_URBAN_SUPPRESSION = 0.5; // inversion nocturne atténuée par la chaleur urbaine — médiane provisoire entre 0,3 et 0,79 (2 points de calibration contradictoires, voir commentaire ci-dessus)
             const UHI_VALLEY_AMPLIFICATION = 1.5; // échauffement diurne amplifié par la cuvette peu ventilée
             const urbanValleyCoLocated = valleyDetected && uhiDetected;
             if (urbanValleyCoLocated) {
