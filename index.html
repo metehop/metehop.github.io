@@ -819,6 +819,65 @@
             box-shadow: none !important;
         }
         .trajet-hour-label::before { display: none !important; }
+        /* Bouton inversion départ/arrivée (et étapes) de l'onglet Trajet — ajouté le 08/09/2026 */
+        .btn-swap-trajet {
+            background: #ffffff;
+            color: var(--primary-dark);
+            border: none;
+            border-radius: 50%;
+            width: 34px;
+            height: 34px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            flex-shrink: 0;
+            transition: transform 0.2s ease;
+        }
+        .btn-swap-trajet:active { transform: rotate(180deg); }
+        /* Rangée d'une étape intermédiaire (0 à 3, entre départ et arrivée) */
+        .trajet-stop-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .btn-remove-stop {
+            background: #ffffff;
+            color: var(--text-muted);
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            flex-shrink: 0;
+            font-size: 0.75rem;
+        }
+        .btn-add-stop {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            margin: 2px 0 0;
+            padding: 7px 14px;
+            border: 1px dashed var(--primary-dark);
+            border-radius: var(--radius-medium);
+            background: transparent;
+            color: var(--primary-dark);
+            font-family: inherit;
+            font-size: 0.72rem;
+            font-weight: 700;
+            cursor: pointer;
+            align-self: flex-start;
+        }
+        .btn-add-stop:disabled {
+            opacity: 0.4;
+            cursor: default;
+        }
         .map-wrapper {
             position: relative;
             display: flex;
@@ -2546,12 +2605,27 @@
                         <i class="fa-solid fa-location-crosshairs"></i>
                     </button>
                 </div>
+
+                <div style="display:flex; justify-content:center; margin: -6px 0;">
+                    <button type="button" class="btn-swap-trajet" onclick="swapTrajetPoints()" title="Inverser le départ et l'arrivée">
+                        <i class="fa-solid fa-arrow-right-arrow-left" style="transform:rotate(90deg);"></i>
+                    </button>
+                </div>
+
+                <!-- Étapes intermédiaires (0 à 3) insérées ici dynamiquement par addTrajetStop() -->
+                <div id="trajet-stops-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+
                 <div class="search-box">
                     <i class="fa-solid fa-location-dot" style="position:absolute; left:12px; color: var(--accent-orange); font-size:0.85rem;"></i>
                     <input type="text" id="trajet-to" placeholder="Point d'arrivée..." onkeypress="if(event.key==='Enter') searchTrajetPoint('to')">
                     <button class="btn-search-icon" onclick="searchTrajetPoint('to')"><i class="fa-solid fa-arrow-right"></i></button>
                 </div>
+
+                <button type="button" class="btn-add-stop" id="trajet-add-stop-btn" onclick="addTrajetStop()">
+                    <i class="fa-solid fa-plus"></i> Ajouter une étape
+                </button>
             </div>
+            <div class="card-sage-sub" style="margin-top:6px; font-size:0.6rem; font-style:italic;">Le mode micro-climat (relief, bâti, cours d'eau) n'est pas utilisé pour le trajet : la météo affichée ici reste la prévision standard à chaque point traversé.</div>
 
             <div id="trajet-result" style="display:none; margin-top: 12px;">
                 <div class="tide-time-card" style="border-left: 3px solid var(--accent-blue);">
@@ -3325,7 +3399,7 @@
             <div class="footer-support-row">
                 <a class="footer-support-link" href="https://buymeacoffee.com/stridemetric" target="_blank" rel="noopener">🐸 Aide-moi à nourrir la grenouille Metehop</a>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 07/09/2026 - 65</div>
+            <div class="footer-last-update">Dernière mise à jour : 07/09/2026 - 85</div>
         </footer>
 
     </div>
@@ -4488,19 +4562,41 @@
             }
         }
 
-        // ---- Onglet Trajet : distance à vol d'oiseau entre deux points recherchés ----
+        // ---- Onglet Trajet : distance à vol d'oiseau entre un départ, jusqu'à 3 étapes et une arrivée ----
+        // Le mode micro-climat (relief, bâti, cours d'eau) n'est volontairement PAS appliqué ici :
+        // ce calcul concerne plusieurs points potentiellement éloignés les uns des autres, et la
+        // correction micro-climat n'a de sens que pour un lieu précis (voir onglet Général/Ski).
         let trajetFrom = null; // { lat, lon, name }
         let trajetTo = null;
+        let trajetStops = []; // [{ lat, lon, name }], 0 à 3 étapes intermédiaires, dans l'ordre départ → arrivée
+
+        // Résout l'id d'input et le getter/setter de point correspondant à 'from', 'to', ou un index
+        // numérique d'étape (0, 1, 2) — centralise l'accès pour ne pas dupliquer la logique par cas.
+        function trajetInputId(which) {
+            if (which === 'from') return 'trajet-from';
+            if (which === 'to') return 'trajet-to';
+            return `trajet-stop-${which}`;
+        }
+        function getTrajetPoint(which) {
+            if (which === 'from') return trajetFrom;
+            if (which === 'to') return trajetTo;
+            return trajetStops[which] || null;
+        }
+        function setTrajetPoint(which, point) {
+            if (which === 'from') trajetFrom = point;
+            else if (which === 'to') trajetTo = point;
+            else trajetStops[which] = point;
+        }
 
         async function searchTrajetPoint(which) {
-            const inputId = which === 'from' ? 'trajet-from' : 'trajet-to';
+            const inputId = trajetInputId(which);
             const query = document.getElementById(inputId).value.trim();
             if (!query) return;
             try {
                 const r = await geocodeVilleTolerant(query);
                 if (!r) { alert("Lieu non trouvé."); return; }
                 const point = { lat: r.latitude, lon: r.longitude, name: r.name + (r.country ? `, ${r.country}` : '') };
-                if (which === 'from') trajetFrom = point; else trajetTo = point;
+                setTrajetPoint(which, point);
                 document.getElementById(inputId).value = point.name;
                 updateTrajetResult();
             } catch (e) {
@@ -4508,12 +4604,12 @@
             }
         }
 
-        // Utilise la position GPS de l'appareil comme point de départ (ou d'arrivée) du trajet, avec
-        // un géocodage inverse (IGN, France) pour afficher un nom de lieu lisible plutôt que de
+        // Utilise la position GPS de l'appareil comme point de départ, d'arrivée ou d'étape du trajet,
+        // avec un géocodage inverse (IGN, France) pour afficher un nom de lieu lisible plutôt que de
         // simples coordonnées — repli honnête sur les coordonnées brutes si indisponible.
         function locateTrajetPoint(which) {
             if (!navigator.geolocation) { alert("Géolocalisation non supportée."); return; }
-            const inputId = which === 'from' ? 'trajet-from' : 'trajet-to';
+            const inputId = trajetInputId(which);
             const input = document.getElementById(inputId);
             const originalPlaceholder = input.placeholder;
             input.placeholder = "Localisation en cours...";
@@ -4533,7 +4629,7 @@
                     } catch (e) { /* repli sur les coordonnées, déjà défini ci-dessus */ }
 
                     const point = { lat, lon, name };
-                    if (which === 'from') trajetFrom = point; else trajetTo = point;
+                    setTrajetPoint(which, point);
                     input.placeholder = originalPlaceholder;
                     input.value = point.name;
                     updateTrajetResult();
@@ -4543,6 +4639,98 @@
                     alert("Position inaccessible.");
                 }
             );
+        }
+
+        // Inverse le départ et l'arrivée (et l'ordre des étapes intermédiaires, pour que le trajet
+        // parcouru reste cohérent une fois la direction inversée).
+        function swapTrajetPoints() {
+            const tmp = trajetFrom;
+            trajetFrom = trajetTo;
+            trajetTo = tmp;
+            trajetStops.reverse();
+
+            document.getElementById('trajet-from').value = trajetFrom ? trajetFrom.name : '';
+            document.getElementById('trajet-to').value = trajetTo ? trajetTo.name : '';
+            trajetStops.forEach((point, i) => {
+                const el = document.getElementById(`trajet-stop-${i}`);
+                if (el) el.value = point ? point.name : '';
+            });
+
+            updateTrajetResult();
+        }
+
+        // Ajoute une rangée d'étape intermédiaire (max 3), insérée entre le départ et l'arrivée.
+        function addTrajetStop() {
+            if (trajetStops.length >= 3) return;
+            const index = trajetStops.length;
+            trajetStops.push(null);
+
+            const row = document.createElement('div');
+            row.className = 'trajet-stop-row';
+            row.id = `trajet-stop-row-${index}`;
+            row.innerHTML = `
+                <div class="search-box">
+                    <i class="fa-solid fa-map-pin" style="position:absolute; left:12px; color: var(--accent-blue); font-size:0.85rem;"></i>
+                    <input type="text" id="trajet-stop-${index}" placeholder="Étape ${index + 1}..." onkeypress="if(event.key==='Enter') searchTrajetPoint(${index})">
+                    <button class="btn-search-icon" onclick="searchTrajetPoint(${index})"><i class="fa-solid fa-arrow-right"></i></button>
+                </div>
+                <button type="button" class="btn-remove-stop" onclick="removeTrajetStop(${index})" title="Supprimer cette étape">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            `;
+            document.getElementById('trajet-stops-list').appendChild(row);
+            updateTrajetAddStopButton();
+        }
+
+        // Supprime une étape et réindexe les suivantes (id des inputs, onclick, tableau trajetStops)
+        // pour que tout reste cohérent quel que soit l'ordre de suppression.
+        function removeTrajetStop(index) {
+            trajetStops.splice(index, 1);
+            const list = document.getElementById('trajet-stops-list');
+            list.innerHTML = '';
+            trajetStops.forEach((point, i) => {
+                const row = document.createElement('div');
+                row.className = 'trajet-stop-row';
+                row.id = `trajet-stop-row-${i}`;
+                row.innerHTML = `
+                    <div class="search-box">
+                        <i class="fa-solid fa-map-pin" style="position:absolute; left:12px; color: var(--accent-blue); font-size:0.85rem;"></i>
+                        <input type="text" id="trajet-stop-${i}" placeholder="Étape ${i + 1}..." value="${point ? point.name.replace(/"/g, '&quot;') : ''}" onkeypress="if(event.key==='Enter') searchTrajetPoint(${i})">
+                        <button class="btn-search-icon" onclick="searchTrajetPoint(${i})"><i class="fa-solid fa-arrow-right"></i></button>
+                    </div>
+                    <button type="button" class="btn-remove-stop" onclick="removeTrajetStop(${i})" title="Supprimer cette étape">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                `;
+                list.appendChild(row);
+            });
+            updateTrajetAddStopButton();
+            updateTrajetResult();
+        }
+
+        function updateTrajetAddStopButton() {
+            const btn = document.getElementById('trajet-add-stop-btn');
+            if (!btn) return;
+            btn.disabled = trajetStops.length >= 3;
+            btn.innerHTML = trajetStops.length >= 3
+                ? `<i class="fa-solid fa-check"></i> 3 étapes maximum`
+                : `<i class="fa-solid fa-plus"></i> Ajouter une étape`;
+        }
+
+        // Construit la liste ordonnée des points valides du trajet : départ, étapes renseignées, arrivée.
+        function getTrajetWaypoints() {
+            const points = [trajetFrom, ...trajetStops, trajetTo].filter(p => p && typeof p.lat === 'number');
+            return points;
+        }
+
+        // Distance totale à vol d'oiseau en suivant le trajet départ → étapes → arrivée (somme des
+        // segments), pas la distance directe départ-arrivée si des étapes existent.
+        function calculateTrajetTotalDistance(waypoints) {
+            let total = 0;
+            for (let i = 0; i < waypoints.length - 1; i++) {
+                total += calculateDistance(waypoints[i].lat, waypoints[i].lon, waypoints[i + 1].lat, waypoints[i + 1].lon);
+            }
+            return total;
         }
 
         function updateTrajetResult() {
@@ -4555,10 +4743,11 @@
                 noteEl.innerText = "Choisissez un départ et une arrivée pour calculer la distance";
                 return;
             }
-            const dist = calculateDistance(trajetFrom.lat, trajetFrom.lon, trajetTo.lat, trajetTo.lon);
+            const waypoints = getTrajetWaypoints();
+            const dist = calculateTrajetTotalDistance(waypoints);
             document.getElementById('trajet-distance-val').innerText = `${dist} km`;
             resultEl.style.display = 'block';
-            noteEl.innerText = `${trajetFrom.name} → ${trajetTo.name}`;
+            noteEl.innerText = waypoints.map(p => p.name).join(' → ');
         }
 
         let trajetMap = null;
@@ -4582,18 +4771,37 @@
             if (trajetDepartureMax && departureTime > trajetDepartureMax) departureTime = trajetDepartureMax;
             departureInput.value = toTrajetLocalInputValue(departureTime);
 
-            const dist = calculateDistance(trajetFrom.lat, trajetFrom.lon, trajetTo.lat, trajetTo.lon);
+            const waypoints = getTrajetWaypoints();
+            const dist = calculateTrajetTotalDistance(waypoints);
             const speedKmh = Math.round(dist / duration);
 
             const scheduleEl = document.getElementById('trajet-schedule-container');
             const tbody = document.getElementById('trajet-schedule-tbody');
             scheduleEl.style.display = 'block';
 
+            // Distance cumulée à chaque waypoint le long du trajet (départ = 0, arrivée = dist totale),
+            // pour pouvoir ensuite placer chaque point horaire au bon endroit du trajet multi-étapes
+            // (proportionnellement à la distance parcourue, pas juste par interpolation temporelle
+            // brute départ-arrivée qui ignorerait les étapes).
+            const cumDist = [0];
+            for (let i = 0; i < waypoints.length - 1; i++) {
+                cumDist.push(cumDist[i] + calculateDistance(waypoints[i].lat, waypoints[i].lon, waypoints[i + 1].lat, waypoints[i + 1].lon));
+            }
+
             const points = [];
             for (let h = 0; h <= duration; h++) {
                 const frac = duration === 0 ? 0 : h / duration;
-                const lat = trajetFrom.lat + (trajetTo.lat - trajetFrom.lat) * frac;
-                const lon = trajetFrom.lon + (trajetTo.lon - trajetFrom.lon) * frac;
+                const targetDist = frac * dist;
+                // Trouve le segment [i, i+1] du trajet contenant cette distance cumulée.
+                let segIdx = 0;
+                while (segIdx < cumDist.length - 2 && cumDist[segIdx + 1] < targetDist) segIdx++;
+                const segStart = cumDist[segIdx];
+                const segEnd = cumDist[segIdx + 1] ?? segStart;
+                const segFrac = segEnd > segStart ? (targetDist - segStart) / (segEnd - segStart) : 0;
+                const a = waypoints[segIdx];
+                const b = waypoints[segIdx + 1] || a;
+                const lat = a.lat + (b.lat - a.lat) * segFrac;
+                const lon = a.lon + (b.lon - a.lon) * segFrac;
                 points.push({ h, lat, lon, time: new Date(departureTime.getTime() + h * 3600000) });
             }
 
@@ -4651,10 +4859,17 @@
             }
             if (trajetMapLayer) trajetMap.removeLayer(trajetMapLayer);
 
+            const waypoints = getTrajetWaypoints();
             const group = L.layerGroup();
-            L.marker([trajetFrom.lat, trajetFrom.lon]).addTo(group).bindPopup(`Départ : ${trajetFrom.name}`);
-            L.marker([trajetTo.lat, trajetTo.lon]).addTo(group).bindPopup(`Arrivée : ${trajetTo.name}`);
-            L.polyline([[trajetFrom.lat, trajetFrom.lon], [trajetTo.lat, trajetTo.lon]], { color: '#2b6cb0', weight: 3, dashArray: '6,6' }).addTo(group);
+
+            waypoints.forEach((p, i) => {
+                let label;
+                if (i === 0) label = `Départ : ${p.name}`;
+                else if (i === waypoints.length - 1) label = `Arrivée : ${p.name}`;
+                else label = `Étape ${i} : ${p.name}`;
+                L.marker([p.lat, p.lon]).addTo(group).bindPopup(label);
+            });
+            L.polyline(waypoints.map(p => [p.lat, p.lon]), { color: '#2b6cb0', weight: 3, dashArray: '6,6' }).addTo(group);
 
             const lastH = points[points.length - 1].h;
             points.forEach(p => {
@@ -4667,7 +4882,7 @@
             group.addTo(trajetMap);
             trajetMapLayer = group;
 
-            trajetMap.fitBounds([[trajetFrom.lat, trajetFrom.lon], [trajetTo.lat, trajetTo.lon]], { padding: [30, 30] });
+            trajetMap.fitBounds(waypoints.map(p => [p.lat, p.lon]), { padding: [30, 30] });
             setTimeout(() => trajetMap.invalidateSize(), 200);
         }
 
