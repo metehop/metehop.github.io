@@ -414,6 +414,7 @@
             z-index: 1;
         }
         .hero-sun-icon {
+            position: relative;
             background: #fcf6e6;
             color: var(--accent-orange);
             width: 100px;
@@ -423,6 +424,28 @@
             align-items: center;
             justify-content: center;
             font-size: 3rem;
+        }
+        /* Badge "risque de foudre à cette heure" (voir updateHeroLightningBadge) : en haut à gauche du
+           pictogramme météo du bandeau "Votre météo, maintenant", visible uniquement si l'algo LPI
+           (systématique aujourd'hui/demain, voir loadStormRiskForLocation) détecte un risque à l'heure
+           actuellement représentée par ce bandeau. Couleur alignée sur lightningColorFor() (même code
+           faible/modéré/élevé que le calque radar Foudre et la frise de l'encart Effets locaux). */
+        .hero-lightning-badge {
+            position: absolute;
+            top: -6px;
+            left: -6px;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: #d97736;
+            color: #ffffff;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            cursor: help;
+            z-index: 2;
         }
         /* Vent compact sous l'icône météo : flèche orientée + vitesse moyenne + rafales. */
         .hero-wind-compact {
@@ -541,6 +564,30 @@
         @media (min-width: 768px) {
             .two-cols { grid-template-columns: 1fr 1fr; }
         }
+
+        /* Séparateurs de section de l'onglet Général en mode expert (réorganisation du 09/09/2026) :
+           regroupent visuellement les encarts par horizon temporel (Maintenant / Aujourd'hui & la
+           semaine / Vision long terme) sans ajouter de sous-navigation ni rien masquer — juste un
+           repère de lecture. Masqués en mode simple comme le reste de la réorganisation expert
+           (data-level="expert" sur chaque séparateur, voir setGroup()). */
+        .section-divider {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 24px 4px 4px;
+            font-size: 0.72rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+        }
+        .section-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: rgba(0,0,0,0.08);
+        }
+        .section-divider i { font-size: 0.85rem; }
 
         .card-sage {
             background: var(--card-bg);
@@ -1012,6 +1059,27 @@
             align-items: flex-start;
             margin-bottom: 8px;
         }
+        /* Encarts rétractables (Pollution, Astronomie — voir toggleCardCollapse()) : le bouton
+           chevron est un sibling du .chart-header existant (inchangé à l'intérieur), pas un enfant
+           de plus dedans, pour ne pas perturber son propre justify-content:space-between interne. */
+        .chart-header-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .card-collapse-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            cursor: pointer;
+            padding: 4px 6px;
+            flex-shrink: 0;
+        }
+        .card-collapse-btn i { transition: transform 0.2s ease; display: block; }
+        .card-collapse-btn.collapsed i { transform: rotate(180deg); }
+        .card-collapsible-body.collapsed { display: none; }
         .chart-container {
             position: relative;
             height: 160px;
@@ -1100,7 +1168,7 @@
         .sage-table td.cell-remarkable-wind  { box-shadow: inset 0 0 0 2px #1b5e20; border-radius: 6px; } /* vert foncé : vent */
         .wind-gust-sub { display: block; font-size: 0.6rem; color: var(--text-muted); font-weight: 400; margin-top: 1px; }
 
-        /* Carte "Chauffage : quand allumer / éteindre ?" (onglet Hobby/Astronomie) */
+        /* Carte "Chauffage : quand allumer / éteindre ?" (onglet Nature, ex-Hobby) */
         .heating-status-row {
             display: flex;
             gap: 10px;
@@ -1514,7 +1582,7 @@
             justify-content: center;
         }
 
-        /* Classement des meilleures nuits d'observation (onglet Hobby/Astronomie) */
+        /* Classement des meilleures nuits d'observation (onglet Général, ex-Hobby — voir #astro-card) */
         .astro-nights-strip {
             display: flex;
             gap: 6px;
@@ -2081,7 +2149,9 @@
         <!-- Chips de bascule rapide entre lieux favoris (voir renderFavoritesChips) -->
         <div class="favorites-chips" id="favorites-chips" style="display:none;"></div>
 
-        <!-- Sélecteur de groupe (6 positions) -->
+        <!-- Sélecteur de groupe (5 positions depuis la fusion Eau+Jardinage du 09/09/2026 : Trajet
+             est passé en 4e position, l'ex-onglet Hobby a été scindé — Astronomie a rejoint Général,
+             le reste a fusionné avec Eau sous le nom "Nature". -->
         <div class="group-selector" id="group-selector">
             <button type="button" class="group-tab active" data-group="general" onclick="setGroup('general')" title="Général">
                 <span class="group-tab-icon">🐸</span>
@@ -2092,19 +2162,16 @@
             <button type="button" class="group-tab" data-group="leisure" onclick="setGroup('leisure')" title="Loisir">
                 <span class="group-tab-icon">⛱️</span>
             </button>
-            <button type="button" class="group-tab" data-group="astrogarden" onclick="setGroup('astrogarden')" title="Hobby">
-                <span class="group-tab-icon">🔭 🌱</span>
-            </button>
             <button type="button" class="group-tab" data-group="trajet" onclick="setGroup('trajet')" title="Trajet">
                 <span class="group-tab-icon">📍🌦️📍</span>
             </button>
-            <button type="button" class="group-tab" data-group="eau" onclick="setGroup('eau')" title="Eau">
-                <span class="group-tab-icon">💧</span>
+            <button type="button" class="group-tab" data-group="eau" onclick="setGroup('eau')" title="Nature">
+                <span class="group-tab-icon">💧🌱</span>
             </button>
         </div>
 
         <!-- Banner météo principale -->
-        <div class="hero-banner">
+        <div class="hero-banner" id="hero-banner">
             <button type="button" class="btn-share-weather" onclick="shareWeatherImage()" title="Partager cette météo">
                 <i class="fa-solid fa-share-nodes"></i>
             </button>
@@ -2128,6 +2195,9 @@
                 </div>
                 <div class="hero-icon-col">
                     <div class="hero-sun-icon">
+                        <span class="hero-lightning-badge" id="hero-lightning-badge" style="display:none;" title="">
+                            <i class="fa-solid fa-bolt"></i>
+                        </span>
                         <i class="fa-solid fa-sun" id="hero-main-icon"></i>
                     </div>
                     <div class="hero-wind-compact" id="hero-wind-compact" title="Direction, vitesse moyenne et rafales du vent">
@@ -2167,7 +2237,7 @@
         </div>
 
         <!-- Carrousel Jours -->
-        <div>
+        <div id="explore-day-section">
             <div class="section-header">
                 <span class="section-title">Explorer la journée</span>
             </div>
@@ -2191,6 +2261,11 @@
             </div>
         </div>
 
+        <!-- Réorganisation mode expert (09/09/2026) : regroupement par horizon temporel, voir
+             .section-divider dans le CSS. Rien n'est masqué ni supprimé, juste réordonné/étiqueté. -->
+        <div class="section-divider" data-groups="general" data-level="expert">
+            <i class="fa-solid fa-clock" style="color: var(--accent-orange);"></i> Maintenant
+        </div>
         <div class="two-cols" data-groups="general" data-simple-hide="true">
             <div class="card-sage">
                 <div class="card-sage-header">
@@ -2287,6 +2362,48 @@
             </div>
         </div>
 
+        <!-- Graphique expérimental : Évolution des 3 prochaines heures (Metehop, radar) — déplacé ici
+             le 09/09/2026 (réorganisation mode expert) : juste après le radar, avec lequel il partage
+             le même horizon "tout court terme", plutôt qu'entre le graphique horaire et les pollens. -->
+        <div class="chart-card" data-groups="general" data-level="expert">
+            <div class="chart-header">
+                <div>
+                    <div class="card-sage-title">
+                        <i class="fa-solid fa-flask" style="color: var(--accent-purple); margin-right: 6px;"></i>
+                        Évolution des 3 prochaines heures <span class="badge-experimental">Expérimental</span>
+                    </div>
+                    <div class="card-sage-sub" id="evo-chart-note">Estimation Metehop à partir du radar, par tranches de 10 minutes</div>
+                </div>
+            </div>
+            <div class="astro-legend" id="evo-legend" style="margin-bottom: 6px;">
+                <span class="astro-legend-item"><span class="legend-dot" style="background:#7dd3fc;"></span> Pluie faible</span>
+                <span class="astro-legend-item"><span class="legend-dot" style="background:#0284c7;"></span> Pluie forte</span>
+                <span class="astro-legend-item"><span class="legend-dot" style="background:#8b5cf6;"></span> Neige</span>
+                <span class="astro-legend-item"><span class="legend-dot" style="background:#ef4444;"></span> Orage</span>
+                <span class="astro-legend-item"><span class="legend-dot" style="background:#eab308;"></span> Grêle</span>
+                <span class="astro-legend-item"><span class="legend-dash" style="border-color:#14532d;"></span> Confiance (%, axe droit)</span>
+                <span class="astro-legend-item"><span style="display:inline-block; width:11px; height:11px; border:2px solid #5e706a; border-radius:2px;"></span> Prévision modèle (contour, plein = radar)</span>
+            </div>
+            <div class="metehop-summary" id="metehop-summary" style="display:none;"></div>
+            <div class="chart-container" id="evo-chart-container" style="height: 150px;">
+                <canvas id="evoChart"></canvas>
+            </div>
+            <div class="card-sage-sub" id="evo-chart-cumul" style="margin-top: 4px; font-size: 0.65rem;"></div>
+            <div class="card-sage-sub" id="evo-chart-footnote" style="margin-top: 6px; font-size: 0.65rem;">Actualisé automatiquement toutes les 5 minutes. Les contours superposés montrent la prévision</div>
+            <!-- Suivi de proximité d'orage : visible uniquement si une cellule orageuse (grêle
+                 incluse) est suivie à moins de STORM_PROXIMITY_KM de la position — voir
+                 updateStormProximityBox(), appelée depuis loadEvoMetehop(). Actualisation accélérée
+                 à 1 minute tant qu'un orage proche est suivi (voir scheduleRadarRefresh()). -->
+            <div class="storm-proximity-box" id="storm-proximity-box" style="display:none;">
+                <i class="fa-solid fa-bolt"></i>
+                <span id="storm-proximity-text">--</span>
+            </div>
+        </div>
+
+        <div class="section-divider" data-groups="general" data-level="expert">
+            <i class="fa-solid fa-calendar-days" style="color: var(--accent-orange);"></i> Aujourd'hui &amp; la semaine
+        </div>
+
         <!-- Graphique Évolution Journée -->
         <div class="chart-card" data-groups="general">
             <div class="chart-header">
@@ -2330,71 +2447,150 @@
             </div>
         </div>
 
-        <!-- Graphique expérimental : Évolution des 3 prochaines heures (Metehop, radar) -->
-        <div class="chart-card" data-groups="general" data-level="expert">
-            <div class="chart-header">
-                <div>
-                    <div class="card-sage-title">
-                        <i class="fa-solid fa-flask" style="color: var(--accent-purple); margin-right: 6px;"></i>
-                        Évolution des 3 prochaines heures <span class="badge-experimental">Expérimental</span>
+        <!-- Graphique : Pollution & pollens sur 5 jours -->
+        <div class="chart-card" data-groups="general">
+            <div class="chart-header-row">
+                <div class="chart-header" style="flex:1; margin-bottom:0;">
+                    <div>
+                        <div class="card-sage-title">
+                            <i class="fa-solid fa-wind" style="color: var(--accent-green); margin-right: 6px;"></i>
+                            Pollution & pollens · 5 jours
+                        </div>
+                        <div class="card-sage-sub" id="pollen-chart-note">Chargement...</div>
                     </div>
-                    <div class="card-sage-sub" id="evo-chart-note">Estimation Metehop à partir du radar, par tranches de 10 minutes</div>
                 </div>
+                <button type="button" class="card-collapse-btn" onclick="toggleCardCollapse('pollen-card-body', this)" title="Réduire/développer cet encart">
+                    <i class="fa-solid fa-chevron-up"></i>
+                </button>
             </div>
-            <div class="astro-legend" id="evo-legend" style="margin-bottom: 6px;">
-                <span class="astro-legend-item"><span class="legend-dot" style="background:#7dd3fc;"></span> Pluie faible</span>
-                <span class="astro-legend-item"><span class="legend-dot" style="background:#0284c7;"></span> Pluie forte</span>
-                <span class="astro-legend-item"><span class="legend-dot" style="background:#8b5cf6;"></span> Neige</span>
-                <span class="astro-legend-item"><span class="legend-dot" style="background:#ef4444;"></span> Orage</span>
-                <span class="astro-legend-item"><span class="legend-dot" style="background:#eab308;"></span> Grêle</span>
-                <span class="astro-legend-item"><span class="legend-dash" style="border-color:#14532d;"></span> Confiance (%, axe droit)</span>
-                <span class="astro-legend-item"><span style="display:inline-block; width:11px; height:11px; border:2px solid #5e706a; border-radius:2px;"></span> Prévision modèle (contour, plein = radar)</span>
-            </div>
-            <div class="metehop-summary" id="metehop-summary" style="display:none;"></div>
-            <div class="chart-container" id="evo-chart-container" style="height: 150px;">
-                <canvas id="evoChart"></canvas>
-            </div>
-            <div class="card-sage-sub" id="evo-chart-cumul" style="margin-top: 4px; font-size: 0.65rem;"></div>
-            <div class="card-sage-sub" id="evo-chart-footnote" style="margin-top: 6px; font-size: 0.65rem;">Actualisé automatiquement toutes les 5 minutes. Les contours superposés montrent la prévision</div>
-            <!-- Suivi de proximité d'orage : visible uniquement si une cellule orageuse (grêle
-                 incluse) est suivie à moins de STORM_PROXIMITY_KM de la position — voir
-                 updateStormProximityBox(), appelée depuis loadEvoMetehop(). Actualisation accélérée
-                 à 1 minute tant qu'un orage proche est suivi (voir scheduleRadarRefresh()). -->
-            <div class="storm-proximity-box" id="storm-proximity-box" style="display:none;">
-                <i class="fa-solid fa-bolt"></i>
-                <span id="storm-proximity-text">--</span>
+            <div class="card-collapsible-body" id="pollen-card-body">
+                <div class="astro-legend" id="pollen-legend" style="margin-bottom: 6px;">
+                    <span class="astro-legend-item"><span class="legend-dot" style="background:#6b7280;"></span> Qualité de l'air (axe gauche)</span>
+                    <span class="astro-legend-item"><span class="legend-dot" style="background:#4caf50;"></span> Bouleau</span>
+                    <span class="astro-legend-item"><span class="legend-dot" style="background:#795548;"></span> Aulne</span>
+                    <span class="astro-legend-item"><span class="legend-dot" style="background:#8bc34a;"></span> Olivier</span>
+                    <span class="astro-legend-item"><span class="legend-dot" style="background:#cddc39;"></span> Graminées</span>
+                    <span class="astro-legend-item"><span class="legend-dot" style="background:#9c27b0;"></span> Armoise</span>
+                    <span class="astro-legend-item"><span class="legend-dot" style="background:#f44336;"></span> Ambroisie</span>
+                </div>
+                <div class="chart-container" id="pollen-chart-container">
+                    <canvas id="pollenChart"></canvas>
+                </div>
+                <div class="card-sage-sub" id="pollen-scale-note" style="margin-top: 6px; font-size: 0.65rem;"></div>
             </div>
         </div>
 
+        <!-- Graphique Astronomie — déplacée ici le 09/09/2026 (réorganisation mode expert), juste sous
+             Pollution & pollens ; auparavant dans l'onglet Hobby (astro+jardinage), désormais rétractable
+             comme Pollution (voir toggleCardCollapse()). -->
+        <div class="chart-card" data-groups="general" id="astro-card">
+            <div class="chart-header-row">
+                <div class="chart-header" style="flex:1; margin-bottom:0;">
+                    <div>
+                        <div class="card-sage-title"><i class="fa-solid fa-star-and-crescent" style="color: var(--accent-purple); margin-right: 6px;"></i> Astronomie & conditions nocturnes</div>
+                        <div class="card-sage-sub" id="astro-chart-sub">Du coucher du soleil au lever du jour</div>
+                        <div class="card-sage-sub" style="margin-top:2px; font-size:0.65rem;">Seeing : estimation en secondes d'arc à partir du vent réel en altitude (200hPa) — indicatif, pas une prévision de précision scientifique.</div>
+                    </div>
+                    <div class="astro-legend">
+                        <span class="astro-legend-item"><span class="legend-dot" style="background: #d97736;"></span> Temp.</span>
+                        <span class="astro-legend-item"><span class="legend-dot" style="background: #7048e8;"></span> Seeing estimé</span>
+                        <span class="astro-legend-item"><span class="legend-dot" style="background: #3b6e61;"></span> Nuages</span>
+                        <span class="astro-legend-item"><span class="legend-dot" style="background: #f4d03f;"></span> Éclairage lunaire</span>
+                    </div>
+                </div>
+                <button type="button" class="card-collapse-btn" onclick="toggleCardCollapse('astro-card-body', this)" title="Réduire/développer cet encart">
+                    <i class="fa-solid fa-chevron-up"></i>
+                </button>
+            </div>
+            <div class="card-collapsible-body" id="astro-card-body">
+                <div class="chart-container">
+                    <canvas id="astroChart"></canvas>
+                </div>
 
-        <!-- Graphique : Pollution & pollens sur 5 jours -->
-        <div class="chart-card" data-groups="general">
+                <div class="dew-icons-row" id="dew-icons-row"></div>
+                <div class="card-sage-sub" id="dew-row-note" style="margin-top: 4px; font-size: 0.65rem; display: none;">
+                    <i class="fa-solid fa-droplet" style="color: #4fa8d8; font-size: 0.7rem;"></i> Point de rosée atteint (air proche de la saturation — brouillard/rosée possible)
+                </div>
+
+                <!-- Classement des meilleures nuits d'observation à venir : recalculé à partir des
+                     données déjà chargées (nébulosité, seeing estimé, lune) — aucun appel réseau
+                     supplémentaire, contrairement aux cartes "Charger les données" ci-dessus/dessous. -->
+                <div class="card-sage-sub" id="astro-ranking-title" style="margin-top: 12px; font-weight: 700; color: var(--primary-dark); font-size: 0.75rem;">Meilleures nuits à venir</div>
+                <div class="astro-nights-strip" id="astro-nights-strip"></div>
+                <div class="card-sage-sub" id="astro-ranking-note" style="margin-top: 4px; font-size: 0.62rem; font-style: italic;">Score indicatif sur 100 (nébulosité, seeing estimé, éclairage lunaire) — pas une prévision de qualité garantie. Touchez une nuit pour l'afficher dans le graphique ci-dessus.</div>
+            </div>
+        </div>
+
+        <!-- Stations météo à proximité (relevés réels, pas des prévisions), fusionnant 2 sources
+             indépendantes — placée en premier dans l'onglet Nature sur demande :
+             1) Station personnelle Weather Underground (ITENCI3, Tencin) : n'apparaît que si le
+                lieu affiché est à moins de NEARBY_STATION.maxDistanceKm de Tencin — voir
+                loadNearbyStation() et le calcul nearbyStationInRange dans fetchWeather().
+             2) Relevé officiel Météo-France le plus proche (réseau SYNOP, source Opendatasoft) :
+                toujours recherché quel que soit le lieu (couverture nationale), avec avertissement
+                si trop ancien/lointain, ou message d'indisponibilité si le relevé disponible est
+                trop ancien pour être fiable du tout — voir loadSynopStation().
+             Carte entière gatée par data-groups="eau" (fusion Eau+Jardinage du 09/09/2026 ; seulement chargée/visible sur cet
+             onglet, chargement différé via setGroup()/fetchWeather() comme les autres onglets). -->
+        <div class="chart-card" id="nearby-stations-card" data-groups="eau" data-level="expert" style="display:none;">
             <div class="chart-header">
                 <div>
-                    <div class="card-sage-title">
-                        <i class="fa-solid fa-wind" style="color: var(--accent-green); margin-right: 6px;"></i>
-                        Pollution & pollens · 5 jours
-                    </div>
-                    <div class="card-sage-sub" id="pollen-chart-note">Chargement...</div>
+                    <div class="card-sage-title"><i class="fa-solid fa-house-signal" style="color: var(--accent-blue); margin-right: 6px;"></i> Stations météo à proximité</div>
+                    <div class="card-sage-sub">Relevés réels de terrain (pas des prévisions)</div>
                 </div>
             </div>
-            <div class="astro-legend" id="pollen-legend" style="margin-bottom: 6px;">
-                <span class="astro-legend-item"><span class="legend-dot" style="background:#6b7280;"></span> Qualité de l'air (axe gauche)</span>
-                <span class="astro-legend-item"><span class="legend-dot" style="background:#4caf50;"></span> Bouleau</span>
-                <span class="astro-legend-item"><span class="legend-dot" style="background:#795548;"></span> Aulne</span>
-                <span class="astro-legend-item"><span class="legend-dot" style="background:#8bc34a;"></span> Olivier</span>
-                <span class="astro-legend-item"><span class="legend-dot" style="background:#cddc39;"></span> Graminées</span>
-                <span class="astro-legend-item"><span class="legend-dot" style="background:#9c27b0;"></span> Armoise</span>
-                <span class="astro-legend-item"><span class="legend-dot" style="background:#f44336;"></span> Ambroisie</span>
+
+            <!-- Sous-section 1 : station personnelle Tencin (masquée si hors zone, voir JS) -->
+            <div id="nearby-station-card" style="display:none;">
+                <div class="card-sage-sub" style="font-weight:700; margin-bottom:6px;">Station personnelle — ITENCI3, Tencin</div>
+
+                <div id="nearby-station-loading" style="text-align:center; padding: 10px; color: var(--text-muted); font-size: 0.8rem;">
+                    Chargement des relevés...
+                </div>
+
+                <div id="nearby-station-error" style="display:none; text-align:center; padding: 10px; color: var(--text-muted); font-size: 0.78rem;">
+                    <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-orange); display:block; margin-bottom:6px; font-size:1.1rem;"></i>
+                    <span id="nearby-station-error-text">Relevés indisponibles pour le moment.</span>
+                </div>
+
+                <div id="nearby-station-content" style="display:none;">
+                    <div class="snow-details-row" id="nearby-station-pills"></div>
+                    <div class="card-sage-sub" id="nearby-station-updated" style="margin-top:6px; font-size:0.62rem;"></div>
+                </div>
             </div>
-            <div class="chart-container" id="pollen-chart-container">
-                <canvas id="pollenChart"></canvas>
+
+            <!-- Sous-section 2 : relevé officiel SYNOP le plus proche (toujours affiché) -->
+            <div id="synop-station-section" style="margin-top:14px; padding-top:12px; border-top:1px solid rgba(0,0,0,0.06);">
+                <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; margin-bottom:6px;">
+                    <div class="card-sage-sub" id="synop-station-sub" style="font-weight:700;">Réseau SYNOP Météo-France</div>
+                    <!-- Lien externe vers la fiche temps réel Infoclimat de cette station, ajouté le
+                         06/09/2026 (sur demande). N'est affiché QUE si le relevé de la station a été
+                         chargé avec succès ("si la station existe" — voir loadSynopStation()) : cette
+                         condition, plus simple à garantir que de vérifier si la station EST RÉELLEMENT
+                         répertoriée chez Infoclimat, est ce qui a été retenu ici. Icône identique à
+                         celle utilisée pour les tuiles-liens de l'encart Webcams (cohérence visuelle). -->
+                    <a id="synop-station-external-link" href="#" target="_blank" rel="noopener" style="display:none; font-size:0.72rem; color: var(--accent-blue); font-weight:600; text-decoration:none; white-space:nowrap;"><i class="fa-solid fa-up-right-from-square" style="margin-right:4px;"></i>Infoclimat</a>
+                </div>
+
+                <div id="synop-station-loading" style="text-align:center; padding: 10px; color: var(--text-muted); font-size: 0.8rem;">
+                    Chargement des relevés...
+                </div>
+
+                <div id="synop-station-error" style="display:none; text-align:center; padding: 10px; color: var(--text-muted); font-size: 0.78rem;">
+                    <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-orange); display:block; margin-bottom:6px; font-size:1.1rem;"></i>
+                    <span id="synop-station-error-text">Relevés indisponibles pour le moment.</span>
+                </div>
+
+                <div id="synop-station-content" style="display:none;">
+                    <div class="snow-details-row" id="synop-station-pills"></div>
+                    <div class="card-sage-sub" id="synop-station-warning" style="display:none; margin-top:6px; font-size:0.68rem; color: var(--accent-orange); font-weight:700;"></div>
+                    <div class="card-sage-sub" id="synop-station-updated" style="margin-top:6px; font-size:0.62rem;"></div>
+                </div>
             </div>
-            <div class="card-sage-sub" id="pollen-scale-note" style="margin-top: 6px; font-size: 0.65rem;"></div>
         </div>
 
         <!-- Graphique : Températures air & sol sur 16 jours, orienté plantations -->
-        <div class="chart-card" data-groups="astrogarden" data-level="expert" style="display:none;">
+        <div class="chart-card" data-groups="eau" data-level="expert" style="display:none;">
             <div class="chart-header">
                 <div>
                     <div class="card-sage-title">
@@ -2418,7 +2614,7 @@
         <!-- Bilan hydrique du jardin : pluie prévue vs évapotranspiration de référence (ET0 FAO
              Penman-Monteith), sur les 16 jours de prévision. Gatée par bouton comme le graphique
              sol/air ci-dessus (appel API dédié, non inclus dans fetchWeather principal). -->
-        <div class="chart-card" id="water-balance-card" data-groups="astrogarden" data-level="expert" style="display:none;">
+        <div class="chart-card" id="water-balance-card" data-groups="eau" data-level="expert" style="display:none;">
             <div class="chart-header">
                 <div>
                     <div class="card-sage-title">
@@ -2484,113 +2680,12 @@
             </div>
         </div>
 
-        <!-- Graphique Astronomie -->
-        <div class="chart-card" data-groups="astrogarden" style="display:none;">
-            <div class="chart-header">
-                <div>
-                    <div class="card-sage-title"><i class="fa-solid fa-star-and-crescent" style="color: var(--accent-purple); margin-right: 6px;"></i> Astronomie & conditions nocturnes</div>
-                    <div class="card-sage-sub" id="astro-chart-sub">Du coucher du soleil au lever du jour</div>
-                    <div class="card-sage-sub" style="margin-top:2px; font-size:0.65rem;">Seeing : estimation en secondes d'arc à partir du vent réel en altitude (200hPa) — indicatif, pas une prévision de précision scientifique.</div>
-                </div>
-                <div class="astro-legend">
-                    <span class="astro-legend-item"><span class="legend-dot" style="background: #d97736;"></span> Temp.</span>
-                    <span class="astro-legend-item"><span class="legend-dot" style="background: #7048e8;"></span> Seeing estimé</span>
-                    <span class="astro-legend-item"><span class="legend-dot" style="background: #3b6e61;"></span> Nuages</span>
-                    <span class="astro-legend-item"><span class="legend-dot" style="background: #f4d03f;"></span> Éclairage lunaire</span>
-                </div>
-            </div>
-
-            <div class="chart-container">
-                <canvas id="astroChart"></canvas>
-            </div>
-
-            <div class="dew-icons-row" id="dew-icons-row"></div>
-            <div class="card-sage-sub" id="dew-row-note" style="margin-top: 4px; font-size: 0.65rem; display: none;">
-                <i class="fa-solid fa-droplet" style="color: #4fa8d8; font-size: 0.7rem;"></i> Point de rosée atteint (air proche de la saturation — brouillard/rosée possible)
-            </div>
-
-            <!-- Classement des meilleures nuits d'observation à venir : recalculé à partir des
-                 données déjà chargées (nébulosité, seeing estimé, lune) — aucun appel réseau
-                 supplémentaire, contrairement aux cartes "Charger les données" ci-dessus/dessous. -->
-            <div class="card-sage-sub" id="astro-ranking-title" style="margin-top: 12px; font-weight: 700; color: var(--primary-dark); font-size: 0.75rem;">Meilleures nuits à venir</div>
-            <div class="astro-nights-strip" id="astro-nights-strip"></div>
-            <div class="card-sage-sub" id="astro-ranking-note" style="margin-top: 4px; font-size: 0.62rem; font-style: italic;">Score indicatif sur 100 (nébulosité, seeing estimé, éclairage lunaire) — pas une prévision de qualité garantie. Touchez une nuit pour l'afficher dans le graphique ci-dessus.</div>
-        </div>
-
-        <!-- Stations météo à proximité (relevés réels, pas des prévisions) — zone commune en bas de
-             l'onglet Astronomie, fusionnant 2 sources indépendantes :
-             1) Station personnelle Weather Underground (ITENCI3, Tencin) : n'apparaît que si le
-                lieu affiché est à moins de NEARBY_STATION.maxDistanceKm de Tencin — voir
-                loadNearbyStation() et le calcul nearbyStationInRange dans fetchWeather().
-             2) Relevé officiel Météo-France le plus proche (réseau SYNOP, source Opendatasoft) :
-                toujours recherché quel que soit le lieu (couverture nationale), avec avertissement
-                si trop ancien/lointain, ou message d'indisponibilité si le relevé disponible est
-                trop ancien pour être fiable du tout — voir loadSynopStation().
-             Carte entière gatée par data-groups="astrogarden" (seulement chargée/visible sur cet
-             onglet, chargement différé via setGroup()/fetchWeather() comme les autres onglets). -->
-        <div class="chart-card" id="nearby-stations-card" data-groups="astrogarden" data-level="expert" style="display:none;">
-            <div class="chart-header">
-                <div>
-                    <div class="card-sage-title"><i class="fa-solid fa-house-signal" style="color: var(--accent-blue); margin-right: 6px;"></i> Stations météo à proximité</div>
-                    <div class="card-sage-sub">Relevés réels de terrain (pas des prévisions)</div>
-                </div>
-            </div>
-
-            <!-- Sous-section 1 : station personnelle Tencin (masquée si hors zone, voir JS) -->
-            <div id="nearby-station-card" style="display:none;">
-                <div class="card-sage-sub" style="font-weight:700; margin-bottom:6px;">Station personnelle — ITENCI3, Tencin</div>
-
-                <div id="nearby-station-loading" style="text-align:center; padding: 10px; color: var(--text-muted); font-size: 0.8rem;">
-                    Chargement des relevés...
-                </div>
-
-                <div id="nearby-station-error" style="display:none; text-align:center; padding: 10px; color: var(--text-muted); font-size: 0.78rem;">
-                    <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-orange); display:block; margin-bottom:6px; font-size:1.1rem;"></i>
-                    <span id="nearby-station-error-text">Relevés indisponibles pour le moment.</span>
-                </div>
-
-                <div id="nearby-station-content" style="display:none;">
-                    <div class="snow-details-row" id="nearby-station-pills"></div>
-                    <div class="card-sage-sub" id="nearby-station-updated" style="margin-top:6px; font-size:0.62rem;"></div>
-                </div>
-            </div>
-
-            <!-- Sous-section 2 : relevé officiel SYNOP le plus proche (toujours affiché) -->
-            <div id="synop-station-section" style="margin-top:14px; padding-top:12px; border-top:1px solid rgba(0,0,0,0.06);">
-                <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; margin-bottom:6px;">
-                    <div class="card-sage-sub" id="synop-station-sub" style="font-weight:700;">Réseau SYNOP Météo-France</div>
-                    <!-- Lien externe vers la fiche temps réel Infoclimat de cette station, ajouté le
-                         06/09/2026 (sur demande). N'est affiché QUE si le relevé de la station a été
-                         chargé avec succès ("si la station existe" — voir loadSynopStation()) : cette
-                         condition, plus simple à garantir que de vérifier si la station EST RÉELLEMENT
-                         répertoriée chez Infoclimat, est ce qui a été retenu ici. Icône identique à
-                         celle utilisée pour les tuiles-liens de l'encart Webcams (cohérence visuelle). -->
-                    <a id="synop-station-external-link" href="#" target="_blank" rel="noopener" style="display:none; font-size:0.72rem; color: var(--accent-blue); font-weight:600; text-decoration:none; white-space:nowrap;"><i class="fa-solid fa-up-right-from-square" style="margin-right:4px;"></i>Infoclimat</a>
-                </div>
-
-                <div id="synop-station-loading" style="text-align:center; padding: 10px; color: var(--text-muted); font-size: 0.8rem;">
-                    Chargement des relevés...
-                </div>
-
-                <div id="synop-station-error" style="display:none; text-align:center; padding: 10px; color: var(--text-muted); font-size: 0.78rem;">
-                    <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-orange); display:block; margin-bottom:6px; font-size:1.1rem;"></i>
-                    <span id="synop-station-error-text">Relevés indisponibles pour le moment.</span>
-                </div>
-
-                <div id="synop-station-content" style="display:none;">
-                    <div class="snow-details-row" id="synop-station-pills"></div>
-                    <div class="card-sage-sub" id="synop-station-warning" style="display:none; margin-top:6px; font-size:0.68rem; color: var(--accent-orange); font-weight:700;"></div>
-                    <div class="card-sage-sub" id="synop-station-updated" style="margin-top:6px; font-size:0.62rem;"></div>
-                </div>
-            </div>
-        </div>
-
         <!-- Chauffage : quand allumer / éteindre ? — chargement automatique à l'ouverture de
              l'onglet (voir setGroup), même principe que le Jardinage et le Bilan hydrique
              ci-dessus : un seul appel archive, mis en cache, ne justifie plus de bouton "Charger
              les données". Méthode et sources détaillées dans la modal "Sources & modèles
              utilisés" (groupe "Chauffage"). -->
-        <div class="chart-card" id="heating-card" data-groups="astrogarden" style="display:none;">
+        <div class="chart-card" id="heating-card" data-groups="eau" style="display:none;">
             <div class="chart-header">
                 <div>
                     <div class="card-sage-title"><i class="fa-solid fa-fire" style="color: #d97736; margin-right: 6px;"></i> Chauffage : quand allumer / éteindre ?</div>
@@ -3175,6 +3270,13 @@
             </div>
         </div>
 
+        <!-- Réorganisation mode expert (09/09/2026) : les deux encarts "6 prochains mois" (modèle
+             ECMWF vs historique réel du lieu) sont complémentaires — côte à côte pour comparaison
+             directe plutôt qu'empilés. Rien n'est masqué ni supprimé. -->
+        <div class="section-divider" data-groups="general" data-level="expert">
+            <i class="fa-solid fa-chart-line" style="color: var(--accent-blue);"></i> Vision long terme
+        </div>
+        <div class="two-cols" data-groups="general" data-level="expert">
         <!-- PRÉVISIONS SAISONNIÈRES OPEN-METEO — API dédiée "Seasonal Forecast" (ECMWF SEAS5, 51
              membres, climatologie propre au modèle). Anomalies calculées directement par ECMWF
              (Anomaly = Prévision - Climatologie du modèle), pas recalculées par l'app. Toujours
@@ -3207,6 +3309,33 @@
             <div class="card-sage-sub" style="margin-top:8px; font-size:0.65rem;">
                 Anomalies calculées par ECMWF lui-même (écart à la climatologie du modèle, ~20-30 ans de simulations rétrospectives), pas par l'application. Modèle non corrigé des biais locaux : à interpréter comme une tendance de zone plutôt qu'une valeur exacte pour le lieu précis.
             </div>
+        </div>
+
+        <!-- TENDANCES SAISONNIÈRES — chargement automatique à l'ouverture de l'onglet Général (voir
+             setGroup), même principe que le Jardinage/Bilan hydrique/Chauffage : un seul appel
+             archive, mis en cache, ne justifie plus un bouton "Charger les données" dédié. -->
+        <div class="chart-card" data-groups="general" data-level="expert">
+            <div class="chart-header">
+                <div>
+                    <div class="card-sage-title">
+                        <i class="fa-solid fa-chart-line" style="color: var(--accent-blue); margin-right: 6px;"></i>
+                        Tendances saisonnières · 6 prochains mois
+                    </div>
+                    <div class="card-sage-sub" id="seasonal-trends-note">Prévisions sur 6 mois basées sur l'historique réel du lieu.</div>
+                </div>
+                <div class="astro-legend" id="seasonal-trends-legend">
+                    <span class="astro-legend-item"><span class="legend-dash" style="border-color:#d97736;"></span> Temp. max normale</span>
+                    <span class="astro-legend-item"><span class="legend-dot" style="background:#d97736;"></span> Temp. max prévision</span>
+                    <span class="astro-legend-item"><span class="legend-dash" style="border-color:#2b6cb0;"></span> Temp. min normale</span>
+                    <span class="astro-legend-item"><span class="legend-dot" style="background:#2b6cb0;"></span> Temp. min prévision</span>
+                    <span class="astro-legend-item"><span class="legend-dot" style="background:#5a9bd4;"></span> Précipitations</span>
+                </div>
+            </div>
+            <div class="chart-container" id="seasonal-trends-chart-container">
+                <canvas id="seasonalTrendsChart"></canvas>
+            </div>
+        </div>
+
         </div>
 
         <!-- STATION HYDROMÉTRIQUE LA PLUS PROCHE + VIGILANCE CRUES — sources officielles gratuites
@@ -3359,32 +3488,7 @@
             </div>
         </div>
 
-        <!-- TENDANCES SAISONNIÈRES — chargement automatique à l'ouverture de l'onglet Général (voir
-             setGroup), même principe que le Jardinage/Bilan hydrique/Chauffage : un seul appel
-             archive, mis en cache, ne justifie plus un bouton "Charger les données" dédié. -->
-        <div class="chart-card" data-groups="general" data-level="expert">
-            <div class="chart-header">
-                <div>
-                    <div class="card-sage-title">
-                        <i class="fa-solid fa-chart-line" style="color: var(--accent-blue); margin-right: 6px;"></i>
-                        Tendances saisonnières · 6 prochains mois
-                    </div>
-                    <div class="card-sage-sub" id="seasonal-trends-note">Prévisions sur 6 mois basées sur l'historique réel du lieu.</div>
-                </div>
-                <div class="astro-legend" id="seasonal-trends-legend">
-                    <span class="astro-legend-item"><span class="legend-dash" style="border-color:#d97736;"></span> Temp. max normale</span>
-                    <span class="astro-legend-item"><span class="legend-dot" style="background:#d97736;"></span> Temp. max prévision</span>
-                    <span class="astro-legend-item"><span class="legend-dash" style="border-color:#2b6cb0;"></span> Temp. min normale</span>
-                    <span class="astro-legend-item"><span class="legend-dot" style="background:#2b6cb0;"></span> Temp. min prévision</span>
-                    <span class="astro-legend-item"><span class="legend-dot" style="background:#5a9bd4;"></span> Précipitations</span>
-                </div>
-            </div>
-            <div class="chart-container" id="seasonal-trends-chart-container">
-                <canvas id="seasonalTrendsChart"></canvas>
-            </div>
-        </div>
-
-        <div class="table-card" id="seasonal-trends-table-card" data-groups="astrogarden" data-level="expert">
+        <div class="table-card" id="seasonal-trends-table-card" data-groups="eau" data-level="expert">
             <div class="section-header" style="flex-wrap: wrap; gap: 6px;">
                 <div>
                     <div class="card-sage-title">Détail par quinzaine</div>
@@ -3733,6 +3837,60 @@
         let weatherData = null;
         let weatherChart = null;
         let astroChart = null;
+
+        // ---- Encarts rétractables (Pollution & pollens, Astronomie — réorganisation du 09/09/2026) ----
+        // Repli/dépli générique : masque/affiche le conteneur "body" de l'encart, le header (titre +
+        // légende) reste toujours visible. Repliés PAR DÉFAUT (demande du 09/09/2026) tant que
+        // l'utilisateur n'a pas fait son propre choix — une fois qu'il déplie ou replie une carte,
+        // ce choix est mémorisé (localStorage) et prime sur le défaut à chaque prochaine visite.
+        // Redimensionne le graphique Chart.js concerné au dépli : un canvas caché (display:none) a
+        // une taille nulle au moment où Chart.js l'a mesuré, comme pour resizeGroupCharts() lors d'un
+        // changement d'onglet.
+        const COLLAPSIBLE_CHART_GETTERS = {
+            'pollen-card-body': () => pollenChart,
+            'astro-card-body': () => astroChart,
+        };
+        const CARD_COLLAPSE_DEFAULTS = { 'pollen-card-body': true, 'astro-card-body': true };
+        const CARD_COLLAPSE_KEY = 'metehop_card_collapsed_v1';
+
+        function loadCardCollapseState() {
+            try { return JSON.parse(localStorage.getItem(CARD_COLLAPSE_KEY)) || {}; }
+            catch (e) { return {}; }
+        }
+        function saveCardCollapseState(state) {
+            try { localStorage.setItem(CARD_COLLAPSE_KEY, JSON.stringify(state)); }
+            catch (e) { /* tant pis, préférence non persistée */ }
+        }
+
+        function toggleCardCollapse(bodyId, btnEl) {
+            const body = document.getElementById(bodyId);
+            if (!body) return;
+            const collapsed = body.classList.toggle('collapsed');
+            btnEl.classList.toggle('collapsed', collapsed);
+            const state = loadCardCollapseState();
+            state[bodyId] = collapsed;
+            saveCardCollapseState(state);
+            if (!collapsed) {
+                const getChart = COLLAPSIBLE_CHART_GETTERS[bodyId];
+                const chart = getChart && getChart();
+                if (chart) setTimeout(() => chart.resize(), 50);
+            }
+        }
+
+        // Applique l'état replié/déplié au chargement de la page, avant tout appel réseau : la
+        // préférence mémorisée si l'utilisateur en a déjà choisi une, sinon CARD_COLLAPSE_DEFAULTS.
+        // Appelée depuis DOMContentLoaded.
+        function initCollapsibleCards() {
+            const stored = loadCardCollapseState();
+            Object.keys(CARD_COLLAPSE_DEFAULTS).forEach(bodyId => {
+                const collapsed = (bodyId in stored) ? stored[bodyId] : CARD_COLLAPSE_DEFAULTS[bodyId];
+                const body = document.getElementById(bodyId);
+                if (!body) return;
+                const btn = body.previousElementSibling ? body.previousElementSibling.querySelector('.card-collapse-btn') : null;
+                body.classList.toggle('collapsed', collapsed);
+                if (btn) btn.classList.toggle('collapsed', collapsed);
+            });
+        }
         let pressureChart = null;
         let snowLimitChart = null;
         let plantTempChart = null;
@@ -3933,7 +4091,7 @@
         let seasonalTrendsLoaded = false; // tendances saisonnières (bouton "Charger les données")
         let heatingLoaded = false;        // estimation chauffage (chargement auto à l'ouverture de l'onglet)
         let lastHeatingResult = null;     // { onDoy, offDoy, climByDoy, ... } pour éviter de recalculer au resize
-        // Station météo personnelle (Tencin, Isère) affichée dans l'onglet Hobby (Astronomie) quand
+        // Station météo personnelle (Tencin, Isère) affichée dans l'onglet Nature (ex-Hobby) quand
         // le lieu consulté est à proximité — source Weather Underground PWS, pas Open-Meteo.
         // Obfuscation légère (XOR + base64) de la clé API Weather Underground : ce n'est PAS un
         // vrai chiffrement — le fichier étant autonome et exécuté entièrement côté navigateur, la
@@ -3958,7 +4116,7 @@
             maxDistanceKm: 10
         };
         let nearbyStationInRange = false; // recalculé à chaque changement de lieu (voir fetchWeather)
-        let nearbyStationLoaded = false;  // chargée une seule fois par lieu, à la première activation de l'onglet Hobby
+        let nearbyStationLoaded = false;  // chargée une seule fois par lieu, à la première activation de l'onglet Nature (ex-Hobby)
         let synopStationLoaded = false;  // idem pour le relevé SYNOP le plus proche (même carte, même onglet)
         let gridCenterLat = null;
         let gridCenterLon = null;
@@ -4359,9 +4517,13 @@
 
         // Onglets masqués en mode Simple : ne restent visibles que Général (page d'accueil,
         // toujours là), Neige/Ski (réduit à un seul encart, voir data-simple-keep) et Trajet
-        // (usage ponctuel, sans jargon). Loisir, Hobby et Eau sont jugés trop spécialisés pour
+        // (usage ponctuel, sans jargon). Loisir et Eau/Jardinage sont jugés trop spécialisés pour
         // un premier niveau de lecture — réaffichés intégralement en mode Expert.
-        const SIMPLE_MODE_HIDDEN_TABS = ['leisure', 'astrogarden', 'eau'];
+        // Fusion du 09/09/2026 : l'ex-onglet "Hobby" (astrogarden) a été scindé — Astronomie a
+        // rejoint l'onglet Général (voir #astro-card), le reste (Jardinage) a fusionné avec Eau
+        // sous le même identifiant technique "eau", qui portait déjà toute la logique de
+        // chargement différé (voir setGroup() ci-dessous).
+        const SIMPLE_MODE_HIDDEN_TABS = ['leisure', 'eau'];
 
         // Ré-applique le filtre data-groups/data-level pour l'onglet courant (sans le changer, sauf
         // si cet onglet vient justement d'être masqué par le mode Simple — voir ci-dessous) et
@@ -4414,6 +4576,7 @@
             setGroup('general');
             applyDisplayMode();
             updateMicroClimateToggleUI();
+            initCollapsibleCards();
             favorites = loadFavorites();
             loadDefaultLocation();
             setTimeout(updateMoonPhase, 800);
@@ -4960,12 +5123,28 @@
             }
         }
 
+        // Onglets où le bandeau hero ("Votre météo, maintenant") cède sa place à "Explorer la
+        // journée" tout en haut de page — trop redondant avec le contenu spécifique de ces onglets
+        // (radar/neige pour Ski, itinéraire pour Trajet, plage/webcam pour Loisir). Le bandeau
+        // vigilance reste lui toujours affiché partout (info de sécurité). Voir setGroup() ci-dessous.
+        const HERO_HIDDEN_TABS = ['ski', 'trajet', 'leisure', 'eau'];
+        // Onglets où le carrousel "Explorer la journée" lui-même s'efface en plus du hero (demande du
+        // 09/09/2026) : seul Nature (eau) pour l'instant — les prévisions jour par jour n'y ont pas
+        // d'usage évident (contenu orienté climatologie/relevés temps réel, pas prévision au jour le
+        // jour), contrairement à Ski/Trajet/Loisir qui gardent le carrousel pour choisir leur jour.
+        const CAROUSEL_HIDDEN_TABS = ['eau'];
+
         function setGroup(group) {
             currentGroup = group;
 
             document.querySelectorAll('.group-tab').forEach(tab => {
                 tab.classList.toggle('active', tab.dataset.group === group);
             });
+
+            const heroBanner = document.getElementById('hero-banner');
+            if (heroBanner) heroBanner.style.display = HERO_HIDDEN_TABS.includes(group) ? 'none' : '';
+            const exploreDaySection = document.getElementById('explore-day-section');
+            if (exploreDaySection) exploreDaySection.style.display = CAROUSEL_HIDDEN_TABS.includes(group) ? 'none' : '';
 
             // Affiche/masque les encarts rattachés à un groupe (attribut data-groups, liste
             // séparée par des virgules pour les encarts partagés entre deux groupes). Un encart
@@ -5010,27 +5189,30 @@
                 hydroDataLoaded = true;
                 loadHydroCard(currentLat, currentLon).catch(() => {});
             }
-            if (group === 'astrogarden' && !nearbyStationLoaded && nearbyStationInRange && currentLat !== null) {
+            // Fusion Eau + Jardinage du 09/09/2026 : ces 4 chargements (autrefois gatés sur l'ex-onglet
+            // "astrogarden") tournent désormais sur le même identifiant de groupe "eau" que le reste de
+            // l'onglet fusionné — Astronomie, elle, est partie sur "general" (voir plus bas).
+            if (group === 'eau' && !nearbyStationLoaded && nearbyStationInRange && currentLat !== null) {
                 nearbyStationLoaded = true;
                 loadNearbyStation();
             }
-            if (group === 'astrogarden' && !synopStationLoaded && currentLat !== null) {
+            if (group === 'eau' && !synopStationLoaded && currentLat !== null) {
                 synopStationLoaded = true;
                 loadSynopStation(currentLat, currentLon).catch(() => {});
             }
-            if (group === 'astrogarden' && !plantationLoaded && currentLat !== null) {
+            if (group === 'eau' && !plantationLoaded && currentLat !== null) {
                 plantationLoaded = true;
                 document.getElementById('plant-temp-note').innerText = 'Chargement des moyennes historiques...';
                 loadPlantationTempChart(currentLat, currentLon).catch(() => {});
             }
-            if (group === 'astrogarden' && !waterBalanceLoaded && currentLat !== null) {
+            if (group === 'eau' && !waterBalanceLoaded && currentLat !== null) {
                 waterBalanceLoaded = true;
                 document.getElementById('water-balance-note').innerText = 'Chargement des données de pluie et d\'évapotranspiration...';
                 loadWaterBalance(currentLat, currentLon).catch(() => {
                     document.getElementById('water-balance-note').innerText = 'Données indisponibles pour le moment.';
                 });
             }
-            if (group === 'astrogarden' && !heatingLoaded && currentLat !== null) {
+            if (group === 'eau' && !heatingLoaded && currentLat !== null) {
                 heatingLoaded = true;
                 document.getElementById('heating-note').innerText = 'Chargement de la climatologie locale...';
                 loadHeatingSeasonEstimate(currentLat, currentLon).catch(() => {
@@ -5042,7 +5224,10 @@
                 document.getElementById('seasonal-trends-note').innerText = 'Chargement des moyennes historiques...';
                 loadSeasonalTrends(currentLat, currentLon).catch(() => {});
             }
-            if (group === 'astrogarden' && weatherData) {
+            // Astronomie a rejoint l'onglet Général le 09/09/2026 (voir #astro-card) : recalculé dès
+            // que cet onglet est actif (c'est l'onglet par défaut à l'ouverture de l'app, voir
+            // setGroup('general') dans DOMContentLoaded) plutôt que seulement sur l'ex-onglet Hobby.
+            if (group === 'general' && weatherData) {
                 renderAstroNightsRanking();
             }
 
@@ -5057,16 +5242,16 @@
                 if (group === 'ski' && pressureChart) pressureChart.resize();
                 if (group === 'ski' && snowLimitChart) snowLimitChart.resize();
                 if (group === 'ski' && skiCompareChart) skiCompareChart.resize();
-                if (group === 'astrogarden' && astroChart) astroChart.resize();
-                if (group === 'astrogarden' && plantTempChart) plantTempChart.resize();
-                if (group === 'astrogarden' && heatingChart) heatingChart.resize();
-                if (group === 'astrogarden' && waterBalanceChart) waterBalanceChart.resize();
+                if (group === 'eau' && plantTempChart) plantTempChart.resize();
+                if (group === 'eau' && heatingChart) heatingChart.resize();
+                if (group === 'eau' && waterBalanceChart) waterBalanceChart.resize();
                 if (group === 'eau' && hydroChart) hydroChart.resize();
                 if (group === 'eau' && tempEauChart) tempEauChart.resize();
                 if (group === 'eau' && nappesChart) nappesChart.resize();
                 if (group === 'general') {
                     if (weatherChart) weatherChart.resize();
                     if (pollenChart) pollenChart.resize();
+                    if (astroChart) astroChart.resize();
                     if (seasonalTrendsChart) seasonalTrendsChart.resize();
                 }
             }, 60);
@@ -5530,8 +5715,8 @@
                     loadSeasonalTrends(lat, lon).catch(() => {});
                 }
                 // Station météo à proximité (Tencin) : visible seulement si le lieu consulté est à
-                // moins de NEARBY_STATION.maxDistanceKm ; rechargée seulement si l'onglet Hobby est
-                // déjà actif (même logique de chargement différé que Été/Hiver et Eau ci-dessus).
+                // moins de NEARBY_STATION.maxDistanceKm ; rechargée seulement si l'onglet Eau/Jardinage
+                // est déjà actif (même logique de chargement différé que Été/Hiver et Eau ci-dessus).
                 nearbyStationInRange = calculateDistance(lat, lon, NEARBY_STATION.lat, NEARBY_STATION.lon) <= NEARBY_STATION.maxDistanceKm;
                 document.getElementById('nearby-station-card').style.display = nearbyStationInRange ? '' : 'none';
                 if (nearbyStationInRange) {
@@ -5539,17 +5724,18 @@
                     document.getElementById('nearby-station-error').style.display = 'none';
                     document.getElementById('nearby-station-content').style.display = 'none';
                 }
-                nearbyStationLoaded = (currentGroup === 'astrogarden' && nearbyStationInRange);
+                nearbyStationLoaded = (currentGroup === 'eau' && nearbyStationInRange);
                 if (nearbyStationLoaded) loadNearbyStation();
                 // Relevé officiel SYNOP le plus proche : même carte/onglet que la station Tencin
-                // ci-dessus (fusionnées dans la même zone en bas de l'onglet Astronomie), mais pas
-                // de condition de distance ici — le relevé le plus proche est toujours recherché,
-                // même lointain (avertissement géré dans loadSynopStation() lui-même).
-                synopStationLoaded = (currentGroup === 'astrogarden');
+                // ci-dessus (fusionnées dans la même zone), mais pas de condition de distance ici — le
+                // relevé le plus proche est toujours recherché, même lointain (avertissement géré dans
+                // loadSynopStation() lui-même).
+                synopStationLoaded = (currentGroup === 'eau');
                 if (synopStationLoaded) loadSynopStation(lat, lon).catch(() => {});
                 // Classement des meilleures nuits : purement calculé (pas d'appel réseau), donc
-                // recalculé immédiatement si l'onglet Astronomie est déjà actif au changement de lieu.
-                if (currentGroup === 'astrogarden') renderAstroNightsRanking();
+                // recalculé immédiatement si l'onglet Général (qui héberge désormais Astronomie, voir
+                // #astro-card) est déjà actif au changement de lieu.
+                if (currentGroup === 'general') renderAstroNightsRanking();
                 // Réinitialiser la grille de prévisions si on change de position
                 if (forecastGridLayer) {
                     map.removeLayer(forecastGridLayer);
@@ -8149,44 +8335,39 @@
                 : `${dayStr} ${timeStr} · aucun risque détecté`;
         }
 
-        // ---- Risque de foudre heure par heure pour AUJOURD'HUI et DEMAIN (encart "Effets locaux") ----
-        // Fonctionnalité TOUJOURS active, indépendante du toggle micro-climat : dès qu'Open-Meteo
-        // prévoit un code météo orage (95/96/99, WMO) à un moment de la journée pour aujourd'hui ou
-        // demain, on relance l'algo LPI (même source que le calque radar "Foudre" ci-dessus, ICON-D2)
-        // sur ce point précis (un seul lieu à renseigner, pas de grille comme pour le radar) pour
-        // obtenir un risque heure par heure sur toute la journée concernée — plus informatif qu'un
-        // simple pictogramme "orage" ponctuel.
+        // ---- Risque de foudre heure par heure pour AUJOURD'HUI et DEMAIN (encart "Effets locaux" +
+        // badge sur le pictogramme "Votre météo, maintenant") ----
+        // Fonctionnalité TOUJOURS active, indépendante du toggle micro-climat, et SYSTÉMATIQUE : on
+        // relance l'algo LPI (même source que le calque radar "Foudre" ci-dessus, ICON-D2) sur ce point
+        // précis (un seul lieu à renseigner, pas de grille comme pour le radar) pour aujourd'hui et
+        // demain à CHAQUE nouveau lieu — qu'un orage soit ou non déjà annoncé par le code météo
+        // catégoriel (95/96/99) du modèle général. Le LPI est un signal plus fin que ce code (il peut
+        // détecter un potentiel convectif que le code météo du modèle "best match" ne reflète pas
+        // encore), d'où l'intérêt de ne plus le conditionner à ce code.
         //
         // Volontairement borné à J+0/J+1 : lightning_potential n'existe que dans ICON-D2, dont
-        // l'horizon réel est ~48h — au-delà, la donnée n'existe pas et on ne l'invente pas. Un jour
-        // orageux à J+2 ou plus loin n'affiche donc simplement rien de plus ici (pas de message
-        // d'erreur, pas de faux "aucun risque" : l'info n'existe que pour J+0/J+1).
-        const STORM_WEATHER_CODES = [95, 96, 99];
-        let stormRiskDays = { 0: null, 1: null }; // { [dayIdx]: [{ h, time, lpi }] | null } — null = pas de journée orageuse détectée (ou pas encore chargé/indisponible)
+        // l'horizon réel est ~48h — au-delà, la donnée n'existe pas et on ne l'invente pas.
+        let stormRiskDays = { 0: null, 1: null }; // { [dayIdx]: [{ h, time, lpi }] | null } — null = pas encore chargé, ou indisponible pour ce jour/lieu
         let stormRiskFetchToken = 0;
 
-        function dayHasStormForecast(dayIdx) {
-            if (!weatherData || !weatherData.hourly || !weatherData.hourly.weather_code) return false;
-            const start = dayIdx * 24;
-            const codes = weatherData.hourly.weather_code.slice(start, start + 24);
-            return codes.some(c => STORM_WEATHER_CODES.includes(c));
+        // Heure du jour représentée par le bandeau "Votre météo, maintenant" pour un dayIdx donné :
+        // l'heure réelle actuelle pour aujourd'hui (dayIdx 0), ou midi par convention pour demain
+        // (dayIdx 1) — même logique que celle déjà utilisée dans updateDayView() pour currentHourIdx.
+        function stormRiskHourOfDay(dayIdx) {
+            return dayIdx === 0 ? new Date().getHours() : 12;
         }
 
-        // Charge le LPI heure par heure pour aujourd'hui/demain, SEULEMENT si l'un de ces deux jours a
-        // un code météo orage prévu (sinon aucun appel réseau : pas la peine d'interroger ICON-D2 par
-        // pur principe un jour calme). Appelée depuis fetchWeather() à chaque nouveau lieu.
+        // Charge le LPI heure par heure pour aujourd'hui et demain, systématiquement, à chaque nouveau
+        // lieu. Appelée depuis fetchWeather().
         async function loadStormRiskForLocation(lat, lon) {
             const myToken = ++stormRiskFetchToken;
             stormRiskDays = { 0: null, 1: null };
-            renderStormRiskRow(selectedDayIndex); // masque immédiatement une éventuelle frise de l'ancien lieu
-
-            const stormyDays = [0, 1].filter(dayHasStormForecast);
-            if (stormyDays.length === 0) return;
+            refreshStormRiskUI(selectedDayIndex); // masque immédiatement une éventuelle donnée de l'ancien lieu
 
             try {
                 // models=icon_d2 forcé et hourly=lightning_potential (pas minutely_15 ici) : on veut un
-                // point par heure sur toute la journée, comme demandé, pas un pas plus fin sur un
-                // horizon court (voir la fonction Foudre/Trajet plus haut pour ces autres granularités).
+                // point par heure sur toute la journée, pas un pas plus fin sur un horizon court (voir
+                // la fonction Foudre/Trajet plus haut pour ces autres granularités).
                 const url = `https://api.open-meteo.com/v1/dwd-icon?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&hourly=lightning_potential&models=icon_d2&timezone=auto&forecast_days=2`;
                 const res = await fetchWithTimeout(url, { timeout: 12000 });
                 if (myToken !== stormRiskFetchToken) return; // lieu changé entre-temps
@@ -8195,7 +8376,7 @@
                 const lpiTimes = (data.hourly && data.hourly.time) || [];
                 const lpiValues = (data.hourly && data.hourly.lightning_potential) || [];
 
-                stormyDays.forEach(dayIdx => {
+                [0, 1].forEach(dayIdx => {
                     const start = dayIdx * 24;
                     const hours = [];
                     for (let h = 0; h < 24; h++) {
@@ -8205,24 +8386,35 @@
                         hours.push({ h, time: targetTime, lpi });
                     }
                     // Si aucune valeur numérique n'a pu être trouvée pour ce jour (hors couverture
-                    // ICON-D2, ou horizon de la requête insuffisant), on ne l'affiche pas plutôt que
-                    // d'afficher une frise entièrement vide et trompeuse.
+                    // ICON-D2, ou horizon de la requête insuffisant), on laisse null plutôt que
+                    // d'afficher/utiliser une donnée entièrement vide et trompeuse.
                     stormRiskDays[dayIdx] = hours.some(x => typeof x.lpi === 'number') ? hours : null;
                 });
             } catch (e) {
                 if (myToken !== stormRiskFetchToken) return;
                 stormRiskDays = { 0: null, 1: null }; // indisponible : pas d'affichage plutôt qu'une donnée inventée
             }
-            renderStormRiskRow(selectedDayIndex);
+            refreshStormRiskUI(selectedDayIndex);
+        }
+
+        // Rafraîchit les DEUX affichages qui dépendent de stormRiskDays pour le jour donné : la frise
+        // horaire de l'encart "Effets locaux" et le badge éclair du pictogramme "Votre météo,
+        // maintenant". Purement local (aucun appel réseau) : appelée à chaque changement de jour (voir
+        // updateDayView()) et à la fin de loadStormRiskForLocation().
+        function refreshStormRiskUI(dayIdx) {
+            renderStormRiskRow(dayIdx);
+            updateHeroLightningBadge(dayIdx);
         }
 
         // Affiche (ou masque) la frise horaire de risque de foudre pour le jour actuellement affiché.
-        // Purement local (aucun appel réseau) : rappelée à chaque changement de jour, voir updateDayView().
+        // Ne s'affiche que si au moins une heure de la journée dépasse réellement le seuil
+        // LIGHTNING_MIN_LPI (sinon une frise entièrement grise n'apporterait rien).
         function renderStormRiskRow(dayIdx) {
             const box = document.getElementById('local-effects-lightning');
             const frise = document.getElementById('storm-risk-frise');
             const hours = (dayIdx === 0 || dayIdx === 1) ? stormRiskDays[dayIdx] : null;
-            if (!hours) {
+            const hasRisk = hours && hours.some(x => typeof x.lpi === 'number' && x.lpi >= LIGHTNING_MIN_LPI);
+            if (!hasRisk) {
                 box.style.display = 'none';
                 frise.innerHTML = '';
                 return;
@@ -8241,6 +8433,23 @@
                 return `<div class="storm-risk-dot" style="background:${color};" title="${timeLabel} : ${Math.round(pt.lpi)} J/kg"></div>`;
             }).join('');
             box.style.display = 'block';
+        }
+
+        // Affiche (ou masque) le petit badge éclair en haut à gauche du pictogramme météo du bandeau
+        // "Votre météo, maintenant", selon le risque LPI à l'heure que ce bandeau représente
+        // actuellement (voir stormRiskHourOfDay). Purement local, aucun appel réseau.
+        function updateHeroLightningBadge(dayIdx) {
+            const el = document.getElementById('hero-lightning-badge');
+            if (!el) return;
+            const hours = (dayIdx === 0 || dayIdx === 1) ? stormRiskDays[dayIdx] : null;
+            const pt = hours ? hours[stormRiskHourOfDay(dayIdx)] : null;
+            if (pt && typeof pt.lpi === 'number' && pt.lpi >= LIGHTNING_MIN_LPI) {
+                el.style.background = lightningColorFor(pt.lpi);
+                el.title = `Risque de foudre à cette heure : ${Math.round(pt.lpi)} J/kg (indice LPI, DWD ICON-D2)`;
+                el.style.display = 'flex';
+            } else {
+                el.style.display = 'none';
+            }
         }
 
         function interpolateHourlyData(times, values, targetTime) {
@@ -8786,9 +8995,10 @@
             // relit simplement les signaux déjà en cache pour ce lieu — donc l'appeler à chaque
             // changement de jour est sans coût perceptible.
             renderLocalEffectsPanel(dayIdx);
-            // Risque de foudre heure par heure (voir loadStormRiskForLocation) : purement local, pas
-            // d'appel réseau ici, seulement l'affichage/masquage selon le jour désormais sélectionné.
-            renderStormRiskRow(dayIdx);
+            // Risque de foudre heure par heure (voir loadStormRiskForLocation) + badge éclair du
+            // pictogramme "maintenant" : purement local, pas d'appel réseau ici, seulement
+            // l'affichage/masquage selon le jour désormais sélectionné.
+            refreshStormRiskUI(dayIdx);
             // Corrigé le 07/09/2026 : le tableau des marées (renderMarineTable) n'était appelé qu'une
             // seule fois, au chargement initial de la plage (loadMarineDataForBeach), jamais depuis
             // ce changement de jour — il restait donc figé sur le jour de la première sélection quel
@@ -9360,7 +9570,7 @@
         }
 
         // ============================================================================
-        // CLASSEMENT DES MEILLEURES NUITS D'OBSERVATION (onglet Hobby/Astronomie) — 05/09/2026
+        // CLASSEMENT DES MEILLEURES NUITS D'OBSERVATION (onglet Général, ex-Hobby — voir #astro-card) — 05/09/2026
         // ============================================================================
         // Aucune donnée nouvelle : reprend, pour CHAQUE nuit des 16 jours de prévision, exactement
         // les mêmes ingrédients que le graphique Astronomie ci-dessus (nébulosité horaire, seeing
@@ -11807,7 +12017,7 @@ function updatePressureChart(dayIdx) {
         }
 
         // ============================================================================
-        // BILAN HYDRIQUE DU JARDIN (onglet Hobby/Jardinage) — 05/09/2026
+        // BILAN HYDRIQUE DU JARDIN (onglet Nature, ex-Hobby) — 05/09/2026
         // ============================================================================
         // Compare la pluie prévue au cumul d'évapotranspiration de référence (ET0, formule FAO
         // Penman-Monteith fournie directement par Open-Meteo) sur les 16 jours de prévision.
