@@ -1219,6 +1219,15 @@
             gap: 8px;
         }
         .storm-proximity-box i { color: #ef4444; }
+        /* Palier "veille" (orange) : orage détecté au-delà du rayon de danger immédiat, ou plus
+           loin mais dont la trajectoire projetée croise la position dans l'horizon d'alerte.
+           Volontairement moins alarmant que le rouge, qui reste réservé au danger immédiat. */
+        .storm-proximity-box.level-watch {
+            background: rgba(245, 124, 0, 0.10);
+            border-color: rgba(245, 124, 0, 0.35);
+            color: #b45309;
+        }
+        .storm-proximity-box.level-watch i { color: #f57c00; }
         .heating-forecast-note {
             font-size: 0.68rem;
             color: var(--text-muted);
@@ -2390,10 +2399,13 @@
             </div>
             <div class="card-sage-sub" id="evo-chart-cumul" style="margin-top: 4px; font-size: 0.65rem;"></div>
             <div class="card-sage-sub" id="evo-chart-footnote" style="margin-top: 6px; font-size: 0.65rem;">Actualisé automatiquement toutes les 5 minutes. Les contours superposés montrent la prévision</div>
-            <!-- Suivi de proximité d'orage : visible uniquement si une cellule orageuse (grêle
-                 incluse) est suivie à moins de STORM_PROXIMITY_KM de la position — voir
-                 updateStormProximityBox(), appelée depuis loadEvoMetehop(). Actualisation accélérée
-                 à 1 minute tant qu'un orage proche est suivi (voir scheduleRadarRefresh()). -->
+            <!-- Suivi de proximité d'orage, trois paliers (voir updateStormProximityBox(), appelée
+                 depuis loadEvoMetehop()) : rouge si une cellule orageuse (grêle incluse) est suivie
+                 à moins de STORM_PROXIMITY_KM ; orange si elle est entre STORM_PROXIMITY_KM et
+                 STORM_WATCH_KM, ou si sa trajectoire projetée la fait arriver sur le lieu dans
+                 moins de STORM_WATCH_ETA_MIN, quelle que soit sa distance actuelle. Actualisation
+                 accélérée à 1 minute sur le palier rouge et sur les approches à moins de
+                 STORM_FAST_REFRESH_ETA_MIN (voir scheduleRadarRefresh()). -->
             <div class="storm-proximity-box" id="storm-proximity-box" style="display:none;">
                 <i class="fa-solid fa-bolt"></i>
                 <span id="storm-proximity-text">--</span>
@@ -3547,7 +3559,7 @@
             <div class="footer-support-row">
                 <a class="footer-support-link" href="https://buymeacoffee.com/stridemetric" target="_blank" rel="noopener">🐸 Aide-moi à nourrir la grenouille Metehop</a>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 07/09/2026 - 85</div>
+            <div class="footer-last-update">Dernière mise à jour : 09/09/2026 - 93</div>
         </footer>
 
     </div>
@@ -4135,6 +4147,20 @@
         // Rayon en deçà duquel une cellule orageuse (ou grêle) suivie déclenche l'encart et le
         // passage à une actualisation accélérée (1 min au lieu de 5 min habituelles).
         const STORM_PROXIMITY_KM = 15;
+        // ---- Paliers ajoutés au seuil de danger ci-dessus ----
+        // 15km reste le rayon de DANGER (bandeau rouge) : c'est l'ordre de grandeur de la zone de
+        // risque foudre autour d'une cellule (règle des 30/30 : tonnerre entendu moins de 30s après
+        // l'éclair = coeur orageux à ~10km, mise à l'abri ; impacts documentés jusqu'à 15-25km mais
+        // rares). Le descendre n'apporterait rien, le monter diluerait l'alerte.
+        // Au-delà, un seuil de distance SEUL n'a plus de sens : une cellule orageuse stationnaire à
+        // 30km ne concerne pas le lieu, alors qu'une cellule à 60km fonçant droit dessus à 70km/h
+        // le concerne dans 50 minutes. La portée utile s'étend donc par la TRAJECTOIRE (déjà
+        // calculée : vx/vy et etaMinutes sortent de projectTrackToBins) et non par la distance,
+        // avec un horizon d'alerte borné à 45 min — au-delà, l'extrapolation linéaire à vitesse
+        // constante perd trop de valeur pour qu'un avertissement soit honnête.
+        const STORM_WATCH_KM = 25;          // palier orange par distance (orage à proximité)
+        const STORM_WATCH_ETA_MIN = 45;     // palier orange par trajectoire (orage en approche)
+        const STORM_FAST_REFRESH_ETA_MIN = 30; // rafraîchissement accéléré aussi en approche rapprochée
         const STORM_PROXIMITY_REFRESH_MS = 60 * 1000;
         let stormNearbyActive = false;
 
@@ -4150,21 +4176,47 @@
 
         // Met à jour l'encart de proximité d'orage et la cadence de rafraîchissement en conséquence.
         // distanceKm = null signifie "aucun orage suivi" (encart masqué, cadence normale rétablie).
-        function updateStormProximityBox(distanceKm) {
+        // approach (facultatif) : { etaMinutes, distanceKm, speedKmh } de la cellule ORAGEUSE dont
+        // la trajectoire projetée croise le lieu le plus tôt. Permet d'avertir d'un orage encore
+        // lointain mais qui arrive, ce qu'un seuil de distance seul ne sait pas faire.
+        function updateStormProximityBox(distanceKm, approach) {
             const box = document.getElementById('storm-proximity-box');
             const text = document.getElementById('storm-proximity-text');
-            const nearby = typeof distanceKm === 'number' && distanceKm <= STORM_PROXIMITY_KM;
-            if (nearby) {
-                text.innerText = distanceKm <= 0.5
+            const d = typeof distanceKm === 'number' ? distanceKm : null;
+            const eta = approach && typeof approach.etaMinutes === 'number' ? approach.etaMinutes : null;
+
+            let level = null, message = '';
+            if (d !== null && d <= STORM_PROXIMITY_KM) {
+                level = 'danger';
+                message = d <= 0.5
                     ? "Orage actuellement sur votre position."
-                    : `Orage détecté à ~${distanceKm}km de votre position.`;
+                    : `Orage détecté à ~${d}km de votre position.`;
+            } else if (d !== null && d <= STORM_WATCH_KM) {
+                level = 'watch';
+                message = `Orage à proximité, à ~${d}km de votre position.`;
+            } else if (eta !== null && eta <= STORM_WATCH_ETA_MIN) {
+                level = 'watch';
+                const dTxt = typeof approach.distanceKm === 'number' ? ` à ~${approach.distanceKm}km` : '';
+                const sTxt = approach.speedKmh ? ` (~${approach.speedKmh} km/h)` : '';
+                message = `Orage${dTxt}${sTxt} se dirigeant vers votre position, arrivée estimée dans ~${Math.round(eta)} min.`;
+            }
+
+            if (level) {
+                text.innerText = message;
+                box.classList.toggle('level-watch', level === 'watch');
                 box.style.display = 'flex';
             } else {
+                box.classList.remove('level-watch');
                 box.style.display = 'none';
             }
-            if (nearby !== stormNearbyActive) {
-                stormNearbyActive = nearby;
-                scheduleRadarRefresh(nearby ? STORM_PROXIMITY_REFRESH_MS : 5 * 60 * 1000);
+
+            // Rafraîchissement accéléré : sur le danger immédiat comme avant, et désormais aussi
+            // quand un orage est projeté sur le lieu à courte échéance — c'est précisément le
+            // moment où une image radar de plus change quelque chose.
+            const fast = level === 'danger' || (eta !== null && eta <= STORM_FAST_REFRESH_ETA_MIN);
+            if (fast !== stormNearbyActive) {
+                stormNearbyActive = fast;
+                scheduleRadarRefresh(fast ? STORM_PROXIMITY_REFRESH_MS : 5 * 60 * 1000);
             }
         }
 
@@ -7119,6 +7171,21 @@
         const HAIL_MIN_AREA_KM2 = 1; // une cellule doit couvrir au moins 1km² pour être classée "grêle"
         const MIN_CELL_PIXELS = 12; // taille minimale (en pixels basse résolution zoom 6) pour qu'une cellule soit suivie
 
+        // ---- Centroïde pondéré par la réflectivité (au lieu du centroïde géométrique) ----
+        // Le centroïde géométrique (moyenne non pondérée de TOUS les pixels pluvieux connectés)
+        // suit l'enveloppe de la cellule, pas son coeur actif : sur une cellule en arc ou en
+        // croissant il peut tomber sur un pixel sec, et il se déplace au gré des déformations du
+        // contour plutôt qu'avec le système lui-même (d'où un R2 de trajectoire dégradé sans que
+        // le mouvement réel soit erratique). On pondère donc chaque pixel par son intensité.
+        // Le poids retenu est (dBZ - plancher)^2 et NON la réflectivité linéaire Z = 10^(dBZ/10) :
+        // Z couvre plus de 6 ordres de grandeur entre un echo faible et un echo extreme, le
+        // centroïde s'effondrerait sur le pixel le plus chaud et sauterait d'une image à l'autre —
+        // exactement l'instabilité qu'on cherche à supprimer. Avec l'exposant 2, un pixel à 45 dBZ
+        // pèse ~12 fois un pixel à 20 dBZ : le point est nettement tiré vers le coeur sans jamais
+        // s'y réduire. Ces deux valeurs sont les seuls réglages de ce comportement.
+        const CENTROID_DBZ_FLOOR = 10;
+        const CENTROID_WEIGHT_EXP = 2;
+
         // Table RGB -> dBZ officielle du barème RainViewer "Universal Blue" (celui utilisé par
         // cette app), copiée telle quelle depuis le CSV publié par RainViewer
         // (rainviewer.com/files/rainviewer_api_colors_table.csv, colonne "Universal Blue", table
@@ -7270,9 +7337,16 @@
         // de TOUS les pixels pluvieux connectés, faible intensité incluse) n'a aucune raison de
         // tomber sur le cœur orageux d'une cellule étendue et hétérogène ; c'est ce pic, pas le
         // centroïde, qui doit décider si "cette cellule contient un orage".
-        function identifyRainCells(imgData, cx, cy, radiusPx) {
+        // buildLabels : si vrai, construit en plus une carte d'étiquettes (Int32Array 768x768,
+        // -1 = pas de cellule, sinon l'indice de la cellule dans le tableau renvoyé). Elle permet
+        // de tester en O(1) si un pixel donné appartient à UNE cellule précise, ce qui remplace
+        // l'approximation "cellule = disque de même surface" utilisée jusqu'ici pour décider si la
+        // pluie tombe sur la position suivie (voir projectTrackToBins). Coût : 2,4 Mo par image —
+        // on ne la construit donc que pour la dernière image radar, la seule à être projetée.
+        function identifyRainCells(imgData, cx, cy, radiusPx, buildLabels) {
             const { data } = imgData;
             const visited = new Uint8Array(768 * 768);
+            const labels = buildLabels ? new Int32Array(768 * 768).fill(-1) : null;
             const cells = [];
             const minX = Math.max(0, Math.floor(cx - radiusPx)), maxX = Math.min(768, Math.ceil(cx + radiusPx));
             const minY = Math.max(0, Math.floor(cy - radiusPx)), maxY = Math.min(768, Math.ceil(cy + radiusPx));
@@ -7290,6 +7364,8 @@
                     const stack = [[sx, sy]];
                     visited[key] = 1;
                     let sumX = 0, sumY = 0, count = 0, maxAlpha = 0, sumDbz = 0;
+                    let sumW = 0, sumWX = 0, sumWY = 0; // centroïde pondéré par l'intensité
+                    const compKeys = buildLabels ? [] : null; // pixels de cette composante, pour l'étiquetage
                     let minPx = sx, maxPx = sx, minPy = sy, maxPy = sy;
                     let peakDbz = -Infinity, peakR = 0, peakG = 0, peakB = 0, peakAlpha = 0;
                     while (stack.length) {
@@ -7297,11 +7373,14 @@
                         const idx = (y * 768 + x) * 4;
                         const a = data[idx + 3];
                         sumX += x; sumY += y; count++;
+                        if (compKeys) compKeys.push(y * 768 + x);
                         if (x < minPx) minPx = x; if (x > maxPx) maxPx = x;
                         if (y < minPy) minPy = y; if (y > maxPy) maxPy = y;
                         if (a > maxAlpha) maxAlpha = a;
                         const dbz = estimateDbzFromRgb(data[idx], data[idx + 1], data[idx + 2]);
                         sumDbz += dbz;
+                        const w = Math.pow(Math.max(0, dbz - CENTROID_DBZ_FLOOR), CENTROID_WEIGHT_EXP);
+                        sumW += w; sumWX += w * x; sumWY += w * y;
                         if (dbz > peakDbz) {
                             peakDbz = dbz;
                             peakR = data[idx]; peakG = data[idx + 1]; peakB = data[idx + 2]; peakAlpha = a;
@@ -7319,10 +7398,45 @@
                             stack.push([nx, ny]);
                         }
                     }
-                    if (count >= MIN_CELL_PIXELS) cells.push({ cx: sumX / count, cy: sumY / count, count, maxAlpha, peakR, peakG, peakB, peakAlpha, minPx, maxPx, minPy, maxPy, avgDbz: sumDbz / count });
+                    if (count >= MIN_CELL_PIXELS) {
+                        // Repli sur le centroïde géométrique si aucun pixel n'atteint le plancher
+                        // de pondération (cellule entièrement composée d'échos très faibles) : la
+                        // somme des poids serait nulle et le centroïde pondéré indéfini.
+                        const useWeighted = sumW > 0;
+                        const cellId = cells.length;
+                        if (compKeys) for (const k of compKeys) labels[k] = cellId;
+                        cells.push({
+                            cellId,
+                            cx: useWeighted ? sumWX / sumW : sumX / count,
+                            cy: useWeighted ? sumWY / sumW : sumY / count,
+                            count, maxAlpha, peakR, peakG, peakB, peakAlpha, minPx, maxPx, minPy, maxPy, avgDbz: sumDbz / count
+                        });
+                    }
                 }
             }
-            return cells;
+            return { cells, labels };
+        }
+
+        // Teste si le pixel (x, y), ou l'un de ses voisins dans un rayon de `tolPx` pixels,
+        // appartient à la cellule d'indice `cellId` de la carte d'étiquettes `labels`.
+        // La tolérance sert uniquement à modéliser la CROISSANCE d'une cellule : une cellule en
+        // développement couvrira, à l'échéance considérée, un peu plus que son emprise observée
+        // maintenant. Elle est nulle pour une cellule stable ou en dissipation (l'affaiblissement
+        // est déjà traité séparément par la rétrogradation d'intensité de projectTrackToBins).
+        function maskContainsCell(labels, cellId, x, y, tolPx) {
+            if (!labels || cellId === undefined || cellId === null) return false;
+            const r = Math.max(0, Math.min(6, Math.round(tolPx || 0)));
+            for (let dy = -r; dy <= r; dy++) {
+                const yy = y + dy;
+                if (yy < 0 || yy >= 768) continue;
+                for (let dx = -r; dx <= r; dx++) {
+                    const xx = x + dx;
+                    if (xx < 0 || xx >= 768) continue;
+                    if (dx * dx + dy * dy > r * r) continue;
+                    if (labels[yy * 768 + xx] === cellId) return true;
+                }
+            }
+            return false;
         }
 
         // Suit une cellule d'une image à l'autre, en remontant dans le temps, par correspondance au
@@ -7374,7 +7488,17 @@
         // correctement. Le vrai correctif est dans projectTrackToBins (coneHalfWidthPx) : une
         // incertitude forfaitaire pour les trajectoires courtes, pas une exclusion.
         const MULTI_CELL_MIN_PIXELS = 20;
-        function trackAllCellsBackward(cellFramesList, times, kmPerPixel, refCx, refCy) {
+        // Poids de gravité par type de précipitation, pour le score de menace ci-dessous. Une
+        // cellule "hail_candidate" n'est pas encore confirmée à ce stade (la vérification de
+        // surface coûte un appel réseau, faite plus tard dans projectTrackToBins) : on la traite
+        // au maximum de gravité pour la SÉLECTION, quitte à la rétrograder ensuite — mieux vaut
+        // suivre une cellule qui se révèle n'être qu'un orage que rater une cellule de grêle.
+        const CELL_SEVERITY_WEIGHT = { hail: 4, hail_candidate: 4, storm: 3, rain_heavy: 2, rain_light: 1, snow: 1, none: 0 };
+        // Plafond du facteur de taille dans le score : sans lui, une vaste zone stratiforme sans
+        // relief (des milliers de pixels à 20 dBZ) écraserait systématiquement une cellule
+        // orageuse compacte, qui est pourtant l'objet même de cette fonctionnalité.
+        const CELL_SIZE_SCORE_CAP = 6;
+        function trackAllCellsBackward(cellFramesList, times, kmPerPixel, refCx, refCy, isSnowMode, lastLabels) {
             const n = cellFramesList.length;
             const lastCells = cellFramesList[n - 1];
             if (!lastCells.length) return [];
@@ -7411,13 +7535,57 @@
                     }
                     const closestX = c.cx + vx * tClosest, closestY = c.cy + vy * tClosest;
                     const minDist = Math.hypot(closestX - refCx, closestY - refCy);
-                    return { track, projectedDist: minDist };
+
+                    // ---- Score de menace ----
+                    // La distance seule (ancien critère unique) classait trois averses
+                    // insignifiantes passant tout près devant une ligne orageuse massive croisant
+                    // le lieu un peu plus loin : ni l'intensité ni la taille n'entraient dans le
+                    // classement. Le score combine les quatre dimensions qui font qu'une cellule
+                    // mérite d'être suivie, chacune bornée pour qu'aucune ne puisse à elle seule
+                    // dominer les autres.
+                    // - gravité : le MAXIMUM entre l'intensité moyenne et celle du pic. Une grande
+                    //   cellule à la moyenne tiède mais au coeur à 50 dBZ est dangereuse par son
+                    //   coeur, pas par sa moyenne — c'est le cas des cellules difformes.
+                    // - taille : en racine carrée (une cellule 4 fois plus vaste ne dure pas
+                    //   4 fois plus longtemps au-dessus d'un point), et plafonnée.
+                    // - proximité : décroissance douce, rapportée au rayon propre de la cellule —
+                    //   passer à 20km d'une cellule de 5km de rayon n'a rien à voir avec passer à
+                    //   20km d'une cellule de 40km de rayon. Jamais nulle : une cellule qui rate
+                    //   le lieu de peu reste suivie, elle passe simplement après les autres.
+                    // - urgence : ce qui arrive dans 20 minutes prime sur ce qui arrive dans 3h.
+                    const cellRadiusPx = Math.sqrt(c.count / Math.PI);
+                    const avgType = classifyByDbz(c.avgDbz, dbzToRainRateMmH(c.avgDbz), isSnowMode).type;
+                    const peakType = classifyRadarPixel(c.peakR, c.peakG, c.peakB, c.peakAlpha, isSnowMode).type;
+                    const severity = Math.max(CELL_SEVERITY_WEIGHT[avgType] || 0, CELL_SEVERITY_WEIGHT[peakType] || 0);
+                    const sizeScore = Math.min(CELL_SIZE_SCORE_CAP, Math.sqrt(c.count / MULTI_CELL_MIN_PIXELS));
+                    const reachScore = 1 / (1 + minDist / (cellRadiusPx + 10 / kmPerPixel));
+                    const urgencyScore = 1 / (1 + tClosest / 90);
+                    const score = severity * sizeScore * reachScore * urgencyScore;
+                    return { track, projectedDist: minDist, score, cellId: c.cellId };
                 });
 
-            return candidates
-                .sort((a, b) => a.projectedDist - b.projectedDist)
-                .slice(0, MULTI_CELL_MAX)
-                .map(({ track }) => track);
+            const selected = candidates
+                .sort((a, b) => b.score - a.score)
+                .slice(0, MULTI_CELL_MAX);
+
+            // ---- Garantie : la cellule qui recouvre RÉELLEMENT le lieu est toujours suivie ----
+            // Sans cela, il restait possible qu'il pleuve sur la position sans qu'aucune des
+            // cellules retenues ne soit celle responsable de cette pluie : la sélection se fait sur
+            // la position du centre des cellules, or le centre d'un vaste système peut être à des
+            // dizaines de kilomètres alors que le lieu est sous l'une de ses branches. La carte
+            // d'étiquettes donne directement, en une lecture, la cellule qui contient le pixel du
+            // lieu ; si elle n'a pas été retenue, elle prend la place de la moins menaçante.
+            const hostId = lastLabels ? lastLabels[Math.round(refCy) * 768 + Math.round(refCx)] : -1;
+            if (hostId !== undefined && hostId >= 0 && !selected.some(s => s.cellId === hostId)) {
+                const hostCell = lastCells.find(c => c.cellId === hostId);
+                if (hostCell) {
+                    const hostTrack = linkCellBackward(cellFramesList, times, kmPerPixel, hostCell, n - 1);
+                    if (selected.length >= MULTI_CELL_MAX) selected.pop();
+                    selected.push({ track: hostTrack, projectedDist: 0, score: Infinity, cellId: hostId });
+                }
+            }
+
+            return selected.map(({ track }) => track);
         }
 
         // Régression linéaire simple (moindres carrés) : renvoie la pente, l'ordonnée à l'origine, et
@@ -7493,7 +7661,7 @@
         // Note : lastImg et radiusPx ne sont plus utilisés dans le corps de la fonction depuis le
         // passage à une projection basée sur la position propre de la cellule (voir plus bas) —
         // conservés dans la signature pour ne pas toucher au point d'appel.
-        async function projectTrackToBins(track, cx, cy, kmPerPixel, lastImg, radiusPx, isSnowMode, baseOffsetMin, tileX, tileY, zoom, lastFrame) {
+        async function projectTrackToBins(track, cx, cy, kmPerPixel, lastImg, radiusPx, isSnowMode, baseOffsetMin, tileX, tileY, zoom, lastFrame, lastLabels) {
             // ---- Proposition 6 (suite) : régression sur la position de la cellule suivie, plutôt
             // que différence entre les 2 dernières images uniquement. Le R² sert de mesure de
             // cohérence du mouvement pour la confiance (proposition 5). ----
@@ -7610,21 +7778,51 @@
                 const sizeFactor = Math.max(0.1, Math.min(2, 1 + areaTrendPerMin * t));
                 const radiusAtTPx = cellRadiusPx * Math.sqrt(sizeFactor);
 
+                // ---- Couverture : appartenance au masque advecté, et non plus au disque équivalent ----
+                // L'ancien test (distance du centre de la cellule à la cible <= rayon d'un disque
+                // de même surface) assimilait toute cellule à un disque centré sur son centroïde.
+                // Sur une cellule vaste, allongée ou en arc, ce disque ne recouvre pas du tout la
+                // même chose que la cellule réelle : on pouvait être physiquement SOUS la pluie et
+                // obtenir des tranches à 0 mm, parce que le centre de la cellule était plus loin
+                // que son rayon équivalent. Ce cas produisait le symptôme le plus visible du
+                // module : un résumé annonçant "précipitations déjà présentes sur votre position"
+                // au-dessus d'une courbe radar entièrement plate.
+                // Le mouvement étant supposé rigide (translation uniforme), le point de la cellule
+                // qui recouvre la cible à l'instant t est celui qui se trouvait en (cx - vx.t,
+                // cy - vy.t) sur la dernière image. On teste donc simplement si CE pixel appartient
+                // à CETTE cellule, sans aucune approximation de forme. À t proche de 0, ce point
+                // est la position elle-même : si le lieu est dans la cellule, la première tranche
+                // reflète nécessairement la pluie réellement observée sur place.
+                const srcX = Math.round(cx - vx * t);
+                const srcY = Math.round(cy - vy * t);
+                // Tolérance de croissance : une cellule en développement couvrira à l'échéance un
+                // peu plus que son emprise actuelle. Nulle si elle est stable ou se dissipe — la
+                // dissipation est déjà traitée par la rétrogradation d'intensité plus bas, l'éroder
+                // en plus reviendrait à la compter deux fois.
+                const growthTolPx = Math.max(0, cellRadiusPx * (Math.sqrt(Math.max(1, sizeFactor)) - 1));
+                const covered = lastLabels
+                    ? maskContainsCell(lastLabels, lastCell.cellId, srcX, srcY, growthTolPx)
+                    : distToTargetPx <= radiusAtTPx; // repli sur l'ancien modèle si le masque manque
+
                 let cls = { type: 'none', color: 'transparent', mmEquiv: 0 };
-                if (distToTargetPx <= radiusAtTPx) {
+                if (covered) {
                     // La cellule se déplace comme un bloc rigide (translation uniforme, sans
                     // rotation ni déformation autre que la dissipation globale) : le point de LA
                     // CELLULE qui recouvrira la cible au temps t est donc celui qui, sur la DERNIÈRE
                     // image observée, se trouvait en (cx - vx·t, cy - vy·t) — capture la vraie
                     // variation d'intensité en son sein (bord plus faible, cœur plus fort) plutôt
                     // qu'une seule valeur moyenne appliquée partout. Le point échantillonné est
-                    // vérifié comme appartenant bien à CETTE cellule (dans sa boîte englobante, avec
-                    // de la pluie effectivement présente) avant d'être utilisé, pour ne jamais
-                    // retomber sur une autre cellule sans rapport ; sinon repli sur baseCls.
-                    const srcX = Math.round(cx - vx * t);
-                    const srcY = Math.round(cy - vy * t);
+                    // vérifié comme appartenant bien à CETTE cellule avant d'être utilisé, pour ne
+                    // jamais retomber sur une autre cellule sans rapport ; sinon repli sur baseCls.
+                    // La vérification se fait désormais sur le masque exact (lastLabels) et non plus
+                    // sur la boîte englobante, très permissive pour une cellule allongée : le coin
+                    // d'une boîte englobante peut appartenir à une tout autre cellule.
+                    // srcX/srcY sont calculés plus haut (ils servent déjà au test de couverture).
                     let sampled = null;
-                    if (srcX >= lastCell.minPx && srcX <= lastCell.maxPx && srcY >= lastCell.minPy && srcY <= lastCell.maxPy) {
+                    const srcInsideCell = lastLabels
+                        ? (srcX >= 0 && srcX < 768 && srcY >= 0 && srcY < 768 && lastLabels[srcY * 768 + srcX] === lastCell.cellId)
+                        : (srcX >= lastCell.minPx && srcX <= lastCell.maxPx && srcY >= lastCell.minPy && srcY <= lastCell.maxPy);
+                    if (srcInsideCell) {
                         const idx = (srcY * 768 + srcX) * 4;
                         if (lastImg.data[idx + 3] > ALPHA_THRESHOLD) {
                             sampled = classifyRadarPixel(lastImg.data[idx], lastImg.data[idx + 1], lastImg.data[idx + 2], lastImg.data[idx + 3], isSnowMode);
@@ -7720,9 +7918,15 @@
                 // cellules retenues (jusqu'à MULTI_CELL_MAX) à travers les images — pour ne pas
                 // ignorer un second système pluvieux distinct qui approcherait par ailleurs (voir
                 // trackAllCellsBackward pour la sélection, loadEvoMetehop plus bas pour la fusion). ----
-                const cellFramesList = imageDatas.map(f => identifyRainCells(f.data, cx, cy, radiusPx));
+                // La carte d'étiquettes (masque des cellules) n'est construite que pour la DERNIÈRE
+                // image : c'est la seule qui soit projetée dans le futur, et chaque carte coûte
+                // 2,4 Mo — en construire cinq n'apporterait rien et pèserait inutilement sur les
+                // appareils modestes.
+                const cellFrames = imageDatas.map((f, i) => identifyRainCells(f.data, cx, cy, radiusPx, i === imageDatas.length - 1));
+                const cellFramesList = cellFrames.map(f => f.cells);
+                const lastLabels = cellFrames[cellFrames.length - 1].labels;
                 const times = imageDatas.map(f => f.time);
-                const tracks = trackAllCellsBackward(cellFramesList, times, kmPerPixel, cx, cy);
+                const tracks = trackAllCellsBackward(cellFramesList, times, kmPerPixel, cx, cy, isSnowMode, lastLabels);
 
                 // ---- Encart de proximité d'orage : calculé ICI, indépendamment du suivi de
                 // trajectoire multi-images ci-dessous (qui peut échouer — cellule qui vient d'entrer
@@ -7791,8 +7995,21 @@
                 // projectTrackToBins.
                 const results = [];
                 for (const track of tracks) {
-                    results.push(await projectTrackToBins(track, cx, cy, kmPerPixel, lastImg, radiusPx, isSnowMode, baseOffsetMin, tileX, tileY, zoom, lastFrame));
+                    results.push(await projectTrackToBins(track, cx, cy, kmPerPixel, lastImg, radiusPx, isSnowMode, baseOffsetMin, tileX, tileY, zoom, lastFrame, lastLabels));
                 }
+
+                // Second passage sur l'encart de proximité, maintenant que les trajectoires sont
+                // projetées : le premier appel plus haut ne connaissait que la distance (il reste
+                // nécessaire, c'est le seul qui s'exécute quand aucune trajectoire n'est
+                // exploitable). On y ajoute ici l'orage en approche le plus précoce.
+                const stormApproach = results
+                    .filter(r => (r.hasStorm || r.hasHail) && r.etaMinutes !== null)
+                    .sort((a, b) => a.etaMinutes - b.etaMinutes)[0];
+                updateStormProximityBox(nearestStormKm, stormApproach ? {
+                    etaMinutes: stormApproach.etaMinutes,
+                    distanceKm: stormApproach.distanceToStormKm,
+                    speedKmh: stormApproach.speedKmh
+                } : null);
 
                 if (results.length === 1) {
                     // ---- Mode simple (ou multi-cellules n'ayant retenu qu'une seule cellule
@@ -12583,9 +12800,26 @@ function updatePressureChart(dayIdx) {
 
         // Rafraîchit le radar (carte + graphique "Évolution 2h") et recalcule la trajectoire Météo
         // Go, tant que l'application reste ouverte — appelé toutes les 5 minutes.
+        // Horodatage de la dernière image radar RÉELLE sur laquelle une analyse Metehop a été
+        // faite, et lieu correspondant. Sert au garde-fou ci-dessous.
+        let lastEvoRadarTime = null;
+        let lastEvoLat = null, lastEvoLon = null;
         async function periodicRadarRefresh() {
             if (currentLat === null || currentLon === null) return;
             await refreshRadarFrames();
+            // RainViewer ne publie une nouvelle image passée que toutes les ~10 minutes. En cadence
+            // accélérée (1 min), relancer l'analyse à chaque tour reviendrait à refaire huit à neuf
+            // fois le même calcul sur exactement les mêmes images : cinq propagations de composantes
+            // connexes sur un disque de 170 pixels de rayon, plus la construction du masque. On ne
+            // relance donc que si une image réellement nouvelle est parue — ou si le lieu a changé
+            // depuis la dernière analyse, auquel cas les mêmes images doivent bien être réanalysées.
+            const pastFrames = radarTimestamps.slice(0, radarPastCount || radarTimestamps.length);
+            const latestTime = pastFrames.length ? pastFrames[pastFrames.length - 1].time : null;
+            const sameFrame = latestTime !== null && latestTime === lastEvoRadarTime;
+            const samePlace = currentLat === lastEvoLat && currentLon === lastEvoLon;
+            if (sameFrame && samePlace) return;
+            lastEvoRadarTime = latestTime;
+            lastEvoLat = currentLat; lastEvoLon = currentLon;
             loadEvoMetehop().catch(() => {});
         }
 
