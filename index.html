@@ -40,7 +40,6 @@
         "Radar de précipitations en direct",
         "Écarts à la normale saisonnière",
         "Vent réel Pioupiou/OpenWindMap à proximité (anémomètres amateurs)",
-         "Capteurs amateurs sensor.community à proximité (sélecteur ≤10 km)",
         "Onglet Ski : 181 stations, cumuls de neige 7 jours, comparateur multi-stations",
         "Limite pluie/neige et enneigement",
         "Onglet Loisir : température de l'eau, marées, stations balnéaires",
@@ -2392,13 +2391,6 @@
                                 <option value="multi">multi-noyaux</option>
                             </select>
                         </div>
-                        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;" title="Vent mesuré par corrélation d’images radar (TREC) : suit la déformation locale des cellules au lieu d’une translation en bloc. Décochez pour revenir à la trajectoire par centroïdes.">
-                            <span style="font-size:0.62rem;color:var(--text-muted);font-weight:700;">TREC</span>
-                            <label class="micro-toggle-switch" title="Activer le vent TREC">
-                                <input type="checkbox" id="trec-toggle" onchange="onTrecToggleChange()">
-                                <span class="micro-toggle-slider"></span>
-                            </label>
-                        </div>
                     </div>
                                 </div>
             </div>
@@ -2551,15 +2543,13 @@
             </div>
         </div>
 
-        <!-- Stations météo à proximité (relevés réels, pas des prévisions), 3 sources
+        <!-- Stations météo à proximité (relevés réels, pas des prévisions), 2 sources
               indépendantes — placée en premier dans l'onglet Nature sur demande :
               1) Station personnelle Weather Underground (ITENCI3, Tencin) : n'apparaît que si le
                  lieu affiché est à moins de NEARBY_STATION.maxDistanceKm de Tencin — voir
                  loadNearbyStation() et le calcul nearbyStationInRange dans fetchWeather().
               2) Balise de vent Pioupiou/OpenWindMap la plus proche (≤30 km, mesure <3 h),
                  toujours recherchée quel que soit le lieu — voir loadPioupiouStation().
-              3) Capteurs amateurs sensor.community (≤10 km, sélecteur + présélection du
-                 plus proche du modèle Open-Meteo) — voir loadSensorCommunity().
               Carte entière gatée par data-groups="eau" (fusion Eau+Jardinage du 09/09/2026 ; seulement chargée/visible sur cet
               onglet, chargement différé via setGroup()/fetchWeather() comme les autres onglets). -->
         <div class="chart-card" id="nearby-stations-card" data-groups="eau" data-level="expert" style="display:none;">
@@ -2608,31 +2598,6 @@
                     <div class="snow-details-row" id="synop-station-pills"></div>
                     <div class="card-sage-sub" id="synop-station-warning" style="display:none; margin-top:6px; font-size:0.68rem; color: var(--accent-orange); font-weight:700;"></div>
                     <div class="card-sage-sub" id="synop-station-updated" style="margin-top:6px; font-size:0.62rem;"></div>
-                </div>
-            </div>
-
-            <!-- Sous-section 3 : capteurs amateurs sensor.community (toujours affiché) -->
-            <div id="sc-section" style="margin-top:14px; padding-top:12px; border-top:1px solid rgba(0,0,0,0.06);">
-                <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; margin-bottom:6px;">
-                    <div class="card-sage-sub" id="sc-sub" style="font-weight:700;">Capteurs amateurs — sensor.community</div>
-                </div>
-                <div id="sc-select-row" style="display:none; margin-bottom:6px;">
-                    <select class="ski-station-select" id="sc-select" style="width:100%;" onchange="onSensorCommunityChange()"></select>
-                </div>
-
-                <div id="sc-loading" style="text-align:center; padding: 10px; color: var(--text-muted); font-size: 0.8rem;">
-                    Chargement des relevés...
-                </div>
-
-                <div id="sc-error" style="display:none; text-align:center; padding: 10px; color: var(--text-muted); font-size: 0.78rem;">
-                    <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-orange); display:block; margin-bottom:6px; font-size:1.1rem;"></i>
-                    <span id="sc-error-text">Relevés indisponibles pour le moment.</span>
-                </div>
-
-                <div id="sc-content" style="display:none;">
-                    <div class="snow-details-row" id="sc-pills"></div>
-                    <div class="card-sage-sub" id="sc-warning" style="display:none; margin-top:6px; font-size:0.68rem; color: var(--accent-orange); font-weight:700;"></div>
-                    <div class="card-sage-sub" id="sc-updated" style="margin-top:6px; font-size:0.62rem;"></div>
                 </div>
             </div>
         </div>
@@ -3595,7 +3560,7 @@
             <div class="footer-support-row">
                 <a class="footer-support-link" href="https://buymeacoffee.com/stridemetric" target="_blank" rel="noopener">🐸 Aide-moi à nourrir la grenouille Metehop</a>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 11/09/2026 - 107</div>
+            <div class="footer-last-update">Dernière mise à jour : 11/09/2026 - 108</div>
         </footer>
 
     </div>
@@ -5275,10 +5240,6 @@
                 pioupiouStationLoaded = true;
                 loadPioupiouStation(currentLat, currentLon).catch(() => {});
             }
-            if (group === 'eau' && !sensorCommunityLoaded && currentLat !== null) {
-                sensorCommunityLoaded = true;
-                loadSensorCommunity(currentLat, currentLon).catch(() => {});
-            }
             if (group === 'eau' && !plantationLoaded && currentLat !== null) {
                 plantationLoaded = true;
                 document.getElementById('plant-temp-note').innerText = 'Chargement des moyennes historiques...';
@@ -5517,161 +5478,6 @@
             }
         }
 
-        // ---- Capteurs amateurs sensor.community ≤10 km (sélecteur, 11/09/2026) ----
-        // Réseau citoyen open data, SANS clé, interrogeable directement depuis le navigateur
-        // (même contrainte d'architecture que Pioupiou : un seul fichier HTML, pas de serveur).
-        // CORS vérifié OK le 11/09/2026 (Access-Control-Allow-Origin: *) : si l'appel direct
-        // échoue quand même, c'est le bloqueur de pub du navigateur (déjà vu sur ce poste) —
-        // d'où le repli via le relais public r.jina.ai (autre domaine, sans clé), plus lent.
-        // Données BRUTES : montages DIY hétérogènes, certains capteurs sont en intérieur ou mal
-        // abrités (écarts constatés de +10 °C à Grenoble le 11/09/2026) — d'où le warning permanent
-        // et l'écart au modèle affiché sous les pastilles. Température + humidité (DHT22/BME280),
-        // pression (BME280/BMP280, en Pa → convertie en hPa). Pas de vent sur ce réseau.
-        // Présélection automatique : le capteur le PLUS PROCHE DE LA TEMPÉRATURE MODÈLE Open-Meteo
-        // à l'heure courante (généralise la consigne "plus proche des 11,5 °C de la MF à Grenoble") ;
-        // repli sur le plus proche géographiquement si le modèle est indisponible.
-        let sensorCommunityCache = null; // {key, ts, list}
-        let currentScSensors = []; // sélection courante [{id, label, dist, temp, rh, pres, tsUTC}]
-        let sensorCommunityLoaded = false; // chargée une seule fois par lieu, à l'activation de l'onglet Eau
-        function scModelRefTemp() {
-            try {
-                const h = weatherData && weatherData.hourly && weatherData.hourly.temperature_2m;
-                const v = h ? h[new Date().getHours()] : null; // jour 0 = index 0..23
-                return (typeof v === 'number' && isFinite(v)) ? v : null;
-            } catch (e) { return null; }
-        }
-        function scFormatTsUtc(ts) {
-            const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/.exec(String(ts || ''));
-            return m ? `${m[3]}/${m[2]} ${m[4]}:${m[5]} UTC` : String(ts || '');
-        }
-        function renderScSensor(s) {
-            const pillsEl = document.getElementById('sc-pills');
-            const warningEl = document.getElementById('sc-warning');
-            const updatedEl = document.getElementById('sc-updated');
-            const subEl = document.getElementById('sc-sub');
-            const pills = [];
-            pills.push(`<div class="station-pill"><i class="fa-solid fa-temperature-half"></i> ${Math.round(s.temp * 10) / 10}°C</div>`);
-            if (typeof s.rh === 'number') pills.push(`<div class="station-pill"><i class="fa-solid fa-droplet"></i> ${Math.round(s.rh)}%</div>`);
-            if (typeof s.pres === 'number') pills.push(`<div class="station-pill"><i class="fa-solid fa-gauge"></i> ${Math.round(s.pres)} hPa</div>`);
-            pillsEl.innerHTML = pills.join('');
-            subEl.innerText = `sensor.community — capteur #${s.id} (${s.dist} km)`;
-            updatedEl.innerText = `Mesure du ${scFormatTsUtc(s.tsUTC)} · open data amateur`;
-            const ref = scModelRefTemp();
-            const gap = (ref !== null) ? ` Écart au modèle : ${(s.temp - ref) >= 0 ? '+' : ''}${Math.round((s.temp - ref) * 10) / 10}°C.` : '';
-            warningEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Capteurs amateurs (montage DIY, mal abrités possibles — ceux déclarés en intérieur sont exclus) : valeur brute indicative.${gap}`;
-            warningEl.style.display = '';
-        }
-        function onSensorCommunityChange() {
-            const select = document.getElementById('sc-select');
-            const s = currentScSensors[parseInt(select.value, 10)];
-            if (s) renderScSensor(s);
-        }
-        async function loadSensorCommunity(lat, lon) {
-            const loadingEl = document.getElementById('sc-loading');
-            const errorEl = document.getElementById('sc-error');
-            const errorTextEl = document.getElementById('sc-error-text');
-            const contentEl = document.getElementById('sc-content');
-            const selectRow = document.getElementById('sc-select-row');
-            const select = document.getElementById('sc-select');
-            const showError = (msg) => {
-                if (loadingEl) loadingEl.style.display = 'none';
-                if (contentEl) contentEl.style.display = 'none';
-                if (selectRow) selectRow.style.display = 'none';
-                if (errorTextEl) errorTextEl.innerText = msg;
-                if (errorEl) errorEl.style.display = '';
-            };
-
-            loadingEl.style.display = '';
-            errorEl.style.display = 'none';
-            contentEl.style.display = 'none';
-            selectRow.style.display = 'none';
-
-            try {
-                const key = `${lat.toFixed(2)},${lon.toFixed(2)}`;
-                let list = (sensorCommunityCache && sensorCommunityCache.key === key && (Date.now() - sensorCommunityCache.ts) < 5 * 60000)
-                    ? sensorCommunityCache.list : null;
-                if (!list) {
-                    const scUrl = `https://data.sensor.community/airrohr/v1/filter/area=${lat.toFixed(2)},${lon.toFixed(2)},10`;
-                    let data = null;
-                    try {
-                        const res = await fetchWithTimeout(scUrl, { timeout: 8000 });
-                        if (!res.ok) throw new Error('http ' + res.status);
-                        data = await res.json();
-                    } catch (eDirect) {
-                        console.warn('sensor.community direct bloqué (bloqueur de pub ?), repli relais :', eDirect);
-                        const resJ = await fetchWithTimeout('https://r.jina.ai/' + scUrl, { timeout: 15000 });
-                        if (!resJ.ok) throw new Error('relais injoignable (http ' + resJ.status + ')');
-                        const rawJ = await resJ.text();
-                        try { data = JSON.parse(rawJ); }
-                        catch (eJ) {
-                            const aJ = rawJ.indexOf('['), bJ = rawJ.lastIndexOf(']');
-                            if (aJ === -1 || bJ <= aJ) throw new Error('réponse relais illisible');
-                            data = JSON.parse(rawJ.slice(aJ, bJ + 1));
-                        }
-                    }
-                    if (!Array.isArray(data)) throw new Error('réponse inexploitable');
-                    const byId = new Map();
-                    (Array.isArray(data) ? data : []).forEach(sm => {
-                        const loc = sm && sm.location;
-                        const sen = sm && sm.sensor;
-                        if (!loc || typeof loc.latitude !== 'number' || typeof loc.longitude !== 'number') return;
-                        if (loc.indoor === 1) return; // déclaré en intérieur par son propriétaire : exclu (vérifié le 11/09/2026 : 21-24 °C à Grenoble à 7h)
-                        if (!sen || (sen.id === undefined || sen.id === null)) return;
-                        const vals = {};
-                        ((sm.sensordatavalues) || []).forEach(v => {
-                            if (v && v.value_type) vals[v.value_type] = parseFloat(v.value);
-                        });
-                        if (!(typeof vals.temperature === 'number' && isFinite(vals.temperature))) return;
-                        const d = Math.round(calculateDistance(lat, lon, loc.latitude, loc.longitude) * 10) / 10;
-                        if (!(d <= 10)) return;
-                        let tsMs = NaN;
-                        if (sm.timestamp) tsMs = Date.parse(String(sm.timestamp).replace(' ', 'T') + 'Z');
-                        if (!(tsMs >= 0) || (Date.now() - tsMs) > 3 * 3600000) return;
-                        let pres = null;
-                        const pSea = vals.pressure_at_sealevel; // déjà ramenée au niveau mer par le réseau (Pa)
-                        if (typeof pSea === 'number' && isFinite(pSea) && pSea > 80000 && pSea < 110000) pres = pSea / 100;
-                        else {
-                            const pRaw = vals.pressure;
-                            if (typeof pRaw === 'number' && isFinite(pRaw)) pres = pRaw > 10000 ? pRaw / 100 : pRaw;
-                        }
-                        if (pres !== null && !(pres > 800 && pres < 1100)) pres = null;
-                        const stype = (sen.sensor_type && sen.sensor_type.name) ? String(sen.sensor_type.name) : '';
-                        const prev = byId.get(sen.id);
-                        const cand = { id: sen.id, dist: d, temp: vals.temperature,
-                            rh: (typeof vals.humidity === 'number' && isFinite(vals.humidity)) ? vals.humidity : null,
-                            pres, tsUTC: sm.timestamp, tsMs, stype };
-                        if (!prev || tsMs > prev.tsMs) byId.set(sen.id, cand);
-                    });
-                    list = Array.from(byId.values()).sort((a, b) => a.dist - b.dist).slice(0, 20);
-                    sensorCommunityCache = { key, ts: Date.now(), list };
-                }
-                if (!list.length) throw new Error('aucun capteur récent à ≤10 km');
-                currentScSensors = list;
-                const ref = scModelRefTemp();
-                let defIdx = 0;
-                if (ref !== null) {
-                    let best = Infinity;
-                    list.forEach((s, i) => {
-                        const gap = Math.abs(s.temp - ref);
-                        if (gap < best) { best = gap; defIdx = i; }
-                    });
-                }
-                select.innerHTML = list.map((s, i) => {
-                    const mark = (i === defIdx) ? ' ★' : '';
-                    return `<option value="${i}">#${s.id}${s.stype ? ' · ' + s.stype : ''} — ${s.dist} km — ${Math.round(s.temp * 10) / 10}°C${mark}</option>`;
-                }).join('');
-                select.value = String(defIdx);
-                selectRow.style.display = '';
-                loadingEl.style.display = 'none';
-                errorEl.style.display = 'none';
-                contentEl.style.display = '';
-                renderScSensor(list[defIdx]);
-            } catch (e) {
-                console.error('sensor.community en panne :', e);
-                showError("Relevés indisponibles : aucun capteur extérieur récent à moins de 10 km, ou requête bloquée (bloqueur de pub : autorisez ce site / data.sensor.community).");
-            }
-        }
-
         // ---- Normales climatiques journalières partagées (air 2m + sol surface) ----
         // Moyenne journalière RÉELLE sur les 15 dernières années civiles complètes, mêmes dates
         // calendaires (API Archive Open-Meteo, ERA5/ERA5-Land). UNE SEULE requête couvrant les 15
@@ -5866,8 +5672,6 @@
                 // loadPioupiouStation() elle-même).
                 pioupiouStationLoaded = (currentGroup === 'eau');
                 if (pioupiouStationLoaded) loadPioupiouStation(lat, lon).catch(() => {});
-                sensorCommunityLoaded = (currentGroup === 'eau');
-                if (sensorCommunityLoaded) loadSensorCommunity(lat, lon).catch(() => {});
                 // Classement des meilleures nuits : purement calculé (pas d'appel réseau), donc
                 // recalculé immédiatement si l'onglet Général (qui héberge désormais Astronomie, voir
                 // #astro-card) est déjà actif au changement de lieu.
@@ -7683,8 +7487,6 @@
         document.addEventListener('DOMContentLoaded', () => {
             const el = document.getElementById('multicore-mode');
             if (el) el.value = metehopCoreMode;
-            const elT = document.getElementById('trec-toggle');
-            if (elT) elT.checked = metehopTrecEnabled;
         });
         // ---- Diagnostic automatique mono-enveloppe vs multi-noyaux (10/09/2026) ----
         // decideCoreModeAuto() examine la DERNIERE image uniquement (pas de surcout notable :
@@ -7733,16 +7535,9 @@
             if (convective) return { useCores: true, reason: 'coeur convectif >=40 dBZ' };
             return { useCores: false, reason: 'coeur unique centre (enveloppe suffisante)' };
         }
-        // ---- Vent TREC (1) : actif uniquement via le toggle ci-dessus ----
-        let metehopTrecEnabled = false;
+        // ---- Vent TREC (1) : toujours actif (toggle retire le 11/09/2026 sur demande) ----
+        const metehopTrecEnabled = true;
         let metehopTrecActiveNow = false; // vrai si un champ TREC exploitable a servi à cette analyse
-        try { metehopTrecEnabled = localStorage.getItem('metehop_trec_v1') === '1'; } catch (e) { /* preference non persistee */ }
-        function onTrecToggleChange() {
-            const el = document.getElementById('trec-toggle');
-            metehopTrecEnabled = !!(el && el.checked);
-            try { localStorage.setItem('metehop_trec_v1', metehopTrecEnabled ? '1' : '0'); } catch (e) { /* tant pis */ }
-            loadEvoMetehop().catch(() => {});
-        }
         // ---- Fiabilite auto-mesuree (7) : libelle + derniere observation, voir verifyAndStoreEvoPrediction ----
         let metehopReliabilityLabel = null;
         let metehopLastObsMm = null;
@@ -8114,7 +7909,7 @@
         }
         // ---- Plume courbe TREC (10/09/2026) : interpolation + advection dans le champ ----
         // Le triangle droit historique (apex + base elargie) supposait un vent uniforme
-        // (vx/vy constants). Quand le toggle TREC est actif, le champ contient une rotation /
+        // (vx/vy constants). TREC etant toujours actif, le champ contient une rotation /
         // un cisaillement locaux reels (voir computeTrecField) : on les rend visibles en
         // integrant la trajectoire pas a pas DANS le champ (ligne de courant, hypothese de
         // champ gele sur l'horizon de prevision) au lieu d'extrapoler en ligne droite.
@@ -8739,10 +8534,9 @@
                 // menaces frontales evincees, voir plus bas) — voir projectTrackToBins.
                 metehopTrecActiveNow = false;
                 let trecGrid = null;
-                // Champ calcule des que possible, MEME si le toggle TREC est inactif : il sert
+                // Champ calcule des que possible : il sert
                 // de repli de vitesse quand le centroide est incoherent (voir velForTrack).
-                // L'AFFICHAGE (plume courbe + suffixe [TREC]) reste conditionne au toggle via
-                // metehopTrecActiveNow — comportement historique inchange quand il est inactif.
+                // L'AFFICHAGE (plume courbe + suffixe [TREC]) suit metehopTrecActiveNow.
                 if (!isSnowMode && imageDatas.length >= 2) {
                     try {
                         const dtMin = Math.max(4, (times[times.length - 1] - imageDatas[imageDatas.length - 2].time) / 60);
@@ -8770,10 +8564,10 @@
                     }
                 }
                 const results = [];
-                // Priorite vitesse (voir COHERENCE_R2_MIN) : toggle TREC actif -> TREC local
-                // comme avant (comportement historique) ; centroide coherent -> regression
-                // historique ; centroide incoherent ou piste courte -> repli texture (TREC)
-                // puis modele (flux directeur), MEME si le toggle TREC est inactif. Sans repli
+                // Priorite vitesse (voir COHERENCE_R2_MIN) : TREC local en premier ;
+                // centroide coherent -> regression historique ;
+                // centroide incoherent ou piste courte -> repli texture (TREC)
+                // puis modele (flux directeur). Sans repli
                 // disponible et piste courte : regression (nulle) comme avant.
                 const velForTrack = (track, lastCell) => {
                     let v = null;
@@ -9006,7 +8800,7 @@
                     showMetehopCellsOnMap(cellPositions);
 
                     // Cône d'incertitude de chaque cellule : étroit à la position actuelle, s'évasant
-                    // vers l'horizon de prévision (EVO_HORIZON_HOURS). Si le toggle TREC est actif
+                    // vers l'horizon de prevision (EVO_HORIZON_HOURS). TREC etant toujours actif,
                     // et que le champ local est exploitable le long du trajet, plume COURBE suivant
                     // la ligne de courant (voir buildCurvedPlumePixels) — rend visible rotation /
                     // cisaillement ; sinon repli sur le triangle droit historique à vitesse
