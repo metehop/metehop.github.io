@@ -1556,6 +1556,13 @@
         .astro-legend-item { display: flex; align-items: center; gap: 4px; }
         .legend-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
         .legend-dash { width: 14px; height: 0; border-top: 2px dashed; display: inline-block; }
+        /* Pastille hachurée de la légende "Évolution des 3 prochaines heures" : même diagonale
+           que le motif Canvas appliqué aux barres dont la confiance est < 50%. */
+        .legend-hatch {
+            width: 11px; height: 11px; border-radius: 2px; display: inline-block;
+            border: 1px solid #5e706a;
+            background: repeating-linear-gradient(135deg, #5e706a 0 1px, rgba(255,255,255,0.65) 1px 4px);
+        }
 
         /* Grille des icônes de givre */
         .frost-icons-row {
@@ -2401,6 +2408,7 @@
                 <span class="astro-legend-item"><span class="legend-dot" style="background:#ef4444;"></span> Orage</span>
                 <span class="astro-legend-item"><span class="legend-dot" style="background:#eab308;"></span> Grêle</span>
                 <span class="astro-legend-item"><span class="legend-dash" style="border-color:#14532d;"></span> Confiance (%, axe droit)</span>
+                <span class="astro-legend-item" id="evo-legend-lowconf" style="display:none;"><span class="legend-hatch"></span> Hachuré = confiance &lt; 50%</span>
                 <span class="astro-legend-item"><span style="display:inline-block; width:11px; height:11px; border:2px solid #5e706a; border-radius:2px;"></span> Prévision modèle (contour, plein = radar)</span>
             </div>
             <div class="metehop-summary" id="metehop-summary" style="display:none;"></div>
@@ -6944,9 +6952,34 @@
             return { values, colors };
         }
 
+        // Motif hachuré Canvas pour les barres radar dont la confiance est < 50% : fond
+        // blanchi + diagonale de la couleur d'origine (même diagonale que .legend-hatch).
+        // Cache par couleur : un seul motif 8x8 par teinte, réutilisé pour les 18 tranches.
+        const evoHatchPatternCache = {};
+        function evoHatchPatternFor(chartCtx, color) {
+            const key = String(color);
+            if (evoHatchPatternCache[key]) return evoHatchPatternCache[key];
+            const p = document.createElement('canvas');
+            p.width = 8; p.height = 8;
+            const pg = p.getContext('2d');
+            pg.fillStyle = 'rgba(255,255,255,0.65)';
+            pg.fillRect(0, 0, 8, 8);
+            pg.strokeStyle = key && key !== 'transparent' ? key : '#5e706a';
+            pg.lineWidth = 2;
+            pg.beginPath();
+            pg.moveTo(-2, 10);
+            pg.lineTo(10, -2);
+            pg.stroke();
+            const pattern = chartCtx.createPattern(p, 'repeat');
+            evoHatchPatternCache[key] = pattern || key;
+            return evoHatchPatternCache[key];
+        }
+
         // Histogramme des précipitations (axe gauche, coloré par tranche) + courbe de confiance (%,
         // axe droit, vert foncé) — remplace l'ancien indice de confiance en une seule phrase par une
         // évolution visuelle dans le temps, plus honnête sur la dégradation de fiabilité avec l'horizon.
+        // Barres radar hachurées quand leur confiance est < 50% (précipitations > 0 uniquement) +
+        // mention "À confirmer : confiance < 50%" sous le graphique ; sinon (toutes >= 50%) rien ne change.
         function drawEvoChart(labels, precipValues, colors, precipLabel, precipUnit, precipAxisColor, confidenceValues, modelValues, modelColors) {
             if (typeof Chart === 'undefined') return;
             const ctx = document.getElementById('evoChart').getContext('2d');
@@ -6955,8 +6988,24 @@
             // puis stocke celle-ci - sauf confiance nulle (radar indisponible, rien a stocker).
             if (confidenceValues && confidenceValues.some(v => v > 0)) verifyAndStoreEvoPrediction(precipValues);
 
+            // Tranches peu fiables : précipitation annoncée (> 0) mais confiance < 50%.
+            // Les tranches sèches (0 mm) ne sont jamais hachurées, même à confiance basse.
+            const lowConfFlags = precipValues.map((v, i) =>
+                !!(confidenceValues && typeof confidenceValues[i] === 'number' &&
+                    confidenceValues[i] < 50 && v > 0));
+            const hasLowConf = lowConfFlags.some(Boolean);
+            const barBackgrounds = hasLowConf
+                ? precipValues.map((v, i) => (lowConfFlags[i] ? evoHatchPatternFor(ctx, colors[i]) : colors[i]))
+                : colors;
+            const barBorders = hasLowConf
+                ? precipValues.map((v, i) => colors[i])
+                : undefined;
+            const barBorderWidths = hasLowConf
+                ? lowConfFlags.map(f => (f ? 1 : 0))
+                : undefined;
+
             const datasets = [
-                { type: 'bar', label: precipLabel, data: precipValues, backgroundColor: colors, borderRadius: 4, barThickness: 7, yAxisID: 'yPrecip', order: 3 }
+                { type: 'bar', label: precipLabel, data: precipValues, backgroundColor: barBackgrounds, borderColor: barBorders, borderWidth: barBorderWidths, borderSkipped: false, borderRadius: 4, barThickness: 7, yAxisID: 'yPrecip', order: 3 }
             ];
             if (modelValues) {
                 // Prévision du modèle météo (Open-Meteo) en superposition : mêmes couleurs par type
@@ -7007,6 +7056,7 @@
             // Cumul attendu sur toute la période affichée (somme des tranches de 10 min, déjà en
             // mm accumulés depuis l'harmonisation des unités) — un seul chiffre récapitulatif,
             // plus lisible qu'une lecture barre par barre pour estimer "combien va-t-il tomber".
+            // Si au moins une barre est hachurée (confiance < 50%), on signale "À confirmer".
             const cumulEl = document.getElementById('evo-chart-cumul');
             if (cumulEl) {
                 const totalRadar = Math.round(precipValues.reduce((a, b) => a + b, 0) * 10) / 10;
@@ -7016,8 +7066,13 @@
                     const totalModel = Math.round(modelValues.reduce((a, b) => a + b, 0) * 10) / 10;
                     text += ` — modèle : ~${totalModel}${cumulUnit}`;
                 }
+                if (hasLowConf) text += ' — ⚠️ À confirmer : confiance <50%';
                 cumulEl.innerText = text;
             }
+            // Légende "Hachuré = confiance < 50%" : visible uniquement quand au moins une barre
+            // est hachurée, sinon rien ne change dans l'interface.
+            const lowConfLegend = document.getElementById('evo-legend-lowconf');
+            if (lowConfLegend) lowConfLegend.style.display = hasLowConf ? '' : 'none';
         }
 
         function setEvoLoading(msg) {
