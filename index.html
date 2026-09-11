@@ -3595,7 +3595,7 @@
             <div class="footer-support-row">
                 <a class="footer-support-link" href="https://buymeacoffee.com/stridemetric" target="_blank" rel="noopener">🐸 Aide-moi à nourrir la grenouille Metehop</a>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 11/09/2026 - 106</div>
+            <div class="footer-last-update">Dernière mise à jour : 11/09/2026 - 107</div>
         </footer>
 
     </div>
@@ -5520,6 +5520,9 @@
         // ---- Capteurs amateurs sensor.community ≤10 km (sélecteur, 11/09/2026) ----
         // Réseau citoyen open data, SANS clé, interrogeable directement depuis le navigateur
         // (même contrainte d'architecture que Pioupiou : un seul fichier HTML, pas de serveur).
+        // CORS vérifié OK le 11/09/2026 (Access-Control-Allow-Origin: *) : si l'appel direct
+        // échoue quand même, c'est le bloqueur de pub du navigateur (déjà vu sur ce poste) —
+        // d'où le repli via le relais public r.jina.ai (autre domaine, sans clé), plus lent.
         // Données BRUTES : montages DIY hétérogènes, certains capteurs sont en intérieur ou mal
         // abrités (écarts constatés de +10 °C à Grenoble le 11/09/2026) — d'où le warning permanent
         // et l'écart au modèle affiché sous les pastilles. Température + humidité (DHT22/BME280),
@@ -5555,7 +5558,7 @@
             updatedEl.innerText = `Mesure du ${scFormatTsUtc(s.tsUTC)} · open data amateur`;
             const ref = scModelRefTemp();
             const gap = (ref !== null) ? ` Écart au modèle : ${(s.temp - ref) >= 0 ? '+' : ''}${Math.round((s.temp - ref) * 10) / 10}°C.` : '';
-            warningEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Capteur amateur (montage DIY, parfois en intérieur ou mal abrité) : valeur brute indicative.${gap}`;
+            warningEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Capteurs amateurs (montage DIY, mal abrités possibles — ceux déclarés en intérieur sont exclus) : valeur brute indicative.${gap}`;
             warningEl.style.display = '';
         }
         function onSensorCommunityChange() {
@@ -5588,15 +5591,31 @@
                 let list = (sensorCommunityCache && sensorCommunityCache.key === key && (Date.now() - sensorCommunityCache.ts) < 5 * 60000)
                     ? sensorCommunityCache.list : null;
                 if (!list) {
-                    const url = `https://data.sensor.community/airrohr/v1/filter/area=${lat.toFixed(2)},${lon.toFixed(2)},10`;
-                    const res = await fetchWithTimeout(url, { timeout: 10000 });
-                    if (!res.ok) throw new Error('sensor.community injoignable (http ' + res.status + ')');
-                    const data = await res.json();
+                    const scUrl = `https://data.sensor.community/airrohr/v1/filter/area=${lat.toFixed(2)},${lon.toFixed(2)},10`;
+                    let data = null;
+                    try {
+                        const res = await fetchWithTimeout(scUrl, { timeout: 8000 });
+                        if (!res.ok) throw new Error('http ' + res.status);
+                        data = await res.json();
+                    } catch (eDirect) {
+                        console.warn('sensor.community direct bloqué (bloqueur de pub ?), repli relais :', eDirect);
+                        const resJ = await fetchWithTimeout('https://r.jina.ai/' + scUrl, { timeout: 15000 });
+                        if (!resJ.ok) throw new Error('relais injoignable (http ' + resJ.status + ')');
+                        const rawJ = await resJ.text();
+                        try { data = JSON.parse(rawJ); }
+                        catch (eJ) {
+                            const aJ = rawJ.indexOf('['), bJ = rawJ.lastIndexOf(']');
+                            if (aJ === -1 || bJ <= aJ) throw new Error('réponse relais illisible');
+                            data = JSON.parse(rawJ.slice(aJ, bJ + 1));
+                        }
+                    }
+                    if (!Array.isArray(data)) throw new Error('réponse inexploitable');
                     const byId = new Map();
                     (Array.isArray(data) ? data : []).forEach(sm => {
                         const loc = sm && sm.location;
                         const sen = sm && sm.sensor;
                         if (!loc || typeof loc.latitude !== 'number' || typeof loc.longitude !== 'number') return;
+                        if (loc.indoor === 1) return; // déclaré en intérieur par son propriétaire : exclu (vérifié le 11/09/2026 : 21-24 °C à Grenoble à 7h)
                         if (!sen || (sen.id === undefined || sen.id === null)) return;
                         const vals = {};
                         ((sm.sensordatavalues) || []).forEach(v => {
@@ -5608,8 +5627,13 @@
                         let tsMs = NaN;
                         if (sm.timestamp) tsMs = Date.parse(String(sm.timestamp).replace(' ', 'T') + 'Z');
                         if (!(tsMs >= 0) || (Date.now() - tsMs) > 3 * 3600000) return;
-                        let pres = (typeof vals.pressure === 'number' && isFinite(vals.pressure)) ? vals.pressure : null;
-                        if (pres !== null && pres > 10000) pres = pres / 100; // Pa → hPa
+                        let pres = null;
+                        const pSea = vals.pressure_at_sealevel; // déjà ramenée au niveau mer par le réseau (Pa)
+                        if (typeof pSea === 'number' && isFinite(pSea) && pSea > 80000 && pSea < 110000) pres = pSea / 100;
+                        else {
+                            const pRaw = vals.pressure;
+                            if (typeof pRaw === 'number' && isFinite(pRaw)) pres = pRaw > 10000 ? pRaw / 100 : pRaw;
+                        }
                         if (pres !== null && !(pres > 800 && pres < 1100)) pres = null;
                         const stype = (sen.sensor_type && sen.sensor_type.name) ? String(sen.sensor_type.name) : '';
                         const prev = byId.get(sen.id);
@@ -5644,7 +5668,7 @@
                 renderScSensor(list[defIdx]);
             } catch (e) {
                 console.error('sensor.community en panne :', e);
-                showError("Relevés indisponibles : aucun capteur sensor.community récent à moins de 10 km (ou requête bloquée par le navigateur).");
+                showError("Relevés indisponibles : aucun capteur extérieur récent à moins de 10 km, ou requête bloquée (bloqueur de pub : autorisez ce site / data.sensor.community).");
             }
         }
 
