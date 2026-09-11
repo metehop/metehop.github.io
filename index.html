@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="google-site-verification" content="EAFjvrSYgq6wOXpa9cbtcRGDX1La8S88rQWGyPojKcA">
     <title>Metehop – Météo hyperlocale Grenoble, Isère & massifs alpins</title>
-    <meta name="description" content="Metehop : prévisions météo précises pour Grenoble et le Grésivaudan, détection d'inversions thermiques, neige et stations de ski, qualité de l'eau des rivières, nuits d'observation astronomique et bilan hydrique jardin. Données Open-Meteo, Hub'Eau, Météo-France.">
+    <meta name="description" content="Metehop : prévisions météo précises pour Grenoble et le Grésivaudan, détection d'inversions thermiques, neige et stations de ski, qualité de l'eau des rivières, nuits d'observation astronomique et bilan hydrique jardin. Données Open-Meteo, Hub'Eau, Pioupiou/OpenWindMap.">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="https://metehop.github.io/">
 
@@ -39,7 +39,8 @@
         "Détection d'inversion thermique nocturne (Grésivaudan)",
         "Radar de précipitations en direct",
         "Écarts à la normale saisonnière",
-        "Stations météo officielles Météo-France à proximité",
+        "Vent réel Pioupiou/OpenWindMap à proximité (anémomètres amateurs)",
+         "Capteurs amateurs sensor.community à proximité (sélecteur ≤10 km)",
         "Onglet Ski : 181 stations, cumuls de neige 7 jours, comparateur multi-stations",
         "Limite pluie/neige et enneigement",
         "Onglet Loisir : température de l'eau, marées, stations balnéaires",
@@ -2381,8 +2382,25 @@
                         <i class="fa-solid fa-flask" style="color: var(--accent-purple); margin-right: 6px;"></i>
                         Évolution des 3 prochaines heures <span class="badge-experimental">Expérimental</span>
                     </div>
-                    <div class="card-sage-sub" id="evo-chart-note">Estimation Metehop à partir du radar, par tranches de 10 minutes</div>
-                </div>
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                        <div class="card-sage-sub" id="evo-chart-note">Estimation Metehop à partir du radar, par tranches de 10 minutes</div>
+                        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;" title="Choix du suivi : auto (diagnostic par analyse : multi-noyaux si scission, coeur decentre ou convection, sinon enveloppe), enveloppe (classique), ou multi-noyaux ≥40 dBZ force (segmentation multi-seuils façon SCIT/TITAN).">
+                            <span style="font-size:0.62rem;color:var(--text-muted);font-weight:700;">noyaux</span>
+                            <select id="multicore-mode" onchange="onCoreModeChange()" title="Mode de suivi des cellules" style="font-size:0.62rem;font-weight:700;color:var(--primary-dark);background:#ffffff;border:none;border-radius:6px;padding:3px 5px;cursor:pointer;outline:none;">
+                                <option value="auto">auto</option>
+                                <option value="mono">enveloppe</option>
+                                <option value="multi">multi-noyaux</option>
+                            </select>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;" title="Vent mesuré par corrélation d’images radar (TREC) : suit la déformation locale des cellules au lieu d’une translation en bloc. Décochez pour revenir à la trajectoire par centroïdes.">
+                            <span style="font-size:0.62rem;color:var(--text-muted);font-weight:700;">TREC</span>
+                            <label class="micro-toggle-switch" title="Activer le vent TREC">
+                                <input type="checkbox" id="trec-toggle" onchange="onTrecToggleChange()">
+                                <span class="micro-toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                                </div>
             </div>
             <div class="astro-legend" id="evo-legend" style="margin-bottom: 6px;">
                 <span class="astro-legend-item"><span class="legend-dot" style="background:#7dd3fc;"></span> Pluie faible</span>
@@ -2533,17 +2551,17 @@
             </div>
         </div>
 
-        <!-- Stations météo à proximité (relevés réels, pas des prévisions), fusionnant 2 sources
-             indépendantes — placée en premier dans l'onglet Nature sur demande :
-             1) Station personnelle Weather Underground (ITENCI3, Tencin) : n'apparaît que si le
-                lieu affiché est à moins de NEARBY_STATION.maxDistanceKm de Tencin — voir
-                loadNearbyStation() et le calcul nearbyStationInRange dans fetchWeather().
-             2) Relevé officiel Météo-France le plus proche (réseau SYNOP, source Opendatasoft) :
-                toujours recherché quel que soit le lieu (couverture nationale), avec avertissement
-                si trop ancien/lointain, ou message d'indisponibilité si le relevé disponible est
-                trop ancien pour être fiable du tout — voir loadSynopStation().
-             Carte entière gatée par data-groups="eau" (fusion Eau+Jardinage du 09/09/2026 ; seulement chargée/visible sur cet
-             onglet, chargement différé via setGroup()/fetchWeather() comme les autres onglets). -->
+        <!-- Stations météo à proximité (relevés réels, pas des prévisions), 3 sources
+              indépendantes — placée en premier dans l'onglet Nature sur demande :
+              1) Station personnelle Weather Underground (ITENCI3, Tencin) : n'apparaît que si le
+                 lieu affiché est à moins de NEARBY_STATION.maxDistanceKm de Tencin — voir
+                 loadNearbyStation() et le calcul nearbyStationInRange dans fetchWeather().
+              2) Balise de vent Pioupiou/OpenWindMap la plus proche (≤30 km, mesure <3 h),
+                 toujours recherchée quel que soit le lieu — voir loadPioupiouStation().
+              3) Capteurs amateurs sensor.community (≤10 km, sélecteur + présélection du
+                 plus proche du modèle Open-Meteo) — voir loadSensorCommunity().
+              Carte entière gatée par data-groups="eau" (fusion Eau+Jardinage du 09/09/2026 ; seulement chargée/visible sur cet
+              onglet, chargement différé via setGroup()/fetchWeather() comme les autres onglets). -->
         <div class="chart-card" id="nearby-stations-card" data-groups="eau" data-level="expert" style="display:none;">
             <div class="chart-header">
                 <div>
@@ -2571,17 +2589,10 @@
                 </div>
             </div>
 
-            <!-- Sous-section 2 : relevé officiel SYNOP le plus proche (toujours affiché) -->
+            <!-- Sous-section 2 : vent réel Pioupiou/OpenWindMap (toujours affiché) -->
             <div id="synop-station-section" style="margin-top:14px; padding-top:12px; border-top:1px solid rgba(0,0,0,0.06);">
                 <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; margin-bottom:6px;">
-                    <div class="card-sage-sub" id="synop-station-sub" style="font-weight:700;">Réseau SYNOP Météo-France</div>
-                    <!-- Lien externe vers la fiche temps réel Infoclimat de cette station, ajouté le
-                         06/09/2026 (sur demande). N'est affiché QUE si le relevé de la station a été
-                         chargé avec succès ("si la station existe" — voir loadSynopStation()) : cette
-                         condition, plus simple à garantir que de vérifier si la station EST RÉELLEMENT
-                         répertoriée chez Infoclimat, est ce qui a été retenu ici. Icône identique à
-                         celle utilisée pour les tuiles-liens de l'encart Webcams (cohérence visuelle). -->
-                    <a id="synop-station-external-link" href="#" target="_blank" rel="noopener" style="display:none; font-size:0.72rem; color: var(--accent-blue); font-weight:600; text-decoration:none; white-space:nowrap;"><i class="fa-solid fa-up-right-from-square" style="margin-right:4px;"></i>Infoclimat</a>
+                    <div class="card-sage-sub" id="synop-station-sub" style="font-weight:700;">Pioupiou / OpenWindMap — vent réel</div>
                 </div>
 
                 <div id="synop-station-loading" style="text-align:center; padding: 10px; color: var(--text-muted); font-size: 0.8rem;">
@@ -2599,9 +2610,34 @@
                     <div class="card-sage-sub" id="synop-station-updated" style="margin-top:6px; font-size:0.62rem;"></div>
                 </div>
             </div>
+
+            <!-- Sous-section 3 : capteurs amateurs sensor.community (toujours affiché) -->
+            <div id="sc-section" style="margin-top:14px; padding-top:12px; border-top:1px solid rgba(0,0,0,0.06);">
+                <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; margin-bottom:6px;">
+                    <div class="card-sage-sub" id="sc-sub" style="font-weight:700;">Capteurs amateurs — sensor.community</div>
+                </div>
+                <div id="sc-select-row" style="display:none; margin-bottom:6px;">
+                    <select class="ski-station-select" id="sc-select" style="width:100%;" onchange="onSensorCommunityChange()"></select>
+                </div>
+
+                <div id="sc-loading" style="text-align:center; padding: 10px; color: var(--text-muted); font-size: 0.8rem;">
+                    Chargement des relevés...
+                </div>
+
+                <div id="sc-error" style="display:none; text-align:center; padding: 10px; color: var(--text-muted); font-size: 0.78rem;">
+                    <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-orange); display:block; margin-bottom:6px; font-size:1.1rem;"></i>
+                    <span id="sc-error-text">Relevés indisponibles pour le moment.</span>
+                </div>
+
+                <div id="sc-content" style="display:none;">
+                    <div class="snow-details-row" id="sc-pills"></div>
+                    <div class="card-sage-sub" id="sc-warning" style="display:none; margin-top:6px; font-size:0.68rem; color: var(--accent-orange); font-weight:700;"></div>
+                    <div class="card-sage-sub" id="sc-updated" style="margin-top:6px; font-size:0.62rem;"></div>
+                </div>
+            </div>
         </div>
 
-        <!-- Graphique : Températures air & sol sur 16 jours, orienté plantations -->
+                <!-- Graphique : Températures air & sol sur 16 jours, orienté plantations -->
         <div class="chart-card" data-groups="eau" data-level="expert" style="display:none;">
             <div class="chart-header">
                 <div>
@@ -3559,7 +3595,7 @@
             <div class="footer-support-row">
                 <a class="footer-support-link" href="https://buymeacoffee.com/stridemetric" target="_blank" rel="noopener">🐸 Aide-moi à nourrir la grenouille Metehop</a>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 09/09/2026 - 93</div>
+            <div class="footer-last-update">Dernière mise à jour : 11/09/2026 - 106</div>
         </footer>
 
     </div>
@@ -4067,22 +4103,8 @@
                 </button>`;
             }).join('');
         }
-        // ---- Relevé officiel Météo-France (réseau SYNOP) le plus proche, via Opendatasoft ----
-        // Seuils au-delà desquels un avertissement est affiché à côté du relevé (voir
-        // loadSynopStation()) : la station SYNOP la plus proche reste souvent lointaine (réseau
-        // d'une soixantaine de stations en France) et le relevé n'est mis à jour que toutes les 3h,
-        // donc ces deux seuils préviennent l'utilisateur plutôt que de laisser croire à un relevé
-        // local et frais.
-        const SYNOP_MAX_DISTANCE_KM = 25;
-        const SYNOP_MAX_AGE_HOURS = 1;
-        // Au-delà de cette ancienneté, on ne considère plus le relevé comme exploitable du tout
-        // (bien au-delà de la cadence normale de 3h + marge de traitement) : plutôt que d'afficher
-        // une valeur qui pourrait dater de plusieurs mois avec un avertissement absurde ("vieux de
-        // 5000h"), on bascule sur le message d'indisponibilité honnête. Constaté en test réel : le
-        // flux renvoyait systématiquement une date figée (15/01/2026) quel que soit le lieu — signe
-        // que la source amont s'est arrêtée (ou que le nom du champ date diffère de celui supposé),
-        // pas une erreur de tri côté app. Voir note contexte.txt du 04/09/2026.
-        const SYNOP_STALE_ERROR_HOURS = 24;
+        // (Bloc SYNOP/Opendatasoft retiré le 11/09/2026 : source figée au 15/01/2026 — voir loadPioupiouStation,
+        // seule source restante avec ITENCI3.)
         let gridForecastData = null;
         let isLoadingGrid = false;
         // ---- Sélecteur de groupe (Général / Été / Hiver / Astronomie / Jardinage) ----
@@ -4129,7 +4151,8 @@
         };
         let nearbyStationInRange = false; // recalculé à chaque changement de lieu (voir fetchWeather)
         let nearbyStationLoaded = false;  // chargée une seule fois par lieu, à la première activation de l'onglet Nature (ex-Hobby)
-        let synopStationLoaded = false;  // idem pour le relevé SYNOP le plus proche (même carte, même onglet)
+        let pioupiouStationLoaded = false;  // idem pour la balise Pioupiou la plus proche (même carte, même onglet)
+        // idem pour la balise Pioupiou la plus proche (même carte, même onglet)
         let gridCenterLat = null;
         let gridCenterLon = null;
 
@@ -5248,9 +5271,13 @@
                 nearbyStationLoaded = true;
                 loadNearbyStation();
             }
-            if (group === 'eau' && !synopStationLoaded && currentLat !== null) {
-                synopStationLoaded = true;
-                loadSynopStation(currentLat, currentLon).catch(() => {});
+            if (group === 'eau' && !pioupiouStationLoaded && currentLat !== null) {
+                pioupiouStationLoaded = true;
+                loadPioupiouStation(currentLat, currentLon).catch(() => {});
+            }
+            if (group === 'eau' && !sensorCommunityLoaded && currentLat !== null) {
+                sensorCommunityLoaded = true;
+                loadSensorCommunity(currentLat, currentLon).catch(() => {});
             }
             if (group === 'eau' && !plantationLoaded && currentLat !== null) {
                 plantationLoaded = true;
@@ -5415,65 +5442,19 @@
             }
         }
 
-        // ---- Relevé officiel Météo-France (réseau SYNOP) le plus proche, via Opendatasoft ----
-        // Source : dataset public "donnees-synop-essentielles-omm" (Opendatasoft), gratuit, sans
-        // clé, alimenté par les bulletins officiels SYNOP/OMM de Météo-France (~60 stations en
-        // France, mise à jour toutes les 3h — pas en continu). On récupère un lot des relevés les
-        // plus récents (toutes stations confondues), on calcule la distance de chacun au lieu
-        // affiché, et on garde le plus proche.
-        //
-        // Le schéma exact des champs géographiques n'a pas pu être vérifié via Swagger officiel
-        // (voir échange avec l'utilisateur) : plusieurs formats plausibles sont donc essayés
-        // (mêmes principes défensifs que fetchTempObservations() pour Hub'Eau ci-dessous), plutôt
-        // que de supposer un seul format au risque d'un échec silencieux. Idem pour les noms de
-        // champs de mesure (t/u/ff, éventuellement pmer/pres pour la pression) : un champ manquant
-        // ou hors plage plausible est simplement omis de l'affichage, jamais remplacé par une
-        // valeur inventée.
-        function extractSynopCoords(rec) {
-            // Essaie plusieurs représentations possibles du point géographique Opendatasoft.
-            const candidates = [rec.coordonnees, rec.geo_point_2d, rec.coordinates];
-            for (const c of candidates) {
-                if (!c) continue;
-                if (typeof c.lat === 'number' && typeof c.lon === 'number') return { lat: c.lat, lon: c.lon };
-                if (typeof c.latitude === 'number' && typeof c.longitude === 'number') return { lat: c.latitude, lon: c.longitude };
-                if (Array.isArray(c) && c.length === 2 && typeof c[0] === 'number' && typeof c[1] === 'number') {
-                    // Format [lon, lat] (GeoJSON) le plus courant pour ce type de champ.
-                    return { lat: c[1], lon: c[0] };
-                }
-                if (typeof c === 'string' && c.includes(',')) {
-                    const parts = c.split(',').map(v => parseFloat(v.trim()));
-                    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) return { lat: parts[0], lon: parts[1] };
-                }
-            }
-            if (typeof rec.latitude === 'number' && typeof rec.longitude === 'number') return { lat: rec.latitude, lon: rec.longitude };
-            return null;
+        // ---- Balise de vent Pioupiou/OpenWindMap la plus proche (11/09/2026) ----
+        // Seule source "stations à proximité" restante avec ITENCI3 (voir loadNearbyStation) :
+        // les relevés SYNOP/Opendatasoft (figés au 15/01/2026), Météo-France live (token horaire
+        // à recoller sans cesse), Bright Sky et les liens Infoclimat ont été retirés.
+        // Anémomètres réels, CORS explicitement autorisé par leur doc, sans clé. Données
+        // vent uniquement (pas de température/pression sur ce réseau v1) — étiqueté tel quel.
+        // Réponse mise en cache 10 min (limite API : 1 appel/60 s).
+        function compass16(deg) {
+            const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+            return dirs[Math.round((((deg % 360) + 360) % 360) / 22.5) % 16];
         }
-
-        // Construit un lien "temps réel" Infoclimat pour une station SYNOP officielle. Format observé
-        // (ex. infoclimat.fr/observations-meteo/temps-reel/grenoble-le-versoud/07487.html) :
-        // .../temps-reel/{slug-du-nom}/{code-station-OMM-5-chiffres}.html — seul le code numérique
-        // (numer_sta, champ standard du dataset Opendatasoft) identifie réellement la station ; le
-        // slug est construit ici à partir du nom pour respecter la forme de l'URL, mais son
-        // orthographe exacte chez Infoclimat n'est pas garantie. Lien donc "best effort" : construit
-        // seulement quand un code à 5 chiffres est disponible, jamais inventé sinon (repli sur la
-        // page d'accueil temps réel générique dans ce cas, voir appel dans loadSynopStation()).
-        function slugifyStationName(name) {
-            return String(name)
-                .toLowerCase()
-                .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-                .replace(/[^a-z0-9]+/g, '-')
-                .replace(/^-+|-+$/g, '');
-        }
-        function buildInfoclimatUrl(stationName, rawId) {
-            const fallback = 'https://www.infoclimat.fr/observations-meteo/temps-reel/';
-            if (rawId === undefined || rawId === null) return fallback;
-            const idStr = String(rawId).trim().padStart(5, '0');
-            if (!/^\d{5}$/.test(idStr)) return fallback;
-            const slug = slugifyStationName(stationName) || 'station';
-            return `https://www.infoclimat.fr/observations-meteo/temps-reel/${slug}/${idStr}.html`;
-        }
-
-        async function loadSynopStation(lat, lon) {
+        let pioupiouCache = null; // {ts, list, attribution} — live/all, 10 min (limite API : 1 appel/60 s)
+        async function loadPioupiouStation(lat, lon) {
             const loadingEl = document.getElementById('synop-station-loading');
             const errorEl = document.getElementById('synop-station-error');
             const errorTextEl = document.getElementById('synop-station-error-text');
@@ -5482,111 +5463,188 @@
             const warningEl = document.getElementById('synop-station-warning');
             const updatedEl = document.getElementById('synop-station-updated');
             const subEl = document.getElementById('synop-station-sub');
+            const showError = (msg) => {
+                if (loadingEl) loadingEl.style.display = 'none';
+                if (contentEl) contentEl.style.display = 'none';
+                if (errorTextEl) errorTextEl.innerText = msg;
+                if (errorEl) errorEl.style.display = '';
+            };
 
             loadingEl.style.display = '';
             errorEl.style.display = 'none';
             contentEl.style.display = 'none';
             warningEl.style.display = 'none';
-            document.getElementById('synop-station-external-link').style.display = 'none';
 
             try {
-                // Lot des relevés les plus récents (toutes stations) : les ~60 stations SYNOP
-                // françaises rapportent à la même échéance synoptique, donc un lot de 80 couvre
-                // large marge de sécurité même si plusieurs échéances récentes se mélangent.
-                const url = 'https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/donnees-synop-essentielles-omm/records?order_by=date%20desc&limit=80';
-                const res = await fetchWithTimeout(url, { timeout: 8000 });
-                if (!res.ok) throw new Error('http ' + res.status);
-                const data = await res.json();
-                const results = data && Array.isArray(data.results) ? data.results : [];
-                if (results.length === 0) throw new Error('réponse vide');
-
-                let nearest = null;
-                let nearestDist = Infinity;
-                results.forEach(rec => {
-                    const coords = extractSynopCoords(rec);
-                    if (!coords) return;
-                    const dist = calculateDistance(lat, lon, coords.lat, coords.lon);
-                    if (dist < nearestDist) {
-                        nearestDist = dist;
-                        nearest = rec;
-                    }
+                if (!pioupiouCache || (Date.now() - pioupiouCache.ts) > 10 * 60000) {
+                    const resP = await fetchWithTimeout('https://api.pioupiou.fr/v1/live/all', { timeout: 12000 });
+                    if (!resP.ok) throw new Error('Pioupiou injoignable');
+                    const dataP = await resP.json();
+                    pioupiouCache = { ts: Date.now(), list: Array.isArray(dataP.data) ? dataP.data : [], attribution: dataP.attribution || null };
+                }
+                let bestP = null, bestPDist = Infinity;
+                (pioupiouCache.list || []).forEach(st => {
+                    const loc = st && st.location, mes = st && st.measurements;
+                    if (!loc || typeof loc.latitude !== 'number' || typeof loc.longitude !== 'number') return;
+                    if (loc.success === false) return;
+                    if (!mes || typeof mes.wind_speed_avg !== 'number' || !mes.date) return;
+                    const ageH = (Date.now() - new Date(mes.date).getTime()) / 3600000;
+                    if (!(ageH >= 0) || ageH > 3) return;
+                    const d = calculateDistance(lat, lon, loc.latitude, loc.longitude);
+                    if (d < bestPDist) { bestPDist = d; bestP = st; }
                 });
-                if (!nearest) throw new Error('aucune coordonnée exploitable');
-
-                // Ancienneté vérifiée AVANT de construire l'affichage : un relevé trop ancien
-                // (au-delà de SYNOP_STALE_ERROR_HOURS) n'est pas exploitable du tout, quelle que
-                // soit la station — on bascule alors sur le message d'indisponibilité honnête
-                // plutôt que d'afficher une valeur potentiellement vieille de plusieurs mois avec
-                // un avertissement absurde (voir constante SYNOP_STALE_ERROR_HOURS ci-dessus).
-                let ageHours = null;
-                let obsDate = null;
-                if (nearest.date) {
-                    obsDate = new Date(nearest.date);
-                    if (!isNaN(obsDate.getTime())) {
-                        ageHours = (Date.now() - obsDate.getTime()) / 3600000;
-                    }
-                }
-                if (ageHours === null) throw new Error('date de relevé absente ou invalide');
-                if (ageHours > SYNOP_STALE_ERROR_HOURS) {
-                    throw new Error(`relevé trop ancien pour être fiable (${Math.round(ageHours / 24)} j) — la source amont semble à l'arrêt`);
-                }
-
+                if (!bestP || bestPDist > 30) throw new Error('aucune balise récente à ≤30 km');
+                const mes = bestP.measurements;
+                const nameP = (bestP.meta && bestP.meta.name) || ('Pioupiou ' + bestP.id);
+                const dirP = typeof mes.wind_heading === 'number' ? mes.wind_heading : null;
                 const pills = [];
-                // Température (Kelvin -> Celsius), plage plausible pour écarter une valeur aberrante.
-                if (typeof nearest.t === 'number' && nearest.t > 200 && nearest.t < 333) {
-                    pills.push(`<div class="station-pill"><i class="fa-solid fa-temperature-half"></i> ${Math.round(nearest.t - 273.15)}°C</div>`);
-                }
-                if (typeof nearest.u === 'number' && nearest.u >= 0 && nearest.u <= 100) {
-                    pills.push(`<div class="station-pill"><i class="fa-solid fa-droplet"></i> ${Math.round(nearest.u)}%</div>`);
-                }
-                // Vent (m/s -> km/h).
-                if (typeof nearest.ff === 'number' && nearest.ff >= 0) {
-                    pills.push(`<div class="station-pill"><i class="fa-solid fa-wind"></i> ${Math.round(nearest.ff * 3.6)} km/h</div>`);
-                }
-                // Pression : champ non confirmé (pmer = pression mer, pres = pression station),
-                // en Pa dans ce dataset -> hPa. On garde la première valeur plausible trouvée.
-                const pressurePa = [nearest.pmer, nearest.pres].find(v => typeof v === 'number' && v > 80000 && v < 110000);
-                if (pressurePa) {
-                    pills.push(`<div class="station-pill"><i class="fa-solid fa-gauge"></i> ${Math.round(pressurePa / 100)} hPa</div>`);
-                }
-
-                if (pills.length === 0) throw new Error('aucune mesure exploitable');
-
-                const stationName = nearest.nom || nearest.libgeo || 'Station inconnue';
-                subEl.innerText = `Réseau SYNOP Météo-France — ${stationName} (${nearestDist} km)`;
+                const gustTxt = (typeof mes.wind_speed_max === 'number' && mes.wind_speed_max > mes.wind_speed_avg) ? ` (raf. ${Math.round(mes.wind_speed_max)})` : '';
+                pills.push(`<div class="station-pill"><i class="fa-solid fa-wind"></i> ${Math.round(mes.wind_speed_avg)} km/h${gustTxt}</div>`);
+                if (dirP !== null) pills.push(`<div class="station-pill"><i class="fa-solid fa-compass"></i> ${compass16(dirP)} (${Math.round(dirP)}°)</div>`);
                 pillsEl.innerHTML = pills.join('');
-                updatedEl.innerText = `Relevé du ${obsDate.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
-
-                // Lien Infoclimat (voir buildInfoclimatUrl ci-dessus) : "si la station existe" est
-                // interprété ici comme "si le relevé de cette station a bien été chargé" — on est déjà
-                // dans ce cas à ce stade de la fonction (avant le catch), donc toujours affiché ici.
-                const infoclimatLinkEl = document.getElementById('synop-station-external-link');
-                infoclimatLinkEl.href = buildInfoclimatUrl(stationName, nearest.numer_sta ?? nearest.num_sta ?? nearest.id_station);
-                infoclimatLinkEl.style.display = '';
-
-                // Avertissements « doux » : distance à la station et ancienneté modérée du relevé
-                // (mise à jour SYNOP toutes les 3h — un relevé "ancien" au sens de ce seuil est donc
-                // fréquent, pas une anomalie ; contrairement au cas SYNOP_STALE_ERROR_HOURS
-                // ci-dessus qui bascule carrément sur l'indisponibilité).
-                const warnings = [];
-                if (nearestDist > SYNOP_MAX_DISTANCE_KM) {
-                    warnings.push(`Station à ${nearestDist} km : peu représentative du lieu affiché.`);
-                }
-                if (ageHours > SYNOP_MAX_AGE_HOURS) {
-                    warnings.push(`Relevé vieux de ${ageHours.toFixed(1)} h (réseau SYNOP mis à jour toutes les 3h).`);
-                }
-                if (warnings.length > 0) {
-                    warningEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ${warnings.join(' ')}`;
-                    warningEl.style.display = '';
-                }
+                subEl.innerText = `Pioupiou/OpenWindMap — ${nameP} (${Math.round(bestPDist * 10) / 10} km, vent réel)`;
+                const attr = pioupiouCache.attribution || '(c) contributeurs OpenWindMap';
+                updatedEl.innerText = `Mesure du ${new Date(mes.date).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} · ${attr}`;
+                warningEl.innerHTML = '<i class="fa-solid fa-circle-info"></i> Réseau de vent : pas de température/pression sur ces balises.';
+                warningEl.style.display = '';
 
                 loadingEl.style.display = 'none';
+                errorEl.style.display = 'none';
                 contentEl.style.display = '';
             } catch (e) {
-                console.error('Erreur relevé SYNOP le plus proche:', e);
+                console.error('Pioupiou/OpenWindMap en panne :', e);
+                showError("Relevés indisponibles pour le moment : aucune balise Pioupiou/OpenWindMap récente (≤3 h) à moins de 30 km de ce lieu.");
+            }
+        }
+
+        // ---- Capteurs amateurs sensor.community ≤10 km (sélecteur, 11/09/2026) ----
+        // Réseau citoyen open data, SANS clé, interrogeable directement depuis le navigateur
+        // (même contrainte d'architecture que Pioupiou : un seul fichier HTML, pas de serveur).
+        // Données BRUTES : montages DIY hétérogènes, certains capteurs sont en intérieur ou mal
+        // abrités (écarts constatés de +10 °C à Grenoble le 11/09/2026) — d'où le warning permanent
+        // et l'écart au modèle affiché sous les pastilles. Température + humidité (DHT22/BME280),
+        // pression (BME280/BMP280, en Pa → convertie en hPa). Pas de vent sur ce réseau.
+        // Présélection automatique : le capteur le PLUS PROCHE DE LA TEMPÉRATURE MODÈLE Open-Meteo
+        // à l'heure courante (généralise la consigne "plus proche des 11,5 °C de la MF à Grenoble") ;
+        // repli sur le plus proche géographiquement si le modèle est indisponible.
+        let sensorCommunityCache = null; // {key, ts, list}
+        let currentScSensors = []; // sélection courante [{id, label, dist, temp, rh, pres, tsUTC}]
+        let sensorCommunityLoaded = false; // chargée une seule fois par lieu, à l'activation de l'onglet Eau
+        function scModelRefTemp() {
+            try {
+                const h = weatherData && weatherData.hourly && weatherData.hourly.temperature_2m;
+                const v = h ? h[new Date().getHours()] : null; // jour 0 = index 0..23
+                return (typeof v === 'number' && isFinite(v)) ? v : null;
+            } catch (e) { return null; }
+        }
+        function scFormatTsUtc(ts) {
+            const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/.exec(String(ts || ''));
+            return m ? `${m[3]}/${m[2]} ${m[4]}:${m[5]} UTC` : String(ts || '');
+        }
+        function renderScSensor(s) {
+            const pillsEl = document.getElementById('sc-pills');
+            const warningEl = document.getElementById('sc-warning');
+            const updatedEl = document.getElementById('sc-updated');
+            const subEl = document.getElementById('sc-sub');
+            const pills = [];
+            pills.push(`<div class="station-pill"><i class="fa-solid fa-temperature-half"></i> ${Math.round(s.temp * 10) / 10}°C</div>`);
+            if (typeof s.rh === 'number') pills.push(`<div class="station-pill"><i class="fa-solid fa-droplet"></i> ${Math.round(s.rh)}%</div>`);
+            if (typeof s.pres === 'number') pills.push(`<div class="station-pill"><i class="fa-solid fa-gauge"></i> ${Math.round(s.pres)} hPa</div>`);
+            pillsEl.innerHTML = pills.join('');
+            subEl.innerText = `sensor.community — capteur #${s.id} (${s.dist} km)`;
+            updatedEl.innerText = `Mesure du ${scFormatTsUtc(s.tsUTC)} · open data amateur`;
+            const ref = scModelRefTemp();
+            const gap = (ref !== null) ? ` Écart au modèle : ${(s.temp - ref) >= 0 ? '+' : ''}${Math.round((s.temp - ref) * 10) / 10}°C.` : '';
+            warningEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Capteur amateur (montage DIY, parfois en intérieur ou mal abrité) : valeur brute indicative.${gap}`;
+            warningEl.style.display = '';
+        }
+        function onSensorCommunityChange() {
+            const select = document.getElementById('sc-select');
+            const s = currentScSensors[parseInt(select.value, 10)];
+            if (s) renderScSensor(s);
+        }
+        async function loadSensorCommunity(lat, lon) {
+            const loadingEl = document.getElementById('sc-loading');
+            const errorEl = document.getElementById('sc-error');
+            const errorTextEl = document.getElementById('sc-error-text');
+            const contentEl = document.getElementById('sc-content');
+            const selectRow = document.getElementById('sc-select-row');
+            const select = document.getElementById('sc-select');
+            const showError = (msg) => {
+                if (loadingEl) loadingEl.style.display = 'none';
+                if (contentEl) contentEl.style.display = 'none';
+                if (selectRow) selectRow.style.display = 'none';
+                if (errorTextEl) errorTextEl.innerText = msg;
+                if (errorEl) errorEl.style.display = '';
+            };
+
+            loadingEl.style.display = '';
+            errorEl.style.display = 'none';
+            contentEl.style.display = 'none';
+            selectRow.style.display = 'none';
+
+            try {
+                const key = `${lat.toFixed(2)},${lon.toFixed(2)}`;
+                let list = (sensorCommunityCache && sensorCommunityCache.key === key && (Date.now() - sensorCommunityCache.ts) < 5 * 60000)
+                    ? sensorCommunityCache.list : null;
+                if (!list) {
+                    const url = `https://data.sensor.community/airrohr/v1/filter/area=${lat.toFixed(2)},${lon.toFixed(2)},10`;
+                    const res = await fetchWithTimeout(url, { timeout: 10000 });
+                    if (!res.ok) throw new Error('sensor.community injoignable (http ' + res.status + ')');
+                    const data = await res.json();
+                    const byId = new Map();
+                    (Array.isArray(data) ? data : []).forEach(sm => {
+                        const loc = sm && sm.location;
+                        const sen = sm && sm.sensor;
+                        if (!loc || typeof loc.latitude !== 'number' || typeof loc.longitude !== 'number') return;
+                        if (!sen || (sen.id === undefined || sen.id === null)) return;
+                        const vals = {};
+                        ((sm.sensordatavalues) || []).forEach(v => {
+                            if (v && v.value_type) vals[v.value_type] = parseFloat(v.value);
+                        });
+                        if (!(typeof vals.temperature === 'number' && isFinite(vals.temperature))) return;
+                        const d = Math.round(calculateDistance(lat, lon, loc.latitude, loc.longitude) * 10) / 10;
+                        if (!(d <= 10)) return;
+                        let tsMs = NaN;
+                        if (sm.timestamp) tsMs = Date.parse(String(sm.timestamp).replace(' ', 'T') + 'Z');
+                        if (!(tsMs >= 0) || (Date.now() - tsMs) > 3 * 3600000) return;
+                        let pres = (typeof vals.pressure === 'number' && isFinite(vals.pressure)) ? vals.pressure : null;
+                        if (pres !== null && pres > 10000) pres = pres / 100; // Pa → hPa
+                        if (pres !== null && !(pres > 800 && pres < 1100)) pres = null;
+                        const stype = (sen.sensor_type && sen.sensor_type.name) ? String(sen.sensor_type.name) : '';
+                        const prev = byId.get(sen.id);
+                        const cand = { id: sen.id, dist: d, temp: vals.temperature,
+                            rh: (typeof vals.humidity === 'number' && isFinite(vals.humidity)) ? vals.humidity : null,
+                            pres, tsUTC: sm.timestamp, tsMs, stype };
+                        if (!prev || tsMs > prev.tsMs) byId.set(sen.id, cand);
+                    });
+                    list = Array.from(byId.values()).sort((a, b) => a.dist - b.dist).slice(0, 20);
+                    sensorCommunityCache = { key, ts: Date.now(), list };
+                }
+                if (!list.length) throw new Error('aucun capteur récent à ≤10 km');
+                currentScSensors = list;
+                const ref = scModelRefTemp();
+                let defIdx = 0;
+                if (ref !== null) {
+                    let best = Infinity;
+                    list.forEach((s, i) => {
+                        const gap = Math.abs(s.temp - ref);
+                        if (gap < best) { best = gap; defIdx = i; }
+                    });
+                }
+                select.innerHTML = list.map((s, i) => {
+                    const mark = (i === defIdx) ? ' ★' : '';
+                    return `<option value="${i}">#${s.id}${s.stype ? ' · ' + s.stype : ''} — ${s.dist} km — ${Math.round(s.temp * 10) / 10}°C${mark}</option>`;
+                }).join('');
+                select.value = String(defIdx);
+                selectRow.style.display = '';
                 loadingEl.style.display = 'none';
-                errorTextEl.innerText = "Relevés indisponibles pour le moment (API Opendatasoft injoignable ou réponse inexploitable).";
-                errorEl.style.display = '';
+                errorEl.style.display = 'none';
+                contentEl.style.display = '';
+                renderScSensor(list[defIdx]);
+            } catch (e) {
+                console.error('sensor.community en panne :', e);
+                showError("Relevés indisponibles : aucun capteur sensor.community récent à moins de 10 km (ou requête bloquée par le navigateur).");
             }
         }
 
@@ -5778,12 +5836,14 @@
                 }
                 nearbyStationLoaded = (currentGroup === 'eau' && nearbyStationInRange);
                 if (nearbyStationLoaded) loadNearbyStation();
-                // Relevé officiel SYNOP le plus proche : même carte/onglet que la station Tencin
-                // ci-dessus (fusionnées dans la même zone), mais pas de condition de distance ici — le
-                // relevé le plus proche est toujours recherché, même lointain (avertissement géré dans
-                // loadSynopStation() lui-même).
-                synopStationLoaded = (currentGroup === 'eau');
-                if (synopStationLoaded) loadSynopStation(lat, lon).catch(() => {});
+                // Balise Pioupiou/OpenWindMap la plus proche : même carte/onglet que la station Tencin
+                // ci-dessus (fusionnées dans la même zone), toujours recherchée quel que soit le lieu
+                // (avertissement géré dans
+                // loadPioupiouStation() elle-même).
+                pioupiouStationLoaded = (currentGroup === 'eau');
+                if (pioupiouStationLoaded) loadPioupiouStation(lat, lon).catch(() => {});
+                sensorCommunityLoaded = (currentGroup === 'eau');
+                if (sensorCommunityLoaded) loadSensorCommunity(lat, lon).catch(() => {});
                 // Classement des meilleures nuits : purement calculé (pas d'appel réseau), donc
                 // recalculé immédiatement si l'onglet Général (qui héberge désormais Astronomie, voir
                 // #astro-card) est déjà actif au changement de lieu.
@@ -6259,7 +6319,46 @@
         // réseau (élévation Open-Meteo + Overpass), donc appelé UNE SEULE FOIS par lieu (voir
         // analyzeLocalEffects ci-dessous), jamais par jour. Le calcul des ajustements pour un jour
         // donné à partir de ces signaux est entièrement séparé, voir computeMicroClimateDayEffects().
+        // Cache inter-lieux des signaux géo micro-climat (11/09/2026, mode jugé trop lent) :
+        // un retour sur un lieu déjà analysé (arrondi ~100 m) est instantané, sans aucun appel réseau.
+        // Mémoire + localStorage 30 j (borné à 60 lieux contre le gonflement).
+        let microGeoMemCache = {};
+        const MICRO_GEO_CACHE_KEY = 'metehop_microgeo_v1';
+        const MICRO_GEO_CACHE_DAYS = 30;
+        function microGeoCacheGet(key) {
+            if (microGeoMemCache[key]) return microGeoMemCache[key];
+            try {
+                const all = JSON.parse(localStorage.getItem(MICRO_GEO_CACHE_KEY) || 'null');
+                const e = all && all[key];
+                if (e && e.signals && (Date.now() - (e.ts || 0)) < MICRO_GEO_CACHE_DAYS * 86400000) {
+                    microGeoMemCache[key] = e.signals;
+                    return e.signals;
+                }
+            } catch (err) { /* cache illisible : on recalcule */ }
+            return null;
+        }
+        function microGeoCacheSet(key, signals) {
+            microGeoMemCache[key] = signals;
+            try {
+                const all = JSON.parse(localStorage.getItem(MICRO_GEO_CACHE_KEY) || 'null') || {};
+                all[key] = { ts: Date.now(), signals };
+                const keys = Object.keys(all);
+                if (keys.length > 60) {
+                    keys.sort((a, b) => (all[a].ts || 0) - (all[b].ts || 0));
+                    keys.slice(0, keys.length - 60).forEach(k => delete all[k]);
+                }
+                localStorage.setItem(MICRO_GEO_CACHE_KEY, JSON.stringify(all));
+            } catch (err) { /* tant pis, mémoire seule */ }
+        }
+
         async function fetchMicroClimateGeoSignals(lat, lon, population) {
+            const microGeoKey = `${lat.toFixed(3)},${lon.toFixed(3)}`;
+            const cachedSignals = microGeoCacheGet(microGeoKey);
+            if (cachedSignals) {
+                // Population fournie maintenant (recherche par nom) prime sur le repli mémorisé.
+                if (typeof population === 'number' && population > 0) return { ...cachedSignals, resolvedPopulation: population };
+                return cachedSignals;
+            }
             // ---- 1. RELIEF : deux anneaux de 8 points (2km ET 6km) + centre, un seul appel API ----
             // Un seul rayon de 2km s'est révélé insuffisant pour détecter des vallées larges (ex.
             // Grésivaudan, plusieurs km de large à plat en fond de vallée avant que les premiers
@@ -6282,34 +6381,29 @@
             const lonsParam = allPoints.map(p => p.lon.toFixed(5)).join(',');
             const elevUrl = `https://api.open-meteo.com/v1/elevation?latitude=${latsParam}&longitude=${lonsParam}`;
 
-            // ---- 2. BÂTI ET COURS D'EAU : Overpass API ----
+            // ---- 2. OVERPASS EN 2 REQUÊTES AU LIEU DE 3 (11/09/2026) ----
+            // Le bâti (gros volume, seul le NOMBRE compte : seuils 30/120 calibrés sur 700 m,
+            // inchangés) reste une requête dédiée ; l'eau (800 m) et les lieux peuplés (5 km,
+            // petit volume, positions nécessaires) sont FUSIONNÉS en une seule requête, envoyée
+            // avec les lieux UNIQUEMENT si la population n'est pas déjà connue. Timeouts
+            // réduits (10 s) : le pire cas parallèle passe de ~15 s à ~10 s.
             const bQuery = `[out:json][timeout:20];way(around:700,${lat},${lon})[building];out tags 300;`;
             const bUrl = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(bQuery)}`;
 
-            const wQuery = `[out:json][timeout:20];(way(around:800,${lat},${lon})[waterway~"^(river|canal)$"];way(around:800,${lat},${lon})[natural=water];relation(around:800,${lat},${lon})[natural=water];);out center tags 5;`;
-            const wUrl = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(wQuery)}`;
-
-            // ---- 2bis. POPULATION DE REPLI (si non fournie par l'appelant, ex. lieu chargé par
-            // défaut, géolocalisation ou clic carte plutôt que recherche par nom) : nœud/way OSM
-            // taggé place=* avec un attribut population=*, le plus proche dans un rayon de 5km. ----
             const needPopulationFallback = (typeof population !== 'number' || population <= 0);
-            const pQuery = `[out:json][timeout:20];(node(around:5000,${lat},${lon})["place"]["population"];way(around:5000,${lat},${lon})["place"]["population"];);out center tags 10;`;
-            const pUrl = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(pQuery)}`;
+            let wPopInner = `way(around:800,${lat},${lon})[waterway~"^(river|canal)$"];way(around:800,${lat},${lon})[natural=water];relation(around:800,${lat},${lon})[natural=water];`;
+            if (needPopulationFallback) {
+                wPopInner += `node(around:5000,${lat},${lon})["place"]["population"];way(around:5000,${lat},${lon})["place"]["population"];`;
+            }
+            const wPopUrl = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(`[out:json][timeout:15];(${wPopInner});out center tags 30;`)}`;
 
-            // Accéléré le 07/09/2026 (signalé lent) : ces 4 requêtes sont indépendantes les unes des
-            // autres (aucune n'a besoin du résultat d'une autre), mais étaient auparavant enchaînées
-            // en séquence avec `await` — jusqu'à 8s + 15s + 15s + 15s de timeouts cumulés dans le pire
-            // cas, essentiellement à cause d'Overpass qui peut être lent à répondre. Lancées en
-            // parallèle avec Promise.allSettled, la durée totale se rapproche de la requête la PLUS
-            // LENTE plutôt que de leur somme. Promise.allSettled plutôt que Promise.all : l'échec
-            // d'une requête ne doit pas annuler les autres — chaque signal reste indépendamment
-            // "indisponible" en cas d'échec, exactement comme avant (chaque bloc try/catch traitait
-            // déjà son échec séparément).
-            const [elevSettled, buildingSettled, waterSettled, popSettled] = await Promise.allSettled([
+            // Lancées en parallèle : la durée totale se rapproche de la requête la PLUS
+            // LENTE plutôt que de leur somme. allSettled : l'échec d'une requête
+            // ne doit pas annuler les autres.
+            const [elevSettled, buildingSettled, waterPopSettled] = await Promise.allSettled([
                 fetchWithTimeout(elevUrl, { timeout: 8000 }),
-                fetchWithTimeout(bUrl, { timeout: 15000 }),
-                fetchWithTimeout(wUrl, { timeout: 15000 }),
-                needPopulationFallback ? fetchWithTimeout(pUrl, { timeout: 15000 }) : Promise.resolve(null)
+                fetchWithTimeout(bUrl, { timeout: 10000 }),
+                fetchWithTimeout(wPopUrl, { timeout: 10000 })
             ]);
 
             let reliefIndex = null; // moyenne(anneau retenu) - centre, en mètres. Positif = cuvette/vallée.
@@ -6341,43 +6435,38 @@
                 }
             } catch (e) { /* densité bâtie indisponible */ }
 
+            // Réponse fusionnée eau + lieux : on trie par les tags (un élément n'est jamais
+            // les deux à la fois : waterway/natural=water d'un côté, place+population de l'autre).
             let nearestWater = null; // { type, distM }
+            let resolvedPopulation = population;
             try {
-                if (waterSettled.status === 'fulfilled' && waterSettled.value && waterSettled.value.ok) {
-                    const wData = await waterSettled.value.json();
-                    let best = null;
+                if (waterPopSettled.status === 'fulfilled' && waterPopSettled.value && waterPopSettled.value.ok) {
+                    const wData = await waterPopSettled.value.json();
+                    let best = null, bestPop = null;
                     (wData.elements || []).forEach(el => {
+                        const tags = (el && el.tags) || {};
                         const elLat = el.lat ?? (el.center && el.center.lat);
                         const elLon = el.lon ?? (el.center && el.center.lon);
                         if (typeof elLat !== 'number' || typeof elLon !== 'number') return;
-                        const distM = Math.round(calculateDistance(lat, lon, elLat, elLon) * 1000);
-                        const type = (el.tags && el.tags.waterway) ? "cours d'eau" : 'plan d\'eau';
-                        if (!best || distM < best.distM) best = { type, distM };
+                        if (tags.waterway || tags.natural === 'water') {
+                            const distM = Math.round(calculateDistance(lat, lon, elLat, elLon) * 1000);
+                            const type = tags.waterway ? "cours d'eau" : "plan d'eau";
+                            if (!best || distM < best.distM) best = { type, distM };
+                        } else if (needPopulationFallback && tags.place && tags.population) {
+                            const pop = parseInt(tags.population, 10);
+                            if (!pop || isNaN(pop)) return;
+                            const distM = calculateDistance(lat, lon, elLat, elLon) * 1000;
+                            if (!bestPop || distM < bestPop.distM) bestPop = { pop, distM };
+                        }
                     });
                     nearestWater = best;
+                    if (needPopulationFallback && bestPop) resolvedPopulation = bestPop.pop;
                 }
-            } catch (e) { /* cours d'eau indisponible */ }
+            } catch (e) { /* eau / population de repli indisponibles */ }
 
-            let resolvedPopulation = population;
-            if (needPopulationFallback) {
-                try {
-                    if (popSettled.status === 'fulfilled' && popSettled.value && popSettled.value.ok) {
-                        const pData = await popSettled.value.json();
-                        let best = null;
-                        (pData.elements || []).forEach(el => {
-                            const elLat = el.lat ?? (el.center && el.center.lat);
-                            const elLon = el.lon ?? (el.center && el.center.lon);
-                            const pop = el.tags && parseInt(el.tags.population, 10);
-                            if (typeof elLat !== 'number' || typeof elLon !== 'number' || !pop || isNaN(pop)) return;
-                            const distM = calculateDistance(lat, lon, elLat, elLon) * 1000;
-                            if (!best || distM < best.distM) best = { pop, distM };
-                        });
-                        if (best) resolvedPopulation = best.pop;
-                    }
-                } catch (e) { /* population de repli indisponible : uniquement l'indicateur de densité bâtie */ }
-            }
-
-            return { reliefIndex, reliefRadiusKm, buildingCount, nearestWater, resolvedPopulation };
+            const freshSignals = { reliefIndex, reliefRadiusKm, buildingCount, nearestWater, resolvedPopulation };
+            microGeoCacheSet(microGeoKey, freshSignals);
+            return freshSignals;
         }
 
         // Calcule, à PARTIR DE SIGNAUX DÉJÀ CONNUS (aucun réseau ici), les ajustements micro-climat
@@ -7034,6 +7123,9 @@
             if (typeof Chart === 'undefined') return;
             const ctx = document.getElementById('evoChart').getContext('2d');
             if (evoChart) evoChart.destroy();
+            // Fiabilite auto-mesuree (7) : verifie les predictions passees devenues observables
+            // puis stocke celle-ci - sauf confiance nulle (radar indisponible, rien a stocker).
+            if (confidenceValues && confidenceValues.some(v => v > 0)) verifyAndStoreEvoPrediction(precipValues);
 
             const datasets = [
                 { type: 'bar', label: precipLabel, data: precipValues, backgroundColor: colors, borderRadius: 4, barThickness: 7, yAxisID: 'yPrecip', order: 3 }
@@ -7101,7 +7193,13 @@
         }
 
         function setEvoLoading(msg) {
-            document.getElementById('evo-chart-note').innerText = msg;
+            const mods = [];
+            if (metehopCoresActiveNow) mods.push(metehopCoreMode === 'auto' ? 'noyaux \u226540 dBZ (auto)' : 'noyaux \u226540 dBZ');
+            else if (metehopCoreMode === 'auto' && metehopCoreAutoReason) mods.push('enveloppe (auto)');
+            if (metehopTrecActiveNow) mods.push('TREC');
+            let suffix = mods.length ? ' [' + mods.join('+') + ']' : '';
+            if (metehopReliabilityLabel) suffix += ' [fiabilit\u00e9: ' + metehopReliabilityLabel + ']';
+            document.getElementById('evo-chart-note').innerText = msg + suffix;
         }
 
         function latLonToTilePixel(lat, lon, zoom) {
@@ -7343,7 +7441,7 @@
         // l'approximation "cellule = disque de même surface" utilisée jusqu'ici pour décider si la
         // pluie tombe sur la position suivie (voir projectTrackToBins). Coût : 2,4 Mo par image —
         // on ne la construit donc que pour la dernière image radar, la seule à être projetée.
-        function identifyRainCells(imgData, cx, cy, radiusPx, buildLabels) {
+        function identifyRainCells(imgData, cx, cy, radiusPx, buildLabels, persistFrom) {
             const { data } = imgData;
             const visited = new Uint8Array(768 * 768);
             const labels = buildLabels ? new Int32Array(768 * 768).fill(-1) : null;
@@ -7360,6 +7458,7 @@
                     if (ddx0 * ddx0 + ddy0 * ddy0 > r2) { visited[key] = 1; continue; }
                     const idx0 = key * 4;
                     if (data[idx0 + 3] <= ALPHA_THRESHOLD) { visited[key] = 1; continue; }
+                    if (persistFrom && !isRainPersistent(sx, sy, persistFrom)) { visited[key] = 1; continue; }
 
                     const stack = [[sx, sy]];
                     visited[key] = 1;
@@ -7477,6 +7576,17 @@
         // système pluvieux distinct qui approcherait par ailleurs (voir loadEvoMetehop pour la
         // fusion des trajectoires obtenues).
         const MULTI_CELL_MAX = 3;
+        // Vivier elargi pour la garantie "menace frontale" (10/09/2026, voir loadEvoMetehop) :
+        // les 3 premieres pistes sont projetees comme avant, les suivantes ne sont projetees
+        // qu'en 2e chance si un test advecte bon marche montre qu'elles peuvent atteindre le
+        // lieu. Plafond total de resultats fusionnes/affichees, pour ne pas surcharger la
+        // carte ni multiplier les appels reseau (verification grele).
+        const MULTI_CELL_CANDIDATES = 6;
+        const MULTI_CELL_RESULTS_CAP = 5;
+        // Seuil de coherence du centroide : en-dessous, le centroide est juge trop deforme
+        // pour donner une vitesse (bande allongee qui se deforme le long de son axe) et on
+        // replie sur la vitesse texture (TREC) puis modele (flux directeur). Voir velForTrack.
+        const COHERENCE_R2_MIN = 0.5;
         // Seuil de taille minimale (bruit radar isolé exclu), mais PAS de seuil minimal sur la
         // longueur de la trajectoire liée : une cellule qui vient tout juste d'apparaître (1 seule
         // image, pas encore de vitesse mesurable) ou de se former (2 images) doit rester éligible —
@@ -7498,7 +7608,210 @@
         // relief (des milliers de pixels à 20 dBZ) écraserait systématiquement une cellule
         // orageuse compacte, qui est pourtant l'objet même de cette fonctionnalité.
         const CELL_SIZE_SCORE_CAP = 6;
-        function trackAllCellsBackward(cellFramesList, times, kmPerPixel, refCx, refCy, isSnowMode, lastLabels) {
+        // ---- Segmentation multi-seuils facon SCIT/TITAN (noyaux >=40 dBZ) ----
+        // Contexte : le point affiche sur la carte (violet/rose) est le centroide pondere de
+        // l'ENVELOPPE (voir identifyRainCells : moyenne ponderee par l'intensite de TOUS les
+        // pixels pluvieux connectes). Sur une cellule difforme (arc, ligne, amas allonge), ce
+        // centroide peut tomber loin de la zone reellement active, voire sur un pixel sec, et il
+        // se deplace au gre des deformations du contour plutot qu'avec le systeme lui-meme.
+        // Facon SCIT (Storm Cell Identification and Tracking, NEXRAD) / TITAN (Thunderstorm
+        // Identification, Tracking, Analysis and Nowcasting) : on relance un flood fill A
+        // L'INTERIEUR de chaque enveloppe avec un seuil plus eleve (>=40 dBZ) pour isoler ses
+        // NOYAUX (zero, un ou plusieurs par enveloppe). Le noyau devient l'entite suivie
+        // (position, vitesse, intensite, tendance) ; l'enveloppe ne sert plus qu'a estimer la
+        // duree d'exposition (test de couverture dans projectTrackToBins, inchange car le noyau
+        // conserve le cellId de son enveloppe parente). Effets obtenus sans toucher au reste :
+        // le point carte saute sur le coeur actif meme s'il est fortement decentre ; une
+        // enveloppe a deux coeurs donne deux entites suivies (scission geree) ; deux enveloppes
+        // qui fusionnent gardent leurs noyaux distincts tant que leurs coeurs >=40 dBZ restent
+        // separes (fusion geree). Les enveloppes SANS noyau (pluie stratiforme, neige - qui
+        // atteint rarement 40 dBZ) sont suivies comme avant : aucun changement pour elles.
+        // Active UNIQUEMENT par le select de l'encart "Evolution des 3 prochaines heures"
+        // (defaut : "auto" = diagnostic ci-dessous ; "multi" = force les noyaux ;
+        // "mono" = force les enveloppes = comportement historique strictement inchange).
+        // En mode neige (temperature <=0,5 degC), les noyaux sont sans effet dans tous les
+        // cas (retour auto aux enveloppes).
+        const MULTICORE_DBZ_THRESHOLD = 40; // seuil haut SCIT/TITAN : un "noyau" commence a 40 dBZ
+        const MULTICORE_MIN_PIXELS = 6; // un noyau peut etre petit : son coeur intense compte, pas sa surface
+        const MULTICORE_MAX_PER_ENVELOPE = 3; // au-dela, on ne garde que les 3 noyaux les plus massifs
+        const CORE_AUTO_DECENTER_RATIO = 0.6; // au-dela de 60% du rayon, le centroide d'enveloppe est juge trompeur
+        let metehopCoreMode = 'auto'; // 'auto' | 'mono' | 'multi'
+        let metehopCoresActiveNow = false; // vrai pendant une analyse loadEvoMetehop utilisant les noyaux (suffixe de setEvoLoading)
+        let metehopCoreAutoReason = ''; // motif du diagnostic auto, pour le suffixe de setEvoLoading
+        try {
+            const savedMode = localStorage.getItem('metehop_coremode_v1');
+            if (savedMode === 'mono' || savedMode === 'multi' || savedMode === 'auto') metehopCoreMode = savedMode;
+            else if (localStorage.getItem('metehop_multicore_v1') === '1') metehopCoreMode = 'multi'; // migration de l'ancien toggle
+        } catch (e) { /* preference non persistee */ }
+        function onCoreModeChange() {
+            const el = document.getElementById('multicore-mode');
+            const v = el && el.value;
+            metehopCoreMode = (v === 'mono' || v === 'multi') ? v : 'auto';
+            try { localStorage.setItem('metehop_coremode_v1', metehopCoreMode); } catch (e) { /* tant pis */ }
+            loadEvoMetehop().catch(() => {});
+        }
+        function onMultiCoreToggleChange() {
+            // Compat ascendante (l'ancien toggle a ete remplace par le select) : bascule auto <-> multi.
+            metehopCoreMode = metehopCoreMode === 'multi' ? 'auto' : 'multi';
+            try { localStorage.setItem('metehop_coremode_v1', metehopCoreMode); } catch (e) { /* tant pis */ }
+            loadEvoMetehop().catch(() => {});
+        }
+        document.addEventListener('DOMContentLoaded', () => {
+            const el = document.getElementById('multicore-mode');
+            if (el) el.value = metehopCoreMode;
+            const elT = document.getElementById('trec-toggle');
+            if (elT) elT.checked = metehopTrecEnabled;
+        });
+        // ---- Diagnostic automatique mono-enveloppe vs multi-noyaux (10/09/2026) ----
+        // decideCoreModeAuto() examine la DERNIERE image uniquement (pas de surcout notable :
+        // une seule passe d'extraction) et renvoie { useCores, reason }. Regles, par ordre :
+        // 1. neige -> enveloppes (les noyaux >=40 dBZ n'existent quasiment jamais en neige) ;
+        // 2. aucun coeur >=40 dBZ -> enveloppes (pluie stratiforme : le mode noyaux serait
+        //    identique aux enveloppes, voir buildMultiCoreRepLists) ;
+        // 3. au moins une enveloppe a >=2 coeurs -> noyaux (scission : deux systemes actifs
+        //    sous le meme contour, le centroide d'enveloppe ne suit ni l'un ni l'autre) ;
+        // 4. coeur unique mais decentre a plus de CORE_AUTO_DECENTER_RATIO du rayon ->
+        //    noyaux (cellule difforme/arc : le centroide tombe loin du coeur actif, voire au sec) ;
+        // 5. coeur convectif (pic orage/grele) -> noyaux (le suivi du coeur donne une vitesse
+        //    et une tendance representatives du systeme dangereux, pas de la traine stratiforme) ;
+        // 6. sinon -> enveloppes (coeur unique centre : l'enveloppe suffit, plus stable car
+        //    plus massive que son noyau).
+        function decideCoreModeAuto(lastFrame, lastImgData, isSnowMode) {
+            if (isSnowMode) return { useCores: false, reason: 'neige : enveloppes' };
+            if (!lastFrame || !lastFrame.cells || !lastFrame.cells.length || !lastFrame.labels || !lastImgData) {
+                return { useCores: false, reason: 'aucune cellule' };
+            }
+            let coresByParent = null;
+            try { coresByParent = extractCoresSinglePass(lastImgData, lastFrame.labels, MULTICORE_DBZ_THRESHOLD); }
+            catch (e) { return { useCores: false, reason: 'diagnostic indisponible' }; }
+            if (!coresByParent || !coresByParent.size) {
+                return { useCores: false, reason: 'pluie stratiforme (aucun coeur >=40 dBZ)' };
+            }
+            let nMulti = 0, nCores = 0, maxDecenter = 0, convective = false;
+            lastFrame.cells.forEach(env => {
+                const cores = coresByParent.get(env.cellId) || [];
+                if (!cores.length) return;
+                nCores += cores.length;
+                if (cores.length >= 2) nMulti++;
+                const radius = Math.sqrt(env.count / Math.PI) || 1;
+                cores.forEach(c => {
+                    const d = Math.hypot(c.cx - env.cx, c.cy - env.cy) / radius;
+                    if (d > maxDecenter) maxDecenter = d;
+                });
+                try {
+                    const peakType = classifyRadarPixel(env.peakR, env.peakG, env.peakB, env.peakAlpha, isSnowMode).type;
+                    if (peakType === 'storm' || peakType === 'hail' || peakType === 'hail_candidate') convective = true;
+                } catch (e) { /* classification optionnelle */ }
+            });
+            if (!nCores) return { useCores: false, reason: 'pluie stratiforme (aucun coeur >=40 dBZ)' };
+            if (nMulti > 0) return { useCores: true, reason: nMulti + ' enveloppe(s) a coeurs multiples (scission)' };
+            if (maxDecenter > CORE_AUTO_DECENTER_RATIO) return { useCores: true, reason: 'coeur decentre (cellule difforme)' };
+            if (convective) return { useCores: true, reason: 'coeur convectif >=40 dBZ' };
+            return { useCores: false, reason: 'coeur unique centre (enveloppe suffisante)' };
+        }
+        // ---- Vent TREC (1) : actif uniquement via le toggle ci-dessus ----
+        let metehopTrecEnabled = false;
+        let metehopTrecActiveNow = false; // vrai si un champ TREC exploitable a servi à cette analyse
+        try { metehopTrecEnabled = localStorage.getItem('metehop_trec_v1') === '1'; } catch (e) { /* preference non persistee */ }
+        function onTrecToggleChange() {
+            const el = document.getElementById('trec-toggle');
+            metehopTrecEnabled = !!(el && el.checked);
+            try { localStorage.setItem('metehop_trec_v1', metehopTrecEnabled ? '1' : '0'); } catch (e) { /* tant pis */ }
+            loadEvoMetehop().catch(() => {});
+        }
+        // ---- Fiabilite auto-mesuree (7) : libelle + derniere observation, voir verifyAndStoreEvoPrediction ----
+        let metehopReliabilityLabel = null;
+        let metehopLastObsMm = null;
+        let metehopLastObsUnit = null;
+        // ---- Cache du flux directeur 850 hPa (3) ----
+        let steeringCache = null;
+        // Isole, en UNE SEULE passe sur l'image, les noyaux >=seuil de toutes les enveloppes :
+        // pour chaque pixel pluvieux (labels[k] >= 0) dont le dBZ atteint le seuil haut et non
+        // encore visite, flood fill 4-connexite restreint aux pixels de LA MEME enveloppe
+        // (labels[nkey] === parentId) et >=seuil. Renvoie Map(parentEnvelopeCellId -> [noyaux]).
+        // Chaque noyau porte les memes champs qu'une cellule (cx/cy ponderes avec
+        // CENTROID_DBZ_FLOOR/CENTROID_WEIGHT_EXP, count, avgDbz, pic) pour etre suivi par les
+        // memes fonctions (linkCellBackward/trackAllCellsBackward) sans les modifier.
+        function extractCoresSinglePass(imgData, envelopeLabels, dbzThreshold) {
+            const data = imgData.data;
+            const visited = new Uint8Array(768 * 768);
+            const byParent = new Map();
+            if (!envelopeLabels) return byParent;
+            for (let key = 0; key < 768 * 768; key++) {
+                if (visited[key]) continue;
+                const parentId = envelopeLabels[key];
+                if (parentId === undefined || parentId === null || parentId < 0) continue;
+                const idx0 = key * 4;
+                if (data[idx0 + 3] <= ALPHA_THRESHOLD) continue;
+                const dbz0 = estimateDbzFromRgb(data[idx0], data[idx0 + 1], data[idx0 + 2]);
+                if (dbz0 < dbzThreshold) continue;
+                const stack = [key];
+                visited[key] = 1;
+                let sumW = 0, sumWX = 0, sumWY = 0, sumX = 0, sumY = 0, count = 0, sumDbz = 0;
+                let peakDbz = -Infinity, peakR = 0, peakG = 0, peakB = 0, peakAlpha = 0, maxAlpha = 0;
+                while (stack.length) {
+                    const k = stack.pop();
+                    const x = k % 768, y = (k / 768) | 0;
+                    const idx = k * 4;
+                    const a = data[idx + 3];
+                    const dbz = estimateDbzFromRgb(data[idx], data[idx + 1], data[idx + 2]);
+                    sumX += x; sumY += y; count++; sumDbz += dbz;
+                    if (a > maxAlpha) maxAlpha = a;
+                    const w = Math.pow(Math.max(0, dbz - CENTROID_DBZ_FLOOR), CENTROID_WEIGHT_EXP);
+                    sumW += w; sumWX += w * x; sumWY += w * y;
+                    if (dbz > peakDbz) { peakDbz = dbz; peakR = data[idx]; peakG = data[idx + 1]; peakB = data[idx + 2]; peakAlpha = a; }
+                    if (x + 1 < 768) { const nk = k + 1; if (!visited[nk] && envelopeLabels[nk] === parentId) { const ni = nk * 4; if (data[ni + 3] > ALPHA_THRESHOLD && estimateDbzFromRgb(data[ni], data[ni + 1], data[ni + 2]) >= dbzThreshold) { visited[nk] = 1; stack.push(nk); } } }
+                    if (x - 1 >= 0) { const nk = k - 1; if (!visited[nk] && envelopeLabels[nk] === parentId) { const ni = nk * 4; if (data[ni + 3] > ALPHA_THRESHOLD && estimateDbzFromRgb(data[ni], data[ni + 1], data[ni + 2]) >= dbzThreshold) { visited[nk] = 1; stack.push(nk); } } }
+                    if (y + 1 < 768) { const nk = k + 768; if (!visited[nk] && envelopeLabels[nk] === parentId) { const ni = nk * 4; if (data[ni + 3] > ALPHA_THRESHOLD && estimateDbzFromRgb(data[ni], data[ni + 1], data[ni + 2]) >= dbzThreshold) { visited[nk] = 1; stack.push(nk); } } }
+                    if (y - 1 >= 0) { const nk = k - 768; if (!visited[nk] && envelopeLabels[nk] === parentId) { const ni = nk * 4; if (data[ni + 3] > ALPHA_THRESHOLD && estimateDbzFromRgb(data[ni], data[ni + 1], data[ni + 2]) >= dbzThreshold) { visited[nk] = 1; stack.push(nk); } } }
+                }
+                if (count >= MULTICORE_MIN_PIXELS) {
+                    const core = { cx: sumW > 0 ? sumWX / sumW : sumX / count, cy: sumW > 0 ? sumWY / sumW : sumY / count, count, avgDbz: sumDbz / count, peakR, peakG, peakB, peakAlpha, maxAlpha, parentId };
+                    if (!byParent.has(parentId)) byParent.set(parentId, []);
+                    byParent.get(parentId).push(core);
+                }
+            }
+            return byParent;
+        }
+        // Construit, pour CHAQUE image, la liste des entites a suivre en mode noyaux : pour une
+        // enveloppe AVEC noyau(x), chaque noyau (plafonne a MULTICORE_MAX_PER_ENVELOPE, les plus
+        // massifs) devient une entite qui CONSERVE le cellId de son enveloppe parente - c'est ce
+        // qui fait que trackAllCellsBackward (garantie "lieu hote") et projectTrackToBins
+        // (couverture = masque de l'enveloppe = duree d'exposition) fonctionnent SANS MODIFICATION ;
+        // pour une enveloppe SANS noyau, l'enveloppe elle-meme reste l'entite (isCore=false).
+        // La bbox (minPx..maxPy) conservee est TOUJOURS celle de l'enveloppe (affichage carte +
+        // repli), tandis que cx/cy/count/avgDbz/pic viennent du noyau (l'entite suivie).
+        function buildMultiCoreRepLists(imageDatas, cellFrames) {
+            return imageDatas.map((f, i) => {
+                const frame = cellFrames[i];
+                const envCells = frame.cells;
+                const envLabels = frame.labels;
+                if (!envCells.length || !envLabels) return envCells.slice();
+                const coresByParent = extractCoresSinglePass(f.data, envLabels, MULTICORE_DBZ_THRESHOLD);
+                const reps = [];
+                envCells.forEach(env => {
+                    const cores = (coresByParent.get(env.cellId) || []).sort((a, b) => b.count - a.count).slice(0, MULTICORE_MAX_PER_ENVELOPE);
+                    if (!cores.length) {
+                        reps.push({ ...env, isCore: false });
+                        return;
+                    }
+                    cores.forEach(core => {
+                        reps.push({
+                            cellId: env.cellId,
+                            cx: core.cx, cy: core.cy,
+                            count: core.count, avgDbz: core.avgDbz,
+                            peakR: core.peakR, peakG: core.peakG, peakB: core.peakB, peakAlpha: core.peakAlpha,
+                            maxAlpha: core.maxAlpha,
+                            minPx: env.minPx, maxPx: env.maxPx, minPy: env.minPy, maxPy: env.maxPy,
+                            envCount: env.count, isCore: true
+                        });
+                    });
+                });
+                return reps;
+            });
+        }
+        function trackAllCellsBackward(cellFramesList, times, kmPerPixel, refCx, refCy, isSnowMode, lastLabels, keepMax) {
+            keepMax = Math.max(1, keepMax || MULTI_CELL_MAX);
             const n = cellFramesList.length;
             const lastCells = cellFramesList[n - 1];
             if (!lastCells.length) return [];
@@ -7515,7 +7828,7 @@
             // bornée à l'intervalle), sans avoir à échantillonner plusieurs instants.
             const horizonMin = EVO_HORIZON_HOURS * 60;
             const candidates = lastCells
-                .filter(c => c.count >= MULTI_CELL_MIN_PIXELS)
+                .filter(c => (c.envCount || c.count) >= MULTI_CELL_MIN_PIXELS)
                 .map(c => {
                     const track = linkCellBackward(cellFramesList, times, kmPerPixel, c, n - 1);
                     let vx = 0, vy = 0; // à défaut de trajectoire exploitable (1 seule image), reste sur place
@@ -7547,17 +7860,24 @@
                     //   cellule à la moyenne tiède mais au coeur à 50 dBZ est dangereuse par son
                     //   coeur, pas par sa moyenne — c'est le cas des cellules difformes.
                     // - taille : en racine carrée (une cellule 4 fois plus vaste ne dure pas
-                    //   4 fois plus longtemps au-dessus d'un point), et plafonnée.
+                    //   4 fois plus longtemps au-dessus d'un point), et plafonnée. En mode noyaux,
+                    //   c'est l'ETENDUE de l'enveloppe parente (envCount) qui compte, pas les pixels
+                    //   du coeur : un coeur de 10 px au sein d'un systeme de 500 px menacerait sinon
+                    //   d'etre evince du top-3 par des averses insignifiantes (cas constate : le gros
+                    //   orage restait sans marqueur en auto alors que l'enveloppe le suivait).
                     // - proximité : décroissance douce, rapportée au rayon propre de la cellule —
                     //   passer à 20km d'une cellule de 5km de rayon n'a rien à voir avec passer à
                     //   20km d'une cellule de 40km de rayon. Jamais nulle : une cellule qui rate
                     //   le lieu de peu reste suivie, elle passe simplement après les autres.
                     // - urgence : ce qui arrive dans 20 minutes prime sur ce qui arrive dans 3h.
-                    const cellRadiusPx = Math.sqrt(c.count / Math.PI);
+                    // Position (cx/cy) et gravite restent celles du COEUR suivi : c'est lui qui
+                    // donne la trajectoire et l'intensite representatives du systeme dangereux.
+                    const extentCount = c.envCount || c.count;
+                    const cellRadiusPx = Math.sqrt(extentCount / Math.PI);
                     const avgType = classifyByDbz(c.avgDbz, dbzToRainRateMmH(c.avgDbz), isSnowMode).type;
                     const peakType = classifyRadarPixel(c.peakR, c.peakG, c.peakB, c.peakAlpha, isSnowMode).type;
                     const severity = Math.max(CELL_SEVERITY_WEIGHT[avgType] || 0, CELL_SEVERITY_WEIGHT[peakType] || 0);
-                    const sizeScore = Math.min(CELL_SIZE_SCORE_CAP, Math.sqrt(c.count / MULTI_CELL_MIN_PIXELS));
+                    const sizeScore = Math.min(CELL_SIZE_SCORE_CAP, Math.sqrt(extentCount / MULTI_CELL_MIN_PIXELS));
                     const reachScore = 1 / (1 + minDist / (cellRadiusPx + 10 / kmPerPixel));
                     const urgencyScore = 1 / (1 + tClosest / 90);
                     const score = severity * sizeScore * reachScore * urgencyScore;
@@ -7566,7 +7886,7 @@
 
             const selected = candidates
                 .sort((a, b) => b.score - a.score)
-                .slice(0, MULTI_CELL_MAX);
+                .slice(0, keepMax);
 
             // ---- Garantie : la cellule qui recouvre RÉELLEMENT le lieu est toujours suivie ----
             // Sans cela, il restait possible qu'il pleuve sur la position sans qu'aucune des
@@ -7580,7 +7900,7 @@
                 const hostCell = lastCells.find(c => c.cellId === hostId);
                 if (hostCell) {
                     const hostTrack = linkCellBackward(cellFramesList, times, kmPerPixel, hostCell, n - 1);
-                    if (selected.length >= MULTI_CELL_MAX) selected.pop();
+                    if (selected.length >= keepMax) selected.pop();
                     selected.push({ track: hostTrack, projectedDist: 0, score: Infinity, cellId: hostId });
                 }
             }
@@ -7611,6 +7931,366 @@
             return { slope, intercept, r2 };
         }
 
+        // Vitesse + coherence d'une piste par regression du centroide (mise en commun du
+        // calcul fait en double dans trackAllCellsBackward et projectTrackToBins) : r2 moyen
+        // sur x et y, 0 si moins de 2 points. Une bande allongee qui se deforme le long de
+        // son axe donne un r2 faible alors que l'advection reelle (perpendiculaire a l'axe)
+        // est bien definie — c'est ce cas que le repli texture/modele (voir velForTrack dans
+        // loadEvoMetehop) doit rattraper au lieu d'extrapoler un centroide qui divague.
+        function trackRegressionVelocity(track) {
+            if (!track || track.length < 2) return { vx: 0, vy: 0, r2: 0 };
+            const t0 = track[0].time;
+            const relTimes = track.map(p => (p.time - t0) / 60);
+            const regX = linearRegression(relTimes, track.map(p => p.cx));
+            const regY = linearRegression(relTimes, track.map(p => p.cy));
+            return { vx: regX.slope, vy: regY.slope, r2: (regX.r2 + regY.r2) / 2 };
+        }
+
+        // Test advecte bon marche (10/09/2026, garantie "menace frontale") : la cellule
+        // menace-t-elle le lieu (cx, cy) a un instant de l'horizon, en advectant son disque
+        // d'enveloppe a vitesse constante (velOverride si fourni, sinon regression du
+        // centroide) ? Marge x1.3 sur le rayon pour ne pas rater les formes allongees dont
+        // le disque equivalent sous-estime l'emprise. Ne remplace PAS projectTrackToBins
+        // (qui teste le masque exact) : c'est un filtre grossier pour decider quelles pistes
+        // evincees du top-3 meritent une projection complete.
+        function cheapAdvectedThreat(track, cx, cy, velOverride, horizonMin) {
+            const last = track[track.length - 1];
+            let vx = 0, vy = 0;
+            if (velOverride && isFinite(velOverride.vx) && isFinite(velOverride.vy)) {
+                vx = velOverride.vx; vy = velOverride.vy;
+            } else {
+                const rv = trackRegressionVelocity(track);
+                vx = rv.vx; vy = rv.vy;
+            }
+            const radius = Math.sqrt((last.envCount || last.count || 20) / Math.PI) * 1.3;
+            if (!(vx * vx + vy * vy > 1e-9)) {
+                return Math.hypot(last.cx - cx, last.cy - cy) <= radius;
+            }
+            for (let t = 0; t <= horizonMin; t += 10) {
+                if (Math.hypot(last.cx + vx * t - cx, last.cy + vy * t - cy) <= radius) return true;
+            }
+            return false;
+        }
+
+        // ---- Persistance temporelle anti-bruit (4) ----
+        // Un pixel pluvieux n'amorce une cellule que s'il pleut aussi sur l'image precedente
+        // a plus ou moins 3 px pres (tolere ~40 km/h entre deux images) : les echos parasites
+        // ponctuels (clutter, interferences) ne se repetent pas et sont ecartes avant le flood fill.
+        const PERSIST_OFFSETS = [[0,0],[3,0],[-3,0],[0,3],[0,-3],[3,3],[3,-3],[-3,3],[-3,-3]];
+        function isRainPersistent(sx, sy, prevData) {
+            for (let k = 0; k < PERSIST_OFFSETS.length; k++) {
+                const nx = sx + PERSIST_OFFSETS[k][0], ny = sy + PERSIST_OFFSETS[k][1];
+                if (nx < 0 || nx >= 768 || ny < 0 || ny >= 768) continue;
+                if (prevData[((ny * 768 + nx) * 4) + 3] > ALPHA_THRESHOLD) return true;
+            }
+            return false;
+        }
+        // ---- Vent TREC par block-matching entre les 2 dernieres images (1) ----
+        // Proxy monocanal P=(R+G+B), blocs de 32px echantillonnes au pas de 2, recherche plus ou
+        // moins 8px (SAD avec sortie anticipee), vecteur retenu si amelioration d'au moins 15% vs
+        // immobilite + couverture pluvieuse du bloc d'au moins 8%. Lissage median 3x3.
+        // Vitesse en px/min via le vrai intervalle inter-images. Methode standard du nowcasting
+        // operationnel : suit rotation/deformation/cisaillement, pas seulement la translation.
+        const TREC_BLOCK = 32, TREC_SEARCH = 8, TREC_MIN_RAIN_FRAC = 0.08;
+        function computeTrecField(imgNowData, imgPrevData, dtMin, cx, cy, radiusPx) {
+            const N = 768 * 768;
+            const pNow = new Uint16Array(N), pPrev = new Uint16Array(N);
+            for (let k = 0; k < N; k++) {
+                const o = k * 4;
+                pNow[k] = imgNowData[o] + imgNowData[o + 1] + imgNowData[o + 2];
+                pPrev[k] = imgPrevData[o] + imgPrevData[o + 1] + imgPrevData[o + 2];
+            }
+            const grid = [];
+            const r2 = radiusPx * radiusPx;
+            const step = 2;
+            for (let by = 0; by < 768; by += TREC_BLOCK) {
+                for (let bx = 0; bx < 768; bx += TREC_BLOCK) {
+                    const ccx = bx + TREC_BLOCK / 2, ccy = by + TREC_BLOCK / 2;
+                    const ddx = ccx - cx, ddy = ccy - cy;
+                    if (ddx * ddx + ddy * ddy > r2) continue;
+                    let rain = 0, cells = 0;
+                    for (let y = 0; y < TREC_BLOCK; y += step) {
+                        const yy = by + y;
+                        if (yy >= 768) break;
+                        for (let x = 0; x < TREC_BLOCK; x += step) {
+                            const xx = bx + x;
+                            if (xx >= 768) break;
+                            cells++;
+                            if (imgNowData[((yy * 768 + xx) * 4) + 3] > ALPHA_THRESHOLD) rain++;
+                        }
+                    }
+                    if (!cells || rain / cells < TREC_MIN_RAIN_FRAC) continue;
+                    let sad0 = 0;
+                    for (let y = 0; y < TREC_BLOCK; y += step) {
+                        const yy = by + y;
+                        if (yy >= 768) break;
+                        for (let x = 0; x < TREC_BLOCK; x += step) {
+                            const xx = bx + x;
+                            if (xx >= 768) break;
+                            const kk = yy * 768 + xx;
+                            sad0 += Math.abs(pNow[kk] - pPrev[kk]);
+                        }
+                    }
+                    let bestDx = 0, bestDy = 0, bestSad = sad0;
+                    for (let dy = -TREC_SEARCH; dy <= TREC_SEARCH; dy++) {
+                        for (let dx = -TREC_SEARCH; dx <= TREC_SEARCH; dx++) {
+                            if (dx === 0 && dy === 0) continue;
+                            let sad = 0, ok = true;
+                            for (let y = 0; y < TREC_BLOCK && ok; y += step) {
+                                const yy = by + y, py = yy + dy;
+                                if (yy >= 768 || py < 0 || py >= 768) { ok = false; break; }
+                                for (let x = 0; x < TREC_BLOCK; x += step) {
+                                    const xx = bx + x, px = xx + dx;
+                                    if (xx >= 768 || px < 0 || px >= 768) { ok = false; break; }
+                                    sad += Math.abs(pNow[yy * 768 + xx] - pPrev[py * 768 + px]);
+                                    if (sad >= bestSad) { ok = false; break; }
+                                }
+                            }
+                            if (ok && sad < bestSad) { bestSad = sad; bestDx = dx; bestDy = dy; }
+                        }
+                    }
+                    if (bestSad >= sad0 * 0.85) continue;
+                    grid.push({ bx, by, vx: bestDx / Math.max(1, dtMin), vy: bestDy / Math.max(1, dtMin) });
+                }
+            }
+            return smoothTrecGrid(grid);
+        }
+        function smoothTrecGrid(grid) {
+            const idx = new Map();
+            grid.forEach(v => idx.set(v.bx + ',' + v.by, v));
+            grid.forEach(v => {
+                const xs = [], ys = [];
+                for (let oy = -TREC_BLOCK; oy <= TREC_BLOCK; oy += TREC_BLOCK) {
+                    for (let ox = -TREC_BLOCK; ox <= TREC_BLOCK; ox += TREC_BLOCK) {
+                        const n = idx.get((v.bx + ox) + ',' + (v.by + oy));
+                        if (n) { xs.push(n.vx); ys.push(n.vy); }
+                    }
+                }
+                if (xs.length >= 3) {
+                    xs.sort((a, b) => a - b); ys.sort((a, b) => a - b);
+                    v.vx = xs[Math.floor(xs.length / 2)]; v.vy = ys[Math.floor(ys.length / 2)];
+                }
+            });
+            return grid;
+        }
+        // Vitesse TREC mediane des blocs dont le centre appartient a l'enveloppe cellId
+        // (lastLabels). Requiert au moins 2 blocs valides, sinon null (repli regression).
+        function trecVelocityForCell(grid, labels, cellId) {
+            if (!grid || !grid.length || !labels || cellId === undefined || cellId === null) return null;
+            const xs = [], ys = [];
+            grid.forEach(v => {
+                const ccx = Math.round(v.bx + TREC_BLOCK / 2), ccy = Math.round(v.by + TREC_BLOCK / 2);
+                if (ccx < 0 || ccx >= 768 || ccy < 0 || ccy >= 768) return;
+                if (labels[ccy * 768 + ccx] === cellId) { xs.push(v.vx); ys.push(v.vy); }
+            });
+            if (xs.length < 2) return null;
+            xs.sort((a, b) => a - b); ys.sort((a, b) => a - b);
+            const m = Math.floor(xs.length / 2);
+            return { vx: xs[m], vy: ys[m] };
+        }
+        // ---- Plume courbe TREC (10/09/2026) : interpolation + advection dans le champ ----
+        // Le triangle droit historique (apex + base elargie) supposait un vent uniforme
+        // (vx/vy constants). Quand le toggle TREC est actif, le champ contient une rotation /
+        // un cisaillement locaux reels (voir computeTrecField) : on les rend visibles en
+        // integrant la trajectoire pas a pas DANS le champ (ligne de courant, hypothese de
+        // champ gele sur l'horizon de prevision) au lieu d'extrapoler en ligne droite.
+        // - trecInterpVelocity : moyenne ponderee par l'inverse du carre de la distance des
+        //   blocs TREC dans un rayon de 2 blocs (64px). Null si champ vide/trop loin (repli).
+        // - buildCurvedPlumePixels : advecte le centroide par pas de ~10 min (18 pas sur 3h),
+        //   chaque pas suivant le vecteur local interpole (repli sur vxFall/vyFall = vitesse
+        //   mediane de la cellule ou regression). La demi-largeur suit la meme incertitude
+        //   que le triangle (coneHalfWidthPx a l'horizon, voir projectTrackToBins) mais
+        //   repartie en racine du temps le long de la courbe : evasee au bout, ponctuelle a
+        //   l'apex. usedTrec=false si aucun pas n'a trouve de vecteur local (repli triangle).
+        function trecInterpVelocity(grid, x, y) {
+            if (!grid || !grid.length) return null;
+            const R = TREC_BLOCK * 2, R2 = R * R;
+            let sw = 0, svx = 0, svy = 0;
+            for (let i = 0; i < grid.length; i++) {
+                const v = grid[i];
+                const ccx = v.bx + TREC_BLOCK / 2, ccy = v.by + TREC_BLOCK / 2;
+                const dx = x - ccx, dy = y - ccy;
+                const d2 = dx * dx + dy * dy;
+                if (d2 > R2) continue;
+                const w = 1 / (d2 + 4);
+                sw += w; svx += w * v.vx; svy += w * v.vy;
+            }
+            if (sw <= 0) return null;
+            return { vx: svx / sw, vy: svy / sw };
+        }
+        function buildCurvedPlumePixels(startX, startY, vxFall, vyFall, grid, halfWidthPx, horizonMin, steps) {
+            steps = steps || 18;
+            const dt = horizonMin / steps;
+            const center = [{ x: startX, y: startY }];
+            let px = startX, py = startY, usedTrec = false;
+            for (let i = 1; i <= steps; i++) {
+                const iv = trecInterpVelocity(grid, px, py);
+                const vx = iv ? iv.vx : vxFall, vy = iv ? iv.vy : vyFall;
+                if (iv) usedTrec = true;
+                px += vx * dt; py += vy * dt;
+                center.push({ x: px, y: py });
+            }
+            const left = [], right = [];
+            for (let j = 0; j <= steps; j++) {
+                const w = halfWidthPx * Math.sqrt(Math.max(0, j / steps));
+                const a = center[Math.max(0, j - 1)], b = center[Math.min(steps, j + 1)];
+                let dx = b.x - a.x, dy = b.y - a.y;
+                let len = Math.hypot(dx, dy);
+                if (!(len > 1e-6)) { dx = vxFall; dy = vyFall; len = Math.hypot(dx, dy) || 1; }
+                const nx = -dy / len, ny = dx / len;
+                left.push({ x: center[j].x + nx * w, y: center[j].y + ny * w });
+                right.push({ x: center[j].x - nx * w, y: center[j].y - ny * w });
+            }
+            return { left, right, center, usedTrec };
+        }
+        // ---- Flux directeur modele 850 hPa, prior si trajectoire trop courte (3) ----
+        // Requete SEPAREE du forecast principal (aucun risque sur l'affichage de base) : le vent
+        // a 850 hPa (~1,5 km) pilote l'advection des precipitations. Utilise uniquement quand la
+        // cellule n'a pas de vitesse mesurable (1 seule image) - partout ailleurs, la mesure
+        // radar (TREC ou regression) prime. Valeurs Open-Meteo reelles, jamais inventees.
+        async function getSteeringFlow(lat, lon) {
+            try {
+                if (steeringCache && Math.abs(steeringCache.lat - lat) < 0.05 && Math.abs(steeringCache.lon - lon) < 0.05 && (Date.now() - steeringCache.ts) < 30 * 60000) return steeringCache;
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&hourly=wind_speed_850hPa,wind_direction_850hPa&forecast_days=2&timezone=auto`;
+                const res = await fetchWithTimeout(url, { timeout: 6000 });
+                if (!res.ok) return null;
+                const data = await res.json();
+                if (!data.hourly || !data.hourly.time) return null;
+                const now = new Date();
+                let idx = data.hourly.time.findIndex(t => new Date(t) >= now);
+                if (idx === -1) idx = data.hourly.time.length - 1;
+                const sp = data.hourly.wind_speed_850hPa ? data.hourly.wind_speed_850hPa[idx] : null;
+                const dr = data.hourly.wind_direction_850hPa ? data.hourly.wind_direction_850hPa[idx] : null;
+                if (typeof sp !== 'number' || typeof dr !== 'number') return null;
+                const out = { lat, lon, speedKmh: sp, dirDeg: dr, ts: Date.now() };
+                steeringCache = out;
+                return out;
+            } catch (e) { return null; }
+        }
+        // Convertit le flux directeur en px/min dans le repere de l'image assemblee (meme
+        // convention isotrope kmPerPixel que le reste du module : approximation honnete).
+        function steeringToPxPerMin(steering, kmPerPixel) {
+            if (!steering || !(kmPerPixel > 0)) return null;
+            const toRad = ((steering.dirDeg + 180) % 360) * Math.PI / 180; // direction VERS laquelle ca souffle
+            const kmPerMin = steering.speedKmh / 60;
+            return { vx: (kmPerMin * Math.sin(toRad)) / kmPerPixel, vy: (-kmPerMin * Math.cos(toRad)) / kmPerPixel };
+        }
+        // ---- Raffinement haute resolution a proximite, zoom 9 (5) ----
+        // Pour une cellule suivie a 30 km ou moins : recharge la derniere image en zoom 9,
+        // re-flood-fill pluvieux connecte autour du coeur converti, recentroide pondere. Seuls
+        // cx/cy et intensites du dernier point sont raffines ; vitesse et trajectoire (zoom 6)
+        // inchangees. Toujours actif, repli silencieux sur les valeurs zoom 6 en cas d'echec.
+        const Z9_NEAR_KM = 30;
+        async function refineCellZ9(track, baseTileX6, baseTileY6, lastFrame) {
+            const lastCell = track[track.length - 1];
+            const cLL = stitchedPixelToLatLon(baseTileX6, baseTileY6, 6, Math.round(lastCell.cx), Math.round(lastCell.cy));
+            const t9 = latLonToTilePixel(cLL.lat, cLL.lon, 9);
+            const img9 = await loadRadarStitchedImageData(lastFrame, t9.tileX, t9.tileY, 9);
+            const ccx9 = t9.px + 256, ccy9 = t9.py + 256;
+            const data9 = img9.data;
+            let sx = -1, sy = -1;
+            if (data9[(ccy9 * 768 + ccx9) * 4 + 3] > ALPHA_THRESHOLD) { sx = ccx9; sy = ccy9; }
+            else {
+                let bestD = Infinity;
+                for (let yy = Math.max(0, ccy9 - 40); yy < Math.min(768, ccy9 + 40); yy += 2) {
+                    for (let xx = Math.max(0, ccx9 - 40); xx < Math.min(768, ccx9 + 40); xx += 2) {
+                        if (data9[((yy * 768 + xx) * 4) + 3] > ALPHA_THRESHOLD) {
+                            const d = (xx - ccx9) * (xx - ccx9) + (yy - ccy9) * (yy - ccy9);
+                            if (d < bestD) { bestD = d; sx = xx; sy = yy; }
+                        }
+                    }
+                }
+                if (sx === -1) return false;
+            }
+            const envCount = lastCell.envCount || lastCell.count || 20;
+            const half = Math.max(24, Math.min(220, Math.sqrt(envCount / Math.PI) * 8 * 1.3));
+            const minX = Math.max(0, Math.floor(sx - half)), maxX = Math.min(767, Math.ceil(sx + half));
+            const minY = Math.max(0, Math.floor(sy - half)), maxY = Math.min(767, Math.ceil(sy + half));
+            const visited = new Uint8Array(768 * 768);
+            const stack = [[sx, sy]];
+            visited[sy * 768 + sx] = 1;
+            let sumW = 0, sumWX = 0, sumWY = 0, sumX = 0, sumY = 0, count = 0, sumDbz = 0;
+            let peakDbz = -Infinity, peakR = 0, peakG = 0, peakB = 0, peakAlpha = 0, maxAlpha = 0;
+            while (stack.length) {
+                const pt = stack.pop();
+                const x = pt[0], y = pt[1];
+                const idx = (y * 768 + x) * 4;
+                const a = data9[idx + 3];
+                const dbz = estimateDbzFromRgb(data9[idx], data9[idx + 1], data9[idx + 2]);
+                sumX += x; sumY += y; count++; sumDbz += dbz;
+                if (a > maxAlpha) maxAlpha = a;
+                const w = Math.pow(Math.max(0, dbz - CENTROID_DBZ_FLOOR), CENTROID_WEIGHT_EXP);
+                sumW += w; sumWX += w * x; sumWY += w * y;
+                if (dbz > peakDbz) { peakDbz = dbz; peakR = data9[idx]; peakG = data9[idx + 1]; peakB = data9[idx + 2]; peakAlpha = a; }
+                const nb = [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]];
+                for (let nI = 0; nI < 4; nI++) {
+                    const nx = nb[nI][0], ny = nb[nI][1];
+                    if (nx < minX || nx > maxX || ny < minY || ny > maxY) continue;
+                    const nk = ny * 768 + nx;
+                    if (visited[nk]) continue;
+                    if (data9[nk * 4 + 3] <= ALPHA_THRESHOLD) continue;
+                    visited[nk] = 1;
+                    stack.push([nx, ny]);
+                }
+            }
+            if (count < 8) return false;
+            const rcx9 = sumW > 0 ? sumWX / sumW : sumX / count;
+            const rcy9 = sumW > 0 ? sumWY / sumW : sumY / count;
+            const ll = stitchedPixelToLatLon(t9.tileX, t9.tileY, 9, rcx9, rcy9);
+            const t6 = latLonToTilePixel(ll.lat, ll.lon, 6);
+            lastCell.cx = (t6.tileX - baseTileX6 + 1) * 256 + t6.px;
+            lastCell.cy = (t6.tileY - baseTileY6 + 1) * 256 + t6.py;
+            lastCell.avgDbz = sumDbz / count;
+            lastCell.peakR = peakR; lastCell.peakG = peakG; lastCell.peakB = peakB; lastCell.peakAlpha = peakAlpha;
+            lastCell.maxAlpha = maxAlpha;
+            lastCell.z9refined = true;
+            return true;
+        }
+        // ---- Fiabilite auto-mesuree (7) ----
+        // Chaque analyse stocke ses tranches predites (lieu + unite) ; aux analyses suivantes, les
+        // tranches devenues observables (20 a 200 min plus tard) sont comparees au radar reel du
+        // moment (hit / fausse alerte / manque + erreur absolue). Libelle affiche seulement a
+        // partir de 3 verifications ; historique borne (24 predictions) ; meme unite exigee ;
+        // jamais bloquant. Stockage local uniquement.
+        const VERIFY_KEY = 'metehop_evo_verify_v1';
+        const VERIFY_MAX_AGE_MIN = 200, VERIFY_MIN_N = 3;
+        function verifyAndStoreEvoPrediction(precipValues) {
+            try {
+                let st = null;
+                try { st = JSON.parse(localStorage.getItem(VERIFY_KEY)); } catch (e) { st = null; }
+                if (!st || !Array.isArray(st.preds)) st = { preds: [], n: 0, hit: 0, fa: 0, miss: 0, mae: 0, maeN: 0 };
+                const nowMs = Date.now();
+                const TH = 0.05;
+                st.preds = st.preds.filter(p => p && (nowMs - p.t0) < VERIFY_MAX_AGE_MIN * 60000);
+                st.preds.forEach(p => {
+                    if (p.done) return;
+                    if (typeof p.lat !== 'number' || Math.abs(p.lat - currentLat) > 0.05 || Math.abs(p.lon - currentLon) > 0.05) { p.done = true; return; }
+                    if (p.u !== metehopLastObsUnit || !Array.isArray(p.bins)) { p.done = true; return; }
+                    const ageMin = (nowMs - p.t0) / 60000;
+                    const k = Math.round(ageMin / EVO_BIN_MINUTES);
+                    if (k < 2 || k >= p.bins.length || typeof metehopLastObsMm !== 'number') return;
+                    const pred = p.bins[k] || 0, obs = metehopLastObsMm;
+                    st.n++;
+                    if (pred > TH && obs > TH) st.hit++;
+                    else if (pred > TH) st.fa++;
+                    else if (obs > TH) st.miss++;
+                    st.mae += Math.abs(pred - obs); st.maeN++;
+                    p.done = true;
+                });
+                st.preds = st.preds.filter(p => !p.done);
+                if (Array.isArray(precipValues) && precipValues.length === EVO_BIN_COUNT) {
+                    st.preds.push({ t0: nowMs, lat: currentLat, lon: currentLon, u: metehopLastObsUnit, bins: precipValues.map(v => Math.round((v || 0) * 100) / 100) });
+                }
+                while (st.preds.length > 24) st.preds.shift();
+                try { localStorage.setItem(VERIFY_KEY, JSON.stringify(st)); } catch (e) { /* tant pis */ }
+                metehopReliabilityLabel = null;
+                if (st.n >= VERIFY_MIN_N) {
+                    const total = st.hit + st.fa + st.miss;
+                    const score = total ? (st.hit - 0.5 * st.fa - 0.5 * st.miss) / total : 0;
+                    metehopReliabilityLabel = score > 0.4 ? 'bonne' : (score > -0.1 ? 'moyenne' : 'faible');
+                }
+            } catch (e) { /* jamais bloquant */ }
+        }
         // ---- Proposition 4 : recoupement avec la probabilité de précipitation du modèle météo ----
         // Si le radar ne détecte rien mais que le modèle prévoit une probabilité de pluie élevée (ou
         // inversement), c'est le signe que l'un des deux est possiblement en défaut à cet endroit
@@ -7661,7 +8341,7 @@
         // Note : lastImg et radiusPx ne sont plus utilisés dans le corps de la fonction depuis le
         // passage à une projection basée sur la position propre de la cellule (voir plus bas) —
         // conservés dans la signature pour ne pas toucher au point d'appel.
-        async function projectTrackToBins(track, cx, cy, kmPerPixel, lastImg, radiusPx, isSnowMode, baseOffsetMin, tileX, tileY, zoom, lastFrame, lastLabels) {
+        async function projectTrackToBins(track, cx, cy, kmPerPixel, lastImg, radiusPx, isSnowMode, baseOffsetMin, tileX, tileY, zoom, lastFrame, lastLabels, velOverride) {
             // ---- Proposition 6 (suite) : régression sur la position de la cellule suivie, plutôt
             // que différence entre les 2 dernières images uniquement. Le R² sert de mesure de
             // cohérence du mouvement pour la confiance (proposition 5). ----
@@ -7669,8 +8349,11 @@
             const relTimes = track.map(p => (p.time - t0) / 60); // minutes depuis la 1re image suivie
             const regX = linearRegression(relTimes, track.map(p => p.cx));
             const regY = linearRegression(relTimes, track.map(p => p.cy));
-            const vx = regX.slope; // px/min
-            const vy = regY.slope;
+            // Vitesse effective : TREC ou flux directeur (velOverride) si fourni, sinon
+            // regression historique. Le R2 reste celui de la regression = mesure de coherence.
+            const useOverride = velOverride && isFinite(velOverride.vx) && isFinite(velOverride.vy);
+            const vx = useOverride ? velOverride.vx : regX.slope; // px/min
+            const vy = useOverride ? velOverride.vy : regY.slope;
             const trajectoryR2 = (regX.r2 + regY.r2) / 2;
 
             // ---- Largeur du cône d'incertitude à l'horizon de prévision (carte, mode multi-
@@ -7687,8 +8370,8 @@
             // de pouvoir la mesurer.
             const horizonMin = EVO_HORIZON_HOURS * 60;
             const lastCellForHorizon = track[track.length - 1];
-            const futureXAtHorizon = lastCellForHorizon.cx + regX.slope * horizonMin;
-            const futureYAtHorizon = lastCellForHorizon.cy + regY.slope * horizonMin;
+            const futureXAtHorizon = lastCellForHorizon.cx + vx * horizonMin;
+            const futureYAtHorizon = lastCellForHorizon.cy + vy * horizonMin;
             const traveledPxAtHorizon = Math.hypot(futureXAtHorizon - lastCellForHorizon.cx, futureYAtHorizon - lastCellForHorizon.cy);
             let coneHalfWidthPx;
             if (track.length < 3) {
@@ -7720,7 +8403,11 @@
 
             const speedKmh = Math.round(Math.sqrt(vx * vx + vy * vy) * kmPerPixel * 60 * 10) / 10;
             const distanceToStormKm = Math.round(Math.hypot(lastCell.cx - cx, lastCell.cy - cy) * kmPerPixel * 10) / 10;
-            const cellCountPx = lastCell.count;
+            // Etendue precipitante (enveloppe parente en mode noyaux) : sert au rayon
+            // equivalent, a la tolerance de croissance et au facteur de surface de la
+            // confiance. La TENDANCE (regArea/areaTrendPerMin ci-dessus) reste celle du
+            // coeur suivi : c'est le coeur qui grossit ou se dissipe en premier.
+            const cellCountPx = lastCell.envCount || lastCell.count;
 
             // Pour chaque pas de 10 minutes, on projette la position FUTURE de LA CELLULE ELLE-MÊME
             // (son centre suivi, avancé selon sa propre vitesse vx/vy) et on vérifie si cette
@@ -7901,6 +8588,11 @@
 
                 const nowTemp = getCurrentTempEstimate();
                 const isSnowMode = typeof nowTemp === 'number' && nowTemp <= 0.5;
+                // Le choix noyaux/enveloppes est tranche PLUS BAS, apres construction des
+                // enveloppes (le diagnostic auto a besoin de la derniere image). En attendant,
+                // aucune hypothese : les deux drapeaux sont re virginises ici a chaque analyse.
+                metehopCoresActiveNow = false;
+                metehopCoreAutoReason = '';
                 const precipUnit = isSnowMode ? 'cm/10min' : 'mm/10min';
                 const precipAxisColor = isSnowMode ? '#8b5cf6' : '#5a9bd4';
                 let clsNow = classifyRadarPixel(rNow, gNow, bNow, alphaNow, isSnowMode);
@@ -7918,15 +8610,43 @@
                 // cellules retenues (jusqu'à MULTI_CELL_MAX) à travers les images — pour ne pas
                 // ignorer un second système pluvieux distinct qui approcherait par ailleurs (voir
                 // trackAllCellsBackward pour la sélection, loadEvoMetehop plus bas pour la fusion). ----
-                // La carte d'étiquettes (masque des cellules) n'est construite que pour la DERNIÈRE
-                // image : c'est la seule qui soit projetée dans le futur, et chaque carte coûte
-                // 2,4 Mo — en construire cinq n'apporterait rien et pèserait inutilement sur les
-                // appareils modestes.
-                const cellFrames = imageDatas.map((f, i) => identifyRainCells(f.data, cx, cy, radiusPx, i === imageDatas.length - 1));
-                const cellFramesList = cellFrames.map(f => f.cells);
+                // Les cartes d'étiquettes (masques des cellules) sont construites sur toutes les
+                // images : la dernière sert à la projection future ET au diagnostic auto
+                // noyaux/enveloppe, les autres au suivi multi-noyaux quand il est retenu. Coût :
+                // ~2,4 Mo par carte, sans passe de calcul supplémentaire (le flood fill tourne
+                // de toute façon, avec ou sans étiquetage).
+                metehopLastObsMm = Math.round(clsNow.mmEquiv * RATE_TO_10MIN_MM * 100) / 100;
+                metehopLastObsUnit = precipUnit;
+                const persistRef = imageDatas.length >= 2 ? imageDatas[imageDatas.length - 2].data : null;
+                // 1er temps : enveloppes seules, avec masques sur TOUTES les images (le cout est
+                // la memoire des cartes d'etiquettes, ~2,4 Mo/image, sans passe supplementaire —
+                // le flood fill tourne de toute facon). Le diagnostic auto lit la derniere image.
+                let cellFrames = imageDatas.map((f, i) => identifyRainCells(f.data, cx, cy, radiusPx, true, (i === imageDatas.length - 1 && persistRef) ? persistRef : null));
+                // Persistance (4) : si le filtrage vide la derniere image alors que le brut non
+                // (cellule tres rapide ou formation eclair), on garde le brut plutot que
+                // d'affirmer un ciel sec a tort - jamais de faux sec.
+                if (persistRef && !cellFrames[cellFrames.length - 1].cells.length) {
+                    const rawLast = identifyRainCells(imageDatas[imageDatas.length - 1].data, cx, cy, radiusPx, true, null);
+                    if (rawLast.cells.length) cellFrames[cellFrames.length - 1] = rawLast;
+                }
+                // 2e temps : choix du modele — force (select) ou diagnostic auto (voir
+                // decideCoreModeAuto). Le mode noyaux reste sans effet en mode neige.
+                if (metehopCoreMode === 'multi') {
+                    metehopCoresActiveNow = !isSnowMode;
+                    metehopCoreAutoReason = isSnowMode ? 'neige : enveloppes' : 'mode force multi-noyaux';
+                } else if (metehopCoreMode === 'mono') {
+                    metehopCoresActiveNow = false;
+                    metehopCoreAutoReason = '';
+                } else {
+                    const decision = decideCoreModeAuto(cellFrames[cellFrames.length - 1], imageDatas[imageDatas.length - 1].data, isSnowMode);
+                    metehopCoresActiveNow = decision.useCores;
+                    metehopCoreAutoReason = decision.reason;
+                }
+                const useCoresActive = metehopCoresActiveNow;
+                const cellFramesList = useCoresActive ? buildMultiCoreRepLists(imageDatas, cellFrames) : cellFrames.map(f => f.cells);
                 const lastLabels = cellFrames[cellFrames.length - 1].labels;
                 const times = imageDatas.map(f => f.time);
-                const tracks = trackAllCellsBackward(cellFramesList, times, kmPerPixel, cx, cy, isSnowMode, lastLabels);
+                const tracks = trackAllCellsBackward(cellFramesList, times, kmPerPixel, cx, cy, isSnowMode, lastLabels, MULTI_CELL_CANDIDATES);
 
                 // ---- Encart de proximité d'orage : calculé ICI, indépendamment du suivi de
                 // trajectoire multi-images ci-dessous (qui peut échouer — cellule qui vient d'entrer
@@ -7991,11 +8711,91 @@
                     return;
                 }
 
-                // Projection de chaque cellule retenue (jusqu'à MULTI_CELL_MAX) — voir
-                // projectTrackToBins.
+                // Projection de chaque cellule retenue (top MULTI_CELL_MAX + 2e chance des
+                // menaces frontales evincees, voir plus bas) — voir projectTrackToBins.
+                metehopTrecActiveNow = false;
+                let trecGrid = null;
+                // Champ calcule des que possible, MEME si le toggle TREC est inactif : il sert
+                // de repli de vitesse quand le centroide est incoherent (voir velForTrack).
+                // L'AFFICHAGE (plume courbe + suffixe [TREC]) reste conditionne au toggle via
+                // metehopTrecActiveNow — comportement historique inchange quand il est inactif.
+                if (!isSnowMode && imageDatas.length >= 2) {
+                    try {
+                        const dtMin = Math.max(4, (times[times.length - 1] - imageDatas[imageDatas.length - 2].time) / 60);
+                        trecGrid = computeTrecField(imageDatas[imageDatas.length - 1].data, imageDatas[imageDatas.length - 2].data, dtMin, cx, cy, radiusPx);
+                        metehopTrecActiveNow = metehopTrecEnabled && trecGrid.length > 0;
+                    } catch (e) { trecGrid = null; }
+                }
+                // Flux directeur (3) : si au moins une piste est trop courte pour une vitesse
+                // mesurable OU incoherente (centroide deforme, voir COHERENCE_R2_MIN) - une seule
+                // requete, mise en cache 30 min, repli silencieux.
+                let steeringPx = null;
+                if (tracks.some(t => t.length < 2 || trackRegressionVelocity(t).r2 < COHERENCE_R2_MIN) && !isSnowMode) {
+                    try {
+                        const steering = await getSteeringFlow(currentLat, currentLon);
+                        steeringPx = steeringToPxPerMin(steering, kmPerPixel);
+                    } catch (e) { steeringPx = null; }
+                }
+                // Raffinement z9 (5) : cellules suivies a 30 km ou moins, repli silencieux.
+                if (!isSnowMode) {
+                    for (const track of tracks) {
+                        const lc0 = track[track.length - 1];
+                        if (Math.hypot(lc0.cx - cx, lc0.cy - cy) * kmPerPixel <= Z9_NEAR_KM) {
+                            try { await refineCellZ9(track, tileX, tileY, lastFrame); } catch (e) { /* valeurs zoom 6 conservees */ }
+                        }
+                    }
+                }
                 const results = [];
-                for (const track of tracks) {
-                    results.push(await projectTrackToBins(track, cx, cy, kmPerPixel, lastImg, radiusPx, isSnowMode, baseOffsetMin, tileX, tileY, zoom, lastFrame, lastLabels));
+                // Priorite vitesse (voir COHERENCE_R2_MIN) : toggle TREC actif -> TREC local
+                // comme avant (comportement historique) ; centroide coherent -> regression
+                // historique ; centroide incoherent ou piste courte -> repli texture (TREC)
+                // puis modele (flux directeur), MEME si le toggle TREC est inactif. Sans repli
+                // disponible et piste courte : regression (nulle) comme avant.
+                const velForTrack = (track, lastCell) => {
+                    let v = null;
+                    if (metehopTrecEnabled && trecGrid) {
+                        const tv = trecVelocityForCell(trecGrid, lastLabels, lastCell.cellId);
+                        if (tv) v = tv;
+                    }
+                    if (!v) {
+                        const coherent = track.length >= 3 && trackRegressionVelocity(track).r2 >= COHERENCE_R2_MIN;
+                        if (!coherent) {
+                            if (trecGrid) {
+                                const tv2 = trecVelocityForCell(trecGrid, lastLabels, lastCell.cellId);
+                                if (tv2) v = tv2;
+                            }
+                            if (!v && steeringPx) v = steeringPx;
+                        }
+                    }
+                    if (!v && track.length < 2 && steeringPx) v = steeringPx;
+                    return v;
+                };
+                const mainTracks = tracks.slice(0, MULTI_CELL_MAX);
+                for (let ti = 0; ti < mainTracks.length; ti++) {
+                    const track = mainTracks[ti];
+                    const lastCell = track[track.length - 1];
+                    const velOverride = velForTrack(track, lastCell);
+                    results.push(await projectTrackToBins(track, cx, cy, kmPerPixel, lastImg, radiusPx, isSnowMode, baseOffsetMin, tileX, tileY, zoom, lastFrame, lastLabels, velOverride));
+                }
+                // ---- Garantie "menace frontale" (10/09/2026) : 2e chance aux evincees ----
+                // Le top-3 par score peut evincer une vaste bande qui menace pourtant le lieu
+                // (score gravite/proximite defavorable au centroide lointain d'une bande dont le
+                // bord est proche — cas de la capture : longue bande allongee sans marqueur).
+                // Chaque piste evincee passe un test advecte bon marche ; si elle peut atteindre
+                // le lieu, projection complete et conservation SI elle apporte vraiment de la
+                // pluie (eta ou tranche > 0,05 mm — la projection exacte au masque arbitre).
+                // Plafond MULTI_CELL_RESULTS_CAP : le reste de la fonction gere deja N cellules.
+                if (tracks.length > mainTracks.length && results.length < MULTI_CELL_RESULTS_CAP) {
+                    const horizonMinExtra = EVO_HORIZON_HOURS * 60;
+                    for (let ei = mainTracks.length; ei < tracks.length && results.length < MULTI_CELL_RESULTS_CAP; ei++) {
+                        const track = tracks[ei];
+                        const lastCell = track[track.length - 1];
+                        const velOverride = velForTrack(track, lastCell);
+                        if (!cheapAdvectedThreat(track, cx, cy, velOverride, horizonMinExtra)) continue;
+                        const r = await projectTrackToBins(track, cx, cy, kmPerPixel, lastImg, radiusPx, isSnowMode, baseOffsetMin, tileX, tileY, zoom, lastFrame, lastLabels, velOverride);
+                        const peakBin = Math.max(...r.bins);
+                        if (r.etaMinutes !== null || peakBin > 0.05) results.push(r);
+                    }
                 }
 
                 // Second passage sur l'encart de proximité, maintenant que les trajectoires sont
@@ -8014,7 +8814,7 @@
                 if (results.length === 1) {
                     // ---- Mode simple (ou multi-cellules n'ayant retenu qu'une seule cellule
                     // exploitable) : rendu identique à l'ancien comportement, une seule cellule. ----
-                    const { bins, colors, confidence, etaMinutes, hasHail, hasStorm, hasSnowBin, dissipatesBeforeArrival, distanceToStormKm, speedKmh, lastCell, trackLength } = results[0];
+                    const { bins, colors, confidence, etaMinutes, hasHail, hasStorm, hasSnowBin, dissipatesBeforeArrival, distanceToStormKm, speedKmh, lastCell, trackLength, vx, vy, coneHalfWidthPx } = results[0];
 
                     let intensityLabel = 'faible';
                     if (hasHail) intensityLabel = 'grêle';
@@ -8041,6 +8841,39 @@
                     // par défaut, d'où le lien "Voir sur la carte radar" ci-dessous).
                     const { lat: cellLat, lon: cellLon } = stitchedPixelToLatLon(tileX, tileY, zoom, Math.round(lastCell.cx), Math.round(lastCell.cy));
                     showMetehopCellOnMap(cellLat, cellLon, distanceToStormKm);
+                    // Trajectoire de la cellule unique : plume courbe TREC si le champ est
+                    // exploitable (voir buildCurvedPlumePixels), sinon triangle droit historique.
+                    // showMetehopCellOnMap a efface les anciens traces ; cet appel ne touche qu'aux
+                    // lignes et conserve le marqueur ci-dessus.
+                    try {
+                        const horizonMinSolo = EVO_HORIZON_HOURS * 60;
+                        let coneSolo = null;
+                        if (trecGrid && trecGrid.length && metehopTrecActiveNow) {
+                            const plumeSolo = buildCurvedPlumePixels(lastCell.cx, lastCell.cy, vx, vy, trecGrid, coneHalfWidthPx, horizonMinSolo, 18);
+                            if (plumeSolo.usedTrec) {
+                                const toLLSolo = (p) => stitchedPixelToLatLon(tileX, tileY, zoom, Math.round(p.x), Math.round(p.y));
+                                coneSolo = {
+                                    points: [
+                                        ...plumeSolo.left.map(p => { const ll = toLLSolo(p); return [ll.lat, ll.lon]; }),
+                                        ...plumeSolo.right.slice().reverse().map(p => { const ll = toLLSolo(p); return [ll.lat, ll.lon]; })
+                                    ],
+                                    color: '#7048e8'
+                                };
+                            }
+                        }
+                        if (!coneSolo) {
+                            const futureXSolo = lastCell.cx + vx * horizonMinSolo;
+                            const futureYSolo = lastCell.cy + vy * horizonMinSolo;
+                            const dxS = futureXSolo - lastCell.cx, dyS = futureYSolo - lastCell.cy;
+                            const lenS = Math.hypot(dxS, dyS) || 1;
+                            const pxS = -dyS / lenS, pyS = dxS / lenS;
+                            const apexS = stitchedPixelToLatLon(tileX, tileY, zoom, Math.round(lastCell.cx), Math.round(lastCell.cy));
+                            const baseAS = stitchedPixelToLatLon(tileX, tileY, zoom, Math.round(futureXSolo + pxS * coneHalfWidthPx), Math.round(futureYSolo + pyS * coneHalfWidthPx));
+                            const baseBS = stitchedPixelToLatLon(tileX, tileY, zoom, Math.round(futureXSolo - pxS * coneHalfWidthPx), Math.round(futureYSolo - pyS * coneHalfWidthPx));
+                            coneSolo = { apex: [apexS.lat, apexS.lon], baseA: [baseAS.lat, baseAS.lon], baseB: [baseBS.lat, baseBS.lon], color: '#7048e8' };
+                        }
+                        showMetehopTrajectoryConesOnMap([coneSolo]);
+                    } catch (e) { /* trajectoire carte optionnelle, jamais bloquante */ }
                     const seeOnMapLink = ` <a href="#" onclick="showMetehopCellOnRadarView(); return false;" style="color:#7048e8; font-weight:700; text-decoration:underline;">Voir sur la carte radar</a>`;
 
                     if (alreadyRaining) {
@@ -8126,7 +8959,7 @@
                         const color = contributingIdx.has(i) ? '#ec4899' : '#7048e8';
                         const { lat, lon } = stitchedPixelToLatLon(tileX, tileY, zoom, Math.round(c.cx), Math.round(c.cy));
                         let extentPoints, areaCorners;
-                        if (c.count >= LARGE_CELL_PIXEL_THRESHOLD && typeof c.minPx === 'number') {
+                        if ((c.envCount || c.count) >= LARGE_CELL_PIXEL_THRESHOLD && typeof c.minPx === 'number') {
                             const midY = Math.round((c.minPy + c.maxPy) / 2), midX = Math.round((c.minPx + c.maxPx) / 2);
                             extentPoints = [
                                 stitchedPixelToLatLon(tileX, tileY, zoom, midX, c.minPy),
@@ -8149,14 +8982,31 @@
                     showMetehopCellsOnMap(cellPositions);
 
                     // Cône d'incertitude de chaque cellule : étroit à la position actuelle, s'évasant
-                    // vers l'horizon de prévision (EVO_HORIZON_HOURS) par extrapolation linéaire à
-                    // vitesse constante (vx, vy issus de la régression dans projectTrackToBins) — le
-                    // même modèle que celui utilisé pour les tranches du graphique. Largeur
+                    // vers l'horizon de prévision (EVO_HORIZON_HOURS). Si le toggle TREC est actif
+                    // et que le champ local est exploitable le long du trajet, plume COURBE suivant
+                    // la ligne de courant (voir buildCurvedPlumePixels) — rend visible rotation /
+                    // cisaillement ; sinon repli sur le triangle droit historique à vitesse
+                    // constante (vx, vy issus de la régression dans projectTrackToBins) — le même
+                    // modèle que celui utilisé pour les tranches du graphique. Largeur
                     // (coneHalfWidthPx) calculée dans projectTrackToBins : dispersion RÉELLEMENT
                     // mesurée pour les trajectoires bien établies, incertitude forfaitaire pour les
                     // trajectoires trop courtes pour fournir une mesure fiable (voir son commentaire).
                     const cones = results.map((r, i) => {
                         const horizonMin = EVO_HORIZON_HOURS * 60;
+                        const color = contributingIdx.has(i) ? '#ec4899' : '#7048e8';
+                        if (trecGrid && trecGrid.length && metehopTrecActiveNow) {
+                            try {
+                                const plume = buildCurvedPlumePixels(r.lastCell.cx, r.lastCell.cy, r.vx, r.vy, trecGrid, r.coneHalfWidthPx, horizonMin, 18);
+                                if (plume.usedTrec) {
+                                    const toLL = (p) => stitchedPixelToLatLon(tileX, tileY, zoom, Math.round(p.x), Math.round(p.y));
+                                    const points = [
+                                        ...plume.left.map(p => { const ll = toLL(p); return [ll.lat, ll.lon]; }),
+                                        ...plume.right.slice().reverse().map(p => { const ll = toLL(p); return [ll.lat, ll.lon]; })
+                                    ];
+                                    return { points, color };
+                                }
+                            } catch (e) { /* repli triangle ci-dessous */ }
+                        }
                         const futureX = r.lastCell.cx + r.vx * horizonMin;
                         const futureY = r.lastCell.cy + r.vy * horizonMin;
                         const halfWidthPx = r.coneHalfWidthPx; // voir son calcul dans projectTrackToBins
@@ -8172,7 +9022,7 @@
                             apex: [apex.lat, apex.lon],
                             baseA: [baseA.lat, baseA.lon],
                             baseB: [baseB.lat, baseB.lon],
-                            color: contributingIdx.has(i) ? '#ec4899' : '#7048e8'
+                            color
                         };
                     });
                     showMetehopTrajectoryConesOnMap(cones);
@@ -12665,20 +13515,26 @@ function updatePressureChart(dayIdx) {
 
         // Trace un CÔNE d'incertitude par cellule suivie, plutôt qu'un simple trait — mode multi-
         // cellules uniquement. cones = [{ apex: [lat,lon], baseA: [lat,lon], baseB: [lat,lon],
-        // color? }, ...] : un triangle par cellule, étroit à la position actuelle (apex), s'évasant
-        // vers l'horizon de prévision (base) — la largeur à cet horizon grandissant avec la distance
-        // parcourue ET avec l'incertitude de la trajectoire (voir son calcul dans loadEvoMetehop,
-        // basé sur trajectoryR2), pour représenter visuellement une confiance qui se dégrade avec
-        // l'éloignement dans le temps, pas juste une direction. color (violet par défaut, rose pour
-        // une cellule qui contribue réellement au graphique affiché) reprend la même couleur que le
-        // point de la cellule, voir contributingIdx dans loadEvoMetehop.
+        // color? } | { points: [[lat,lon],...], color? }, ...] : triangle historique étroit à
+        // la position actuelle (apex), s'évasant vers l'horizon de prévision (base), OU plume
+        // courbe TREC (polygone à N points, voir buildCurvedPlumePixels dans loadEvoMetehop)
+        // qui suit la ligne de courant du champ de vent local — la largeur à cet horizon
+        // grandissant avec la distance parcourue ET avec l'incertitude de la trajectoire
+        // (voir son calcul dans loadEvoMetehop, basé sur trajectoryR2), pour représenter
+        // visuellement une confiance qui se dégrade avec l'éloignement dans le temps, pas
+        // juste une direction. color (violet par défaut, rose pour une cellule qui contribue
+        // réellement au graphique affiché) reprend la même couleur que le point de la
+        // cellule, voir contributingIdx dans loadEvoMetehop.
         function showMetehopTrajectoryConesOnMap(cones) {
             if (!map || typeof L === 'undefined') return;
             metehopTrajectoryLines.forEach(l => map.removeLayer(l));
-            metehopTrajectoryLines = cones.map(({ apex, baseA, baseB, color }) => L.polygon([apex, baseA, baseB], {
-                color: color || '#7048e8', weight: 1.5, dashArray: '4, 4', opacity: 0.6,
-                fillColor: color || '#7048e8', fillOpacity: 0.15
-            }).addTo(map));
+            metehopTrajectoryLines = cones.map((c) => {
+                const latlngs = c.points ? c.points : [c.apex, c.baseA, c.baseB];
+                return L.polygon(latlngs, {
+                    color: c.color || '#7048e8', weight: 1.5, dashArray: '4, 4', opacity: 0.6,
+                    fillColor: c.color || '#7048e8', fillOpacity: 0.15
+                }).addTo(map);
+            });
         }
 
         // Dézoome/recadre la carte radar pour montrer à la fois votre position et la ou les
