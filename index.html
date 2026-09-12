@@ -557,6 +557,23 @@
         }
         .model-disagree-toggle:hover { background: #d97736; }
         .model-disagree-details { margin-top: 10px; }
+        /* Détails du désaccord en cartes verticales : empilées, jamais de chevauchement
+           même sur smartphone vertical. Réutilise les styles .benchmark-day-row /
+           .benchmark-chip / .benchmark-day-models (même rendu, mêmes chips). */
+        .model-disagree-days { display: flex; flex-direction: column; gap: 8px; }
+        .md-metric-label {
+            font-size: 0.68rem;
+            font-weight: 800;
+            color: var(--text-muted);
+            min-width: 52px;
+        }
+        .md-base-line { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 6px; line-height: 1.5; }
+        .md-base-line b { color: var(--primary-dark); }
+        /* "Choix de Metehop" : modèle dont les données brutes (avant micro-climat)
+           sont les plus proches ce jour-là. Le nom reprend la couleur verdict
+           (déjà lisible en mode sombre). */
+        .md-choice-line { font-size: 0.72rem; color: var(--text-muted); margin-bottom: 6px; }
+        .md-choice-line > b { font-weight: 800; color: var(--primary-dark); }
         .model-disagree-table td { font-size: 0.72rem; }
 
         /* Carte "Benchmark — modèle vs réalité" (chantier 8) : compare la T° max/min et pluie
@@ -1527,6 +1544,9 @@
         .garden-status.bad { background: rgba(239, 68, 68, 0.14); color: #b91c1c; }
         .garden-status.muted { background: rgba(0,0,0,0.06); color: var(--text-muted); }
         .garden-table td { white-space: normal; vertical-align: top; }
+        /* En-têtes autorisés à retourner à la ligne : en white-space:nowrap hérité de
+           .sage-table, "Fenêtre usuelle" chevauchait "Conseil météo" sur smartphone. */
+        .garden-table th { white-space: normal; vertical-align: bottom; line-height: 1.25; }
         .garden-table .garden-plant-name { font-weight: 700; color: var(--primary-dark); }
         .garden-window { font-size: 0.7rem; color: var(--primary-dark); line-height: 1.4; }
         .garden-advice { font-size: 0.68rem; color: var(--text-muted); line-height: 1.4; margin-top: 2px; }
@@ -3172,8 +3192,8 @@
         </div>
 
         <!-- Désaccord entre modèles météo (chantier 2, 12/09/2026) : visible seulement si, sur au
-             moins un des 7 prochains jours, les modèles (prévision affichée / ICON / ECMWF)
-             divergent franchement. Voir loadModelDisagreement() / renderModelDisagreementCard(). -->
+             moins un des 7 prochains jours, les modèles (prévision affichée / ICON / ECMWF /
+             AROME / ARPEGE) divergent franchement. Voir loadModelDisagreement() / renderModelDisagreementCard(). -->
         <div class="model-disagree-card" id="model-disagree-card" data-groups="general" style="display:none;">
             <div class="model-disagree-header">
                 <i class="fa-solid fa-scale-unbalanced"></i>
@@ -3184,20 +3204,11 @@
                 <button type="button" class="model-disagree-toggle" id="model-disagree-toggle" onclick="toggleModelDisagreeDetails()">Détails</button>
             </div>
             <div class="model-disagree-details" id="model-disagree-details" style="display:none;">
-                <div class="table-responsive">
-                    <table class="sage-table model-disagree-table">
-                        <thead>
-                            <tr>
-                                <th>Jour</th>
-                                <th>T° max (écart ICON / ECMWF, °C)</th>
-                                <th>T° min (écart ICON / ECMWF, °C)</th>
-                                <th>Pluie (écart ICON / ECMWF, mm)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="model-disagree-tbody"></tbody>
-                    </table>
-                </div>
-                <div class="card-sage-sub" style="margin-top:6px;">Écarts calculés par rapport à ce que Metehop affiche réellement (micro-climat compris) : « <b>+1,5 °</b> » signifie que ce modèle prévoit 1,5 °C de plus que Metehop ce jour-là (en mm pour la colonne Pluie). Ce n'est pas une erreur : chaque modèle météo (prévision affichée, DWD ICON, ECMWF) fait ses propres calculs — de vrais désaccords rendent la prévision moins fiable, et c'est volontaire de vous le signaler.</div>
+                <!-- Détails en cartes verticales (12/09/2026) : l'ancien tableau 4 colonnes
+                     devenait illisible sur smartphone vertical (en-têtes et cellules
+                     "ICON/EMCWF" se chevauchaient). Une carte par jour, chips par modèle. -->
+                <div class="model-disagree-days" id="model-disagree-days"></div>
+                <div class="card-sage-sub" style="margin-top:6px;">Référence « <b>Metehop</b> » = la prévision affichée par l'app : combinaison automatique du meilleur modèle Open-Meteo pour le lieu (pas un modèle unique), ajustée du micro-climat. Modèles comparés : <b>ICON</b> — Deutscher Wetterdienst (DWD), Allemagne ; <b>ECMWF IFS</b> — Centre européen pour les prévisions météorologiques à moyen terme (ECMWF), Europe ; <b>AROME</b> et <b>ARPEGE</b> — Météo-France, France (AROME : haute résolution 2,5 km, 2 jours ; ARPEGE : 4 jours). La ligne « <b>Choix de Metehop</b> » désigne celui dont les données brutes (avant micro-climat) sont les plus proches ce jour-là.</div>
             </div>
         </div>
 
@@ -3242,9 +3253,9 @@
                     </div>
                     <div class="card-sage-sub" id="garden-tasks-note">Calendrier du lieu + prévisions à 16 jours.</div>
                 </div>
-                <!-- Tableau replié par défaut (~69 plantes) : seules les actions du moment
-                     s'affichent, le bouton déplie le tableau complet (même pattern que le
-                     Benchmark). Voir toggleGardenTable() / setGardenFilter(). -->
+                <!-- Tableau entièrement replié par défaut (~69 plantes) : pilules + note
+                     restent visibles, le bouton déplie/replie le tableau complet
+                     (même pattern que le Benchmark). Voir toggleGardenTable(). -->
                 <button type="button" class="model-disagree-toggle" id="garden-tasks-toggle" onclick="toggleGardenTable()">Tableau complet</button>
             </div>
             <div id="garden-tasks-content">
@@ -3266,6 +3277,7 @@
                     </div>
                 </div>
 
+                <div id="garden-table-wrap" style="display:none;">
                 <div class="garden-filter-row" id="garden-filter-row">
                     <button type="button" class="garden-filter-btn active" data-garden-cat="all" onclick="setGardenFilter('all', this)">Tous</button>
                     <button type="button" class="garden-filter-btn" data-garden-cat="potager" onclick="setGardenFilter('potager', this)">Potager</button>
@@ -3279,7 +3291,7 @@
                             <tr>
                                 <th style="width:20%;">Plante</th>
                                 <th style="width:26%;">À faire</th>
-                                <th style="width:22%;">Fenêtre usuelle ici</th>
+                                <th style="width:22%;">Fenêtre usuelle</th>
                                 <th style="width:32%;">Conseil météo</th>
                             </tr>
                         </thead>
@@ -3289,6 +3301,7 @@
                     </table>
                 </div>
                 <div class="card-sage-sub" style="margin-top:8px; font-size:0.66rem; line-height:1.45;" id="garden-tasks-caveat">Fenêtres usuelles calculées sur l'historique climatologique du lieu (Open-Meteo) et ajustées par la prévision à 16 jours.</div>
+                </div>
             </div>
         </div>
 
@@ -10448,7 +10461,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
         // Partie A — "Les modèles ne sont pas d'accord" : on ne dérange jamais l'utilisateur quand
         // les modèles s'accordent. On n'affiche un bandeau que si, sur au moins un des 7 prochains
         // jours, la prévision affichée diverge franchement d'avec un autre modèle majeur (DWD ICON,
-        // ECMWF IFS). Divergences détectées : températures min/max, pluie, probabilité de pluie,
+        // ECMWF IFS, Météo-France AROME/ARPEGE). Divergences détectées : températures min/max, pluie, probabilité de pluie,
         // type de temps. Best-effort : si une des API échoue, on compare ce qui est disponible
         // (2 sources suffisent). Voir la carte HTML #model-disagree-card.
         const MODEL_DISAGREE_DAYS = 7;
@@ -10476,14 +10489,24 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
             const baseline = weatherData && weatherData.daily;
             if (!baseline || !baseline.time || !baseline.time.length) return;
             const days = Math.min(MODEL_DISAGREE_DAYS, baseline.time.length);
-            const urls = [
-                `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code&models=icon_seamless&timezone=auto&forecast_days=${days}`,
+            // Challengers comparés à l'affichage Metehop : ICON (DWD), ECMWF IFS, plus
+            // AROME et ARPEGE (Météo-France) depuis le 12/09/2026. L'endpoint dédié
+            // /v1/meteofrance est plafonné à 4 j (AROME : 2 j) et ne connaît pas
+            // precipitation_probability_max : ces limites sont intégrées aux URLs et
+            // les valeurs manquantes s'abstiennent simplement (valAt → null).
+            const MF_DAILY = 'temperature_2m_max,temperature_2m_min,precipitation_sum,weather_code';
+            const STD_DAILY = MF_DAILY + ',precipitation_probability_max';
+            const bx = `latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}`;
+            const SOURCES = [
+                { name: 'ICON', url: `https://api.open-meteo.com/v1/forecast?${bx}&daily=${STD_DAILY}&models=icon_seamless&timezone=auto&forecast_days=${days}` },
                 // ECMWF IFS 0,25° (physique complet) : ecmwf_aifs025 (IA) renvoyait des tableaux
                 // entièrement nulls sur /v1/forecast (colonne ECMWF toujours "—", audit 12/09/2026),
                 // tandis qu'ecmwf_ifs025 renvoie de vraies valeurs pour toutes ces variables.
-                `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code&models=ecmwf_ifs025&timezone=auto&forecast_days=${days}`
+                { name: 'ECMWF', url: `https://api.open-meteo.com/v1/forecast?${bx}&daily=${STD_DAILY}&models=ecmwf_ifs025&timezone=auto&forecast_days=${days}` },
+                { name: 'AROME', url: `https://api.open-meteo.com/v1/meteofrance?${bx}&daily=${MF_DAILY}&models=arome_france&timezone=auto&forecast_days=${Math.min(days, 2)}` },
+                { name: 'ARPEGE', url: `https://api.open-meteo.com/v1/meteofrance?${bx}&daily=${MF_DAILY}&models=arpege_europe&timezone=auto&forecast_days=${Math.min(days, 4)}` }
             ];
-            const responses = await Promise.all(urls.map(u => fetchWithTimeout(u, { timeout: 9000 }).then(r => r.ok ? r.json() : null).catch(() => null)));
+            const responses = await Promise.all(SOURCES.map(s => fetchWithTimeout(s.url, { timeout: 9000 }).then(r => r.ok ? r.json() : null).catch(() => null)));
             if (mySeq !== weatherRequestSeq) return; // lieu changé pendant le chargement
             // Indexe chaque réponse par date : les time[] des modèles peuvent être décalés
             // (run, couverture) — on ne suppose plus que l'index i s'aligne avec la baseline.
@@ -10508,25 +10531,29 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                   getCode = baseAt('weather_code');
             const iconMap = responses[0] && responses[0].daily ? idxByDate(responses[0].daily) : {};
             const ecmwfMap = responses[1] && responses[1].daily ? idxByDate(responses[1].daily) : {};
-            const iconAt = (key) => (dateStr) => (responses[0] && responses[0].daily ? valAt(responses[0].daily, iconMap, dateStr, key) : null);
-            const ecmwfAt = (key) => (dateStr) => (responses[1] && responses[1].daily ? valAt(responses[1].daily, ecmwfMap, dateStr, key) : null);
+            // Challengers disponibles (nom + daily + index par date) : seuls ceux dont
+            // l'appel a réussi participent (2 sources suffisent, comme avant).
+            const challengers = SOURCES.map((s, k) => (responses[k] && responses[k].daily)
+                ? { name: s.name, daily: responses[k].daily, map: idxByDate(responses[k].daily) } : null)
+                .filter(c => c);
+            const chalVals = (dateStr, key) => challengers.map(c => valAt(c.daily, c.map, dateStr, key));
             for (let i = 0; i < days; i++) {
                 const dateStr = baseline.time[i];
-                const tmax = [getTmax(dateStr), iconAt('temperature_2m_max')(dateStr), ecmwfAt('temperature_2m_max')(dateStr)].filter(v => typeof v === 'number');
-                const tmin = [getTmin(dateStr), iconAt('temperature_2m_min')(dateStr), ecmwfAt('temperature_2m_min')(dateStr)].filter(v => typeof v === 'number');
+                const tmax = [getTmax(dateStr), ...chalVals(dateStr, 'temperature_2m_max')].filter(v => typeof v === 'number');
+                const tmin = [getTmin(dateStr), ...chalVals(dateStr, 'temperature_2m_min')].filter(v => typeof v === 'number');
                 const issues = [];
                 if (tmax.length >= 2 && (Math.max(...tmax) - Math.min(...tmax)) >= MODEL_DISAGREE_TEMP_DELTA) issues.push('températures');
                 if (tmin.length >= 2 && (Math.max(...tmin) - Math.min(...tmin)) >= MODEL_DISAGREE_TEMP_DELTA) issues.push('températures');
 
-                const rains = [getRain(dateStr), iconAt('precipitation_sum')(dateStr), ecmwfAt('precipitation_sum')(dateStr)].filter(v => typeof v === 'number' && isFinite(v));
-                const probs = [getProb(dateStr), iconAt('precipitation_probability_max')(dateStr), ecmwfAt('precipitation_probability_max')(dateStr)].filter(v => typeof v === 'number');
+                const rains = [getRain(dateStr), ...chalVals(dateStr, 'precipitation_sum')].filter(v => typeof v === 'number' && isFinite(v));
+                const probs = [getProb(dateStr), ...chalVals(dateStr, 'precipitation_probability_max')].filter(v => typeof v === 'number');
                 if (rains.length >= 2) {
                     const rMax = Math.max(...rains), rMin = Math.min(...rains);
                     if (rMax >= MODEL_DISAGREE_PRECIP_MIN && (rMin <= 1 || rMin / rMax <= MODEL_DISAGREE_PRECIP_RATIO)) issues.push('pluie');
                 }
                 if (probs.length >= 2 && (Math.max(...probs) - Math.min(...probs)) >= MODEL_DISAGREE_PROB_DELTA) issues.push('pluie');
 
-                const codes = [getCode(dateStr), iconAt('weather_code')(dateStr), ecmwfAt('weather_code')(dateStr)].map(v => (typeof v === 'number' ? Math.round(v) : null)).filter(v => typeof v === 'number');
+                const codes = [getCode(dateStr), ...chalVals(dateStr, 'weather_code')].map(v => (typeof v === 'number' ? Math.round(v) : null)).filter(v => typeof v === 'number');
                 if (codes.length >= 2) {
                     const classes = codes.map(modelCodeClass);
                     const counts = {};
@@ -10538,9 +10565,15 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                     const unique = Array.from(new Set(issues));
                     flagByDate[dateStr] = {
                         dayIdx: i,
-                        tmax: [getTmax(dateStr), iconAt('temperature_2m_max')(dateStr), ecmwfAt('temperature_2m_max')(dateStr)],
-                        tmin: [getTmin(dateStr), iconAt('temperature_2m_min')(dateStr), ecmwfAt('temperature_2m_min')(dateStr)],
-                        rain: [getRain(dateStr), iconAt('precipitation_sum')(dateStr), ecmwfAt('precipitation_sum')(dateStr)]
+                        // base = baseline brute (données 16 j avant micro-climat) : sert au
+                        // "Choix de Metehop". models = valeurs brutes de chaque challenger.
+                        base: { tmax: getTmax(dateStr), tmin: getTmin(dateStr), rain: getRain(dateStr) },
+                        models: challengers.map(c => ({
+                            name: c.name,
+                            tmax: valAt(c.daily, c.map, dateStr, 'temperature_2m_max'),
+                            tmin: valAt(c.daily, c.map, dateStr, 'temperature_2m_min'),
+                            rain: valAt(c.daily, c.map, dateStr, 'precipitation_sum')
+                        }))
                     };
                     rowList.push({ dateStr: dateStr, issues: unique });
                 }
@@ -10610,32 +10643,80 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
             card.style.display = '';
         }
 
+        // Détails en cartes verticales (une carte par jour signalé) : chaque carte rappelle
+        // d'abord la référence "Metehop" (ce que l'app affiche : meilleur modèle auto +
+        // micro-climat), puis le "Choix de Metehop" (challenger dont les DONNÉES BRUTES,
+        // avant correction micro-climat, sont les plus proches ce jour-là — au vote
+        // majoritaire T° max / T° min / pluie sur les valeurs 16 j non corrigées),
+        // puis une ligne par grandeur avec les valeurs absolues de chaque challenger
+        // et leur écart à l'affichage. Aucune colonne fixe → lisible sur mobile.
         function renderModelDisagreementDetails() {
-            const tbody = document.getElementById('model-disagree-tbody');
-            if (!tbody) return;
+            const box = document.getElementById('model-disagree-days');
+            if (!box) return;
             const fmtDelta = (v) => {
                 if (v === null || v === undefined || !isFinite(v)) return '—';
                 const r = Math.round(v * 10) / 10;
-                return (r > 0 ? '+' : '') + (Number.isInteger(r) ? r.toString() : r.toFixed(1));
+                return (r > 0 ? '+' : '') + r.toFixed(1).replace('.', ',');
             };
-            tbody.innerHTML = modelDisagreementRows.map(r => {
+            const fmtVal = (v, unit) => {
+                if (v === null || v === undefined || !isFinite(v)) return '—';
+                return (Math.round(v * 10) / 10).toFixed(1).replace('.', ',') + unit;
+            };
+            const modelChip = (name, abs, base, unit) => {
+                if (abs === null || abs === undefined || !isFinite(abs)) return `<span class="benchmark-chip"><b>${name}</b><span>—</span></span>`;
+                const hasBase = base !== null && base !== undefined && isFinite(base);
+                const delta = hasBase ? `<span>(${fmtDelta(abs - base)}${unit})</span>` : '';
+                return `<span class="benchmark-chip"><b>${name}</b><span>${fmtVal(abs, unit)}</span>${delta}</span>`;
+            };
+            // Un vote par grandeur : quel challenger est le plus proche des DONNÉES
+            // BRUTES Metehop (valeurs 16 j avant correction micro-climat : rec.base) ?
+            // Verdict au vote majoritaire (T° max, T° min, pluie), tous challengers confondus.
+            const closestModel = (models, key, base) => {
+                if (base === null || base === undefined || !isFinite(base)) return null;
+                let best = null, bestD = Infinity;
+                for (const m of models) {
+                    const v = m[key];
+                    if (typeof v !== 'number' || !isFinite(v)) continue;
+                    const d = Math.abs(v - base);
+                    if (d < bestD) { bestD = d; best = m.name; }
+                }
+                return best;
+            };
+            const metehopChoice = (rec) => {
+                const votes = [
+                    closestModel(rec.models, 'tmax', rec.base.tmax),
+                    closestModel(rec.models, 'tmin', rec.base.tmin),
+                    closestModel(rec.models, 'rain', rec.base.rain)
+                ].filter(Boolean);
+                if (!votes.length) return '<b>—</b>';
+                const counts = {};
+                votes.forEach(v => { counts[v] = (counts[v] || 0) + 1; });
+                const top = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+                if (top.length > 1 && top[0][1] === top[1][1]) return '<b>partagé</b>';
+                return `<b class="benchmark-ok">${top[0][0]}</b>`;
+            };
+            box.innerHTML = modelDisagreementRows.map(r => {
                 const rec = modelDisagreementByDay[r.dateStr];
                 if (!rec) return '';
                 const i = rec.dayIdx;
                 const dm = displayedDayMaxMin(i);
                 const baseRain = displayedDayRain(i);
-                // unit : '°' pour les températures, ' mm' pour la pluie (audit 12/09/2026 :
-                // la colonne pluie affichait des °C au lieu de mm).
-                const pairCell = (arr, base, unit) => {
-                    const d = v => (v === null || v === undefined || base === null || base === undefined) ? '—' : fmtDelta(v - base) + unit;
-                    return `<b>ICON</b> ${d(arr[1])} · <b>ECMWF</b> ${d(arr[2])}`;
-                };
-                return `<tr>
-                <td>${fmtModelDate(r.dateStr)}</td>
-                <td>${pairCell(rec.tmax, dm.max, '°')}</td>
-                <td>${pairCell(rec.tmin, dm.min, '°')}</td>
-                <td>${pairCell(rec.rain, baseRain, ' mm')}</td>
-            </tr>`;
+                const metricRow = (label, key, base, unit) => `
+                    <div class="benchmark-day-models">
+                        <span class="md-metric-label">${label}</span>
+                        ${rec.models.map(m => modelChip(m.name, m[key], base, unit)).join('')}
+                    </div>`;
+                return `<div class="benchmark-day-row">
+                    <div class="benchmark-day-head">
+                        <span class="benchmark-day-label">${fmtModelDate(r.dateStr)}</span>
+                        <span class="benchmark-day-real">${r.issues.join(' · ')}</span>
+                    </div>
+                    <div class="md-base-line">Metehop affiche : <b>max ${fmtVal(dm.max, '°')}</b> · <b>min ${fmtVal(dm.min, '°')}</b> · pluie <b>${fmtVal(baseRain, ' mm')}</b></div>
+                    <div class="md-choice-line">Choix de Metehop : ${metehopChoice(rec)}</div>
+                    ${metricRow('T° max', 'tmax', dm.max, '°')}
+                    ${metricRow('T° min', 'tmin', dm.min, '°')}
+                    ${metricRow('Pluie', 'rain', baseRain, ' mm')}
+                </div>`;
             }).join('');
         }
 
@@ -15281,36 +15362,30 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
         ];
 
         // ---- Rendu de l'encart ----
-        // Tableau replié par défaut : seules les lignes avec une action du moment
-        // (chip ok/warn/bad/soon) s'affichent ; les lignes entièrement "muted"
-        // (hors saison, simple rappel de fenêtre) restent masquées sauf si
-        // gardenShowAll (bouton "Tableau complet"). Combiné avec le filtre par
-        // catégorie dans setGardenFilter().
-        let gardenShowAll = false;
+        // Tableau entièrement replié par défaut (même pattern que le Benchmark) :
+        // toggleGardenTable() montre/masque #garden-table-wrap. setGardenFilter()
+        // ne filtre que par catégorie.
         function toggleGardenTable() {
-            gardenShowAll = !gardenShowAll;
+            const wrap = document.getElementById('garden-table-wrap');
             const btn = document.getElementById('garden-tasks-toggle');
-            if (btn) btn.innerText = gardenShowAll ? 'Réduire' : 'Tableau complet';
-            const activeBtn = document.querySelector('.garden-filter-btn.active') || document.querySelector('.garden-filter-btn');
-            setGardenFilter(activeBtn ? activeBtn.dataset.gardenCat : 'all', activeBtn);
+            if (!wrap) return;
+            const opening = wrap.style.display === 'none';
+            wrap.style.display = opening ? '' : 'none';
+            if (btn) btn.innerText = opening ? 'Réduire' : (btn.dataset.labelClosed || 'Tableau complet');
         }
         function setGardenFilter(cat, btn) {
             if (btn) document.querySelectorAll('.garden-filter-btn').forEach(b => b.classList.toggle('active', b === btn));
-            let visible = 0;
             document.querySelectorAll('#garden-tasks-tbody tr[data-garden-cat]').forEach(r => {
-                const show = (cat === 'all' || r.dataset.gardenCat === cat) && (gardenShowAll || r.dataset.gardenMuted !== '1');
-                r.style.display = show ? '' : 'none';
-                if (show) visible++;
+                r.style.display = (cat === 'all' || r.dataset.gardenCat === cat) ? '' : 'none';
             });
-            const empty = document.getElementById('garden-empty-row');
-            if (empty) empty.style.display = visible ? 'none' : '';
         }
 
         function resetGardenGate() {
             gardenCalendarLoaded = false;
-            gardenShowAll = false;
+            const wrap = document.getElementById('garden-table-wrap');
+            if (wrap) wrap.style.display = 'none';
             const tbtn = document.getElementById('garden-tasks-toggle');
-            if (tbtn) tbtn.innerText = 'Tableau complet';
+            if (tbtn) { tbtn.innerText = 'Tableau complet'; delete tbtn.dataset.labelClosed; }
             const noteEl = document.getElementById('garden-tasks-note');
             if (noteEl) noteEl.innerText = 'Calendrier du lieu + prévisions à 16 jours.';
             const tbody = document.getElementById('garden-tasks-tbody');
@@ -15586,7 +15661,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
 
                     const sorted = st.slice().sort((a, b) => GARDEN_CHIP_ORDER[a.cls] - GARDEN_CHIP_ORDER[b.cls]).slice(0, 3);
 
-                    // ---- Colonne "Fenêtre usuelle ici" ----
+                    // ---- Colonne "Fenêtre usuelle" ----
                     const winLines = [];
                     if (plantWins.length) {
                         if (p.dormant) winLines.push(`Plantation : ${plantWins.map(windowLabel).join(' · ')}`);
@@ -15615,7 +15690,6 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
 
                     rows.push({
                         cat: p.cat, id: p.id,
-                        muted: !st.length || st.every(s => s.cls === 'muted'),
                         cellName: `${p.emoji} <span class="garden-plant-name">${p.name}</span><br><span class="garden-cat-tag ${p.cat}">${CAT_TAG[p.cat]}</span>`,
                         cellStatus: sorted.length ? sorted.map(s => gardenChip(s.cls, s.label, s.icon)).join(' ') : '-',
                         cellWin: `<div class="garden-window">${winLines.join('<br>') || '—'}</div>`,
@@ -15624,18 +15698,20 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 });
 
                 if (mySeq !== weatherRequestSeq) return;
-                const nMuted = rows.filter(r => r.muted).length;
                 tbody.innerHTML = rows.map(r => {
-                    return `<tr data-garden-cat="${r.cat}" data-garden-muted="${r.muted ? '1' : '0'}" id="garden-row-${r.id}"${r.muted ? ' style="display:none;"' : ''}>
+                    return `<tr data-garden-cat="${r.cat}" id="garden-row-${r.id}">
                         <td>${r.cellName}</td>
                         <td>${r.cellStatus}</td>
                         <td>${r.cellWin}</td>
                         <td>${r.cellAdvice}</td>
                     </tr>`;
-                }).join('') + `<tr id="garden-empty-row" style="display:none;"><td colspan="4" style="text-align:center;color:var(--text-muted);padding:16px;">Rien à signaler pour le moment dans ce filtre — affichez le tableau complet pour tout voir.</td></tr>`;
+                }).join('');
 
                 const tglBtn = document.getElementById('garden-tasks-toggle');
-                if (tglBtn) tglBtn.innerText = gardenShowAll ? 'Réduire' : `Tableau complet (${rows.length})`;
+                if (tglBtn) {
+                    tglBtn.dataset.labelClosed = `Tableau complet (${rows.length})`;
+                    if (document.getElementById('garden-table-wrap').style.display === 'none') tglBtn.innerText = tglBtn.dataset.labelClosed;
+                }
 
                 const hasHistTxt = ctx.hasHist
                     ? ` sur l'historique climatologique réel du lieu (${lat.toFixed(3)}, ${lon.toFixed(3)})`
@@ -15643,7 +15719,6 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 noteEl.innerText = ctx.firstFrost
                     ? `Gelées annoncées le ${ctx.firstFrost.label} — attention aux plantations non rustiques.`
                     : 'Aucune gelée (<1°C) annoncée dans les 16 jours.';
-                if (nMuted && !gardenShowAll) noteEl.innerText += ` ${rows.length - nMuted} actions en ce moment (${nMuted} plantes hors saison masquées).`;
                 caveatEl.innerHTML = `Fenêtres usuelles calculées${hasHistTxt}, puis ajustées par la prévision réelle à 16 jours. Dates = repères raisonnés, pas des consignes absolues : la météo réelle et le micro-climat du terrain (exposition, altitude, protection) priment toujours dans le doute.`;
 
                 const activeBtn = document.querySelector('.garden-filter-btn.active');
