@@ -3981,7 +3981,7 @@
             <div class="footer-support-row">
                 <a class="footer-support-link" href="https://buymeacoffee.com/stridemetric" target="_blank" rel="noopener">🐸 Aide-moi à nourrir la grenouille Metehop</a>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 12/09/2026 - 113</div>
+            <div class="footer-last-update">Dernière mise à jour : 12/09/2026 - 114</div>
         </footer>
 
     </div>
@@ -6123,6 +6123,8 @@
             // pourrait réutiliser par erreur les signaux de l'ancien lieu (voir onMicroClimateToggleChange).
             microClimateGeoSignals = null;
             microClimateDayCache = {};
+            snowHoldRelief = null; // correction relief du sol ("Neige au sol / fond") : propre à un lieu
+            snowHoldReliefLoading = false;
             dailyTempNormals = {}; // nouveau lieu : la normale de saison affichée doit repartir de zéro
             modelDisagreementByDay = null; // nouveau lieu : on recalcule les désaccords entre modèles
             document.getElementById('title').innerText = locationName;
@@ -11552,8 +11554,54 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
         }
 
 
-function updatePressureChart(dayIdx) {
+// ===== Correction relief de la rangée "Neige au sol / fond" (12/09/2026) =====
+        // Même philosophie que la carte neige 1 km : la température de sol du modèle est corrigée
+        // du relief réel du lieu. snowHoldRelief = altitude DEM réelle du lieu (point central)
+        // − altitude moyenne des 8 points DEM environnants (maille 20×20 km). Un lieu plus haut
+        // que son voisinage rend le sol plus froid (−0,0035 °C par mètre, gradient atténué dans
+        // le sol — même constante que la carte neige 1 km) ; un fond de vallée l'inverse. Un seul
+        // petit appel Élévation (9 points) par lieu, mis en cache.
+        const SNOW_HOLD_RELIEF_RADIUS_KM = 10;
+        let snowHoldRelief = null;        // dénivelé (m) : point central − moyenne environs ; null tant que non chargé
+        let snowHoldReliefLoading = false;
+
+        async function ensureSnowHoldRelief() {
+            if (snowHoldRelief !== null || snowHoldReliefLoading) return;
+            if (typeof currentLat !== 'number' || typeof currentLon !== 'number') return;
+            snowHoldReliefLoading = true;
+            try {
+                const dLat = SNOW_HOLD_RELIEF_RADIUS_KM / 111.32;
+                const dLon = dLat / Math.max(0.2, Math.cos(currentLat * Math.PI / 180));
+                const pts = [];
+                for (let gy = -1; gy <= 1; gy++) {
+                    for (let gx = -1; gx <= 1; gx++) {
+                        pts.push({ lat: currentLat + gy * dLat, lon: currentLon + gx * dLon });
+                    }
+                }
+                const lats = pts.map(p => p.lat.toFixed(5)).join(',');
+                const lons = pts.map(p => p.lon.toFixed(5)).join(',');
+                const url = `https://api.open-meteo.com/v1/elevation?latitude=${lats}&longitude=${lons}`;
+                const res = await fetchWithTimeout(url, { timeout: 20000 });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && Array.isArray(data.elevation) && data.elevation.length === 9) {
+                        const center = data.elevation[4];
+                        const surf = data.elevation.filter((v, i) => i !== 4 && typeof v === 'number');
+                        if (typeof center === 'number' && surf.length) {
+                            const avgSurround = surf.reduce((a, b) => a + b, 0) / surf.length;
+                            snowHoldRelief = center - avgSurround;
+                            // Premier affichage : la correction vient d'arriver → re-rendu du jour courant.
+                            if (typeof selectedDayIndex === 'number' && weatherData) updatePressureChart(selectedDayIndex);
+                        }
+                    }
+                }
+            } catch (e) { /* pas de correction relief pour ce lieu (API Élévation indisponible) */ }
+            snowHoldReliefLoading = false;
+        }
+
+        function updatePressureChart(dayIdx) {
             if (typeof Chart === 'undefined') return;
+            ensureSnowHoldRelief(); // petit appel Élévation 9 points une fois par lieu (correction sol)
             const start = dayIdx * 24;
             const end = start + 24;
             const hours = weatherData.hourly.time.slice(start, end).map(t => t.split('T')[1].substring(0, 2) + 'h');
@@ -11568,8 +11616,10 @@ function updatePressureChart(dayIdx) {
 
             const pressureSubEl = document.getElementById('pressure-chart-sub');
             if (pressureSubEl) {
-                const basePressureSub = 'Évolution sur 24h pour le jour sélectionné';
-                pressureSubEl.innerText = microClimateActiveTodayPressure ? `${basePressureSub} · ajusté micro-climat` : basePressureSub;
+                let subText = 'Évolution sur 24h pour le jour sélectionné';
+                if (microClimateActiveTodayPressure) subText += ' · ajusté micro-climat';
+                if (typeof snowHoldRelief === 'number' && weatherData.hourly.soil_temperature_0cm && weatherData.hourly.snow_depth) subText += ' · sol corrigé relief';
+                pressureSubEl.innerText = subText;
             }
 
             const frostRowContainer = document.getElementById('frost-icons-row');
@@ -11585,11 +11635,15 @@ function updatePressureChart(dayIdx) {
             // ---- Tenue de la neige au sol ----
             // Deux vraies sorties Open-Meteo, aucune valeur inventée : soil_temperature_0cm (°C,
             // température de surface du sol) et snow_depth (m, épaisseur de neige au sol simulée par
-            // le modèle). Tant qu'il y a de la neige au sol ET que le sol reste ≤ 0°C, elle tient
-            // (pas de fonte par en dessous) ; si le sol repasse > 0°C alors qu'il y a encore de la
-            // neige, elle est en train de fondre. Sans neige au sol prévue, aucune icône.
+            // le modèle). La température de sol est corrigée du relief réel du lieu (même gradient
+            // 0,0035 °C/m que la carte neige 1 km, voir ensureSnowHoldRelief) : un lieu plus haut
+            // que son voisinage a un sol plus froid, un fond de vallée un sol plus chaud. Tant
+            // qu'il y a de la neige au sol ET que le sol (corrigé) reste ≤ 0°C, elle tient (pas de
+            // fonte par en dessous) ; si le sol repasse > 0°C alors qu'il y a encore de la neige,
+            // elle est en train de fondre. Sans neige au sol prévue, aucune icône.
             const soilTempsHold = weatherData.hourly.soil_temperature_0cm ? weatherData.hourly.soil_temperature_0cm.slice(start, end) : null;
             const snowDepthsHold = weatherData.hourly.snow_depth ? weatherData.hourly.snow_depth.slice(start, end) : null;
+            const soilReliefCorr = (typeof snowHoldRelief === 'number') ? SNOW1KM_LAPSE_SOIL * snowHoldRelief : 0;
             const snowHoldRowContainer = document.getElementById('snow-hold-icons-row');
             const snowHoldSummaryEl = document.getElementById('snow-hold-summary');
             if (snowHoldRowContainer) snowHoldRowContainer.innerHTML = '';
@@ -11600,17 +11654,18 @@ function updatePressureChart(dayIdx) {
                 temps.forEach((_, i) => {
                     const depth = snowDepthsHold[i];
                     const soilT = soilTempsHold[i];
+                    const soilTCorr = (typeof soilT === 'number') ? soilT - soilReliefCorr : soilT; // sol corrigé du relief
                     const cell = document.createElement('div');
                     cell.className = 'frost-cell';
                     const hasSnow = typeof depth === 'number' && depth >= 0.01; // >= 1cm au sol
-                    if (hasSnow && typeof soilT === 'number') {
+                    if (hasSnow && typeof soilTCorr === 'number') {
                         snowPresentHours++;
-                        if (soilT <= 0) {
+                        if (soilTCorr <= 0) {
                             holdHours++;
-                            cell.innerHTML = `<i class="fa-solid fa-snowflake" style="color: #60a5fa;" title="Neige au sol, sol ≤ 0°C : elle tient"></i>`;
+                            cell.innerHTML = `<i class="fa-solid fa-snowflake" style="color: #60a5fa;" title="Neige au sol, sol ≤ 0°C (relief corrigé) : elle tient"></i>`;
                         } else {
                             meltHours++;
-                            cell.innerHTML = `<i class="fa-solid fa-droplet" style="color: #0d9488;" title="Neige au sol, sol > 0°C : fonte possible"></i>`;
+                            cell.innerHTML = `<i class="fa-solid fa-droplet" style="color: #0d9488;" title="Neige au sol, sol > 0°C (relief corrigé) : fonte possible"></i>`;
                         }
                     }
                     snowHoldRowContainer.appendChild(cell);
