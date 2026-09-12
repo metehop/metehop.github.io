@@ -1,5 +1,5 @@
 {
-  "name": "Metehop — Météo à la loupe, du fond de vallée aux sommets",
+  "name": "Metehop",
   "short_name": "Metehop",
   "description": "Prévisions météo précises pour Grenoble et le Grésivaudan : inversions thermiques, neige et stations de ski, qualité de l'eau, nuits d'observation astronomique et bilan hydrique jardin. Hors-ligne via service worker.",
   "id": "/",
@@ -11,7 +11,6 @@
   "theme_color": "#3b6e61",
   "lang": "fr",
   "icons": [
-    { "src": "favicon-32.png", "sizes": "32x32", "type": "image/png" },
     { "src": "apple-touch-icon-180.png", "sizes": "180x180", "type": "image/png", "purpose": "any" },
     { "src": "favicon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "favicon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
