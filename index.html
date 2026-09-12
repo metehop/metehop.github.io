@@ -561,6 +561,22 @@
         .model-disagree-details { margin-top: 10px; }
         .model-disagree-table td { font-size: 0.72rem; }
 
+        /* Carte "Benchmark — modèle vs réalité" (chantier 8) : compare la T° max/min et pluie
+           prévues (Metehop affiché, ICON, ECMWF) aux relèves réelles des jours passés.
+           Réalité passée : archive ERA5 (Open-Meteo) ; "aujourd'hui" : conditions en cours
+           (blend d'observations). Verdict de tous les écarts : ≤ 1,5 °C = bon. */
+        .benchmark-live-row {
+            margin-bottom: 8px;
+            font-size: 0.78rem;
+            padding: 6px 10px;
+            background: rgba(43, 108, 176, 0.08);
+            border-radius: 8px;
+        }
+        .benchmark-table td { font-size: 0.72rem; }
+        .benchmark-table td .benchmark-ok { color: #2e7d56; font-weight: 700; }
+        .benchmark-table td .benchmark-miss { color: #c62828; font-weight: 700; }
+        .benchmark-card-note { font-size: 0.7rem; }
+
         .map-layers-popover {
             position: absolute;
             top: 46px;
@@ -2371,6 +2387,9 @@
             color: var(--text-dark);
         }
         html.dark .model-disagree-table td { color: var(--text-dark); }
+        html.dark .benchmark-live-row { background: rgba(96, 165, 250, 0.12); }
+        html.dark .benchmark-table td .benchmark-ok { color: #7ecba0; }
+        html.dark .benchmark-table td .benchmark-miss { color: #ef9a9a; }
 
         html.dark .micro-toggle-slider { background-color: #335047; border-color: #335047; }
 
@@ -3043,6 +3062,40 @@
                 </div>
                 <div class="card-sage-sub" style="margin-top:6px;">Écarts calculés par rapport à ce que Metehop affiche réellement (micro-climat compris) : « <b>+1,5 °</b> » signifie que ce modèle prévoit 1,5 ° de plus que Metehop ce jour-là. Ce n'est pas une erreur : chaque modèle météo (prévision affichée, DWD ICON, ECMWF) fait ses propres calculs — de vrais désaccords rendent la prévision moins fiable, et c'est volontaire de vous le signaler.</div>
             </div>
+        </div>
+
+        <!-- Benchmark — modèle vs réalité (chantier 8, 12/09/2026, mode Expert) : compare les
+             prévisions affichées par Metehop (ainsi que DWD ICON et ECMWF) aux relèves réelles
+             des 7 jours passés. La réalité passée vient de l'archive ERA5 (Open-Meteo), la
+             "réalité du moment" des conditions en cours (blend d'observations). Metehop ne pouvant
+             pas reconstituer ses anciennes prévisions (les serveurs ne les re-mémorisent pas), il
+             enregistre désormais ce qu'il affiche à chaque chargement : les colonnes se remplissent
+             au fil des jours. Un écart ≤ 1,5 °C sur la T° max = prévision "bonne". -->
+        <div class="chart-card" id="benchmark-card" data-groups="general" data-level="expert" style="display:none;">
+            <div class="chart-header">
+                <div>
+                    <div class="card-sage-title"><i class="fa-solid fa-bullseye"></i>&nbsp; Benchmark — modèle vs réalité</div>
+                    <div class="card-sage-sub">Metehop, ICON et ECMWF comparés aux relèves réelles des 7 derniers jours pour ce lieu.</div>
+                </div>
+            </div>
+            <div id="benchmark-live" class="benchmark-live-row"></div>
+            <div class="table-responsive">
+                <table class="sage-table benchmark-table">
+                    <thead>
+                        <tr>
+                            <th>Jour</th>
+                            <th>Réel max°</th>
+                            <th>Réel min°</th>
+                            <th>Pluie réelle</th>
+                            <th>Metehop max° (écart)</th>
+                            <th>ICON max° (écart)</th>
+                            <th>ECMWF max° (écart)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="benchmark-tbody"></tbody>
+                </table>
+            </div>
+            <div class="card-sage-sub benchmark-card-note" id="benchmark-note" style="margin-top:6px;"></div>
         </div>
 
         <!-- Chauffage : quand allumer / éteindre ? — chargement automatique à l'ouverture de
@@ -3981,7 +4034,7 @@
             <div class="footer-support-row">
                 <a class="footer-support-link" href="https://buymeacoffee.com/stridemetric" target="_blank" rel="noopener">🐸 Aide-moi à nourrir la grenouille Metehop</a>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 12/09/2026 - 114</div>
+            <div class="footer-last-update">Dernière mise à jour : 12/09/2026 - 115</div>
         </footer>
 
     </div>
@@ -5792,6 +5845,7 @@
             // setGroup('general') dans DOMContentLoaded) plutôt que seulement sur l'ex-onglet Hobby.
             if (group === 'general' && weatherData) {
                 renderAstroNightsRanking();
+                renderBenchmark(); // benchmark réaffiché à chaque retour dans l'onglet Général
             }
 
             resizeGroupCharts(group);
@@ -6127,6 +6181,8 @@
             snowHoldReliefLoading = false;
             dailyTempNormals = {}; // nouveau lieu : la normale de saison affichée doit repartir de zéro
             modelDisagreementByDay = null; // nouveau lieu : on recalcule les désaccords entre modèles
+            benchmarkReality = null; // benchmark : les relèves du lieu précédent n'ont plus de sens ici
+            benchmarkRealityNow = null;
             document.getElementById('title').innerText = locationName;
             document.getElementById('radar-sub-location').innerText = `${locationName} et alentours`;
             updateFavoriteButtonUI();
@@ -6154,6 +6210,10 @@
 render16DayTable();
                 renderModelDisagreementCard([]);
                 loadModelDisagreement(lat, lon).catch(() => {});
+                saveBenchmarkSnapshot(); // mémoire des prévisions (Metehop affiché) dès que possible
+                loadBenchmarkReality(lat, lon).catch(() => {});
+                loadBenchmarkRealityNow(lat, lon).catch(() => {});
+                renderBenchmark();
                 updateSnowEpisodeCard();
                 ensembleConfidenceByDay = null; // nouveau lieu : on repart sur l'heuristique le temps du chargement
                 loadEnsembleConfidence(lat, lon).catch(() => {});
@@ -10161,6 +10221,20 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
             }
             modelDisagreementByDay = Object.keys(flagByDate).length ? flagByDate : null;
             renderModelDisagreementCard(rowList);
+            // Chantier 8 (benchmark) : mémorise les valeurs brutes ICON/ECMWF par date, puis
+            // enregistre la mémoire de prévisions de ce chargement (Metehop + ces deux modèles).
+            benchmarkModelDataByDate = {};
+            for (let i = 0; i < days; i++) {
+                const dateStr = baseline.time[i];
+                const mk = (resp) => (resp && resp.daily) ? {
+                    tmax: resp.daily.temperature_2m_max ? resp.daily.temperature_2m_max[i] : null,
+                    tmin: resp.daily.temperature_2m_min ? resp.daily.temperature_2m_min[i] : null,
+                    rain: resp.daily.precipitation_sum ? resp.daily.precipitation_sum[i] : null
+                } : null;
+                benchmarkModelDataByDate[dateStr] = { icon: mk(responses[0]), ecmwf: mk(responses[1]) };
+            }
+            saveBenchmarkSnapshot();
+            renderBenchmark();
         }
 
         // Rows = jours signalés (dateStr, issues). Les valeurs "affichées" par Metehop pour chaque
@@ -10243,6 +10317,266 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
             const opening = details.style.display === 'none';
             details.style.display = opening ? '' : 'none';
             if (opening) renderModelDisagreementDetails();
+        }
+
+        // Chantier 8 — "Benchmark — modèle vs réalité" (12/09/2026, mode Expert) : compare chaque
+        // jour passé les températures max/min et la pluie ANNONCÉES par Metehop (et par DWD ICON,
+        // ECMWF) aux relèves réellement enregistrées ce jour-là.
+        //
+        // Volontairement honnête : les serveurs météo ne se souviennent pas de leurs anciennes
+        // prévisions (interroger le passé renvoie l'OBSERVÉ, jamais ce qui avait été prévu) —
+        // Metehop ne peut donc pas reconstituer ce qu'il affichait il y a 5 jours. C'est pourquoi il
+        // MÉMORISE depuis son installation (mémoire locale) tout ce qu'il affiche à chaque
+        // chargement : le tableau se remplit au fil des jours de visite, puis le score d'exactitude
+        // de la T° max se construit tout seul. Réalité = archive ERA5 (Open-Meteo) pour la semaine
+        // passée ; "aujourd'hui (en cours)" = conditions du moment (mélange d'observations).
+        // Un écart ≤ 1,5 °C sur la T° max = prévision jugée "bonne".
+        const BENCHMARK_DAYS = 7;
+        const BENCHMARK_GOOD_DEG = 1.5;
+        const BENCHMARK_HISTORY_KEY = 'metehop_benchmark_v1';
+        const BENCHMARK_REALITY_KEY = 'metehop_benchmark_reality_v1';
+        const BENCHMARK_KEEP_DAYS = 45;
+        let benchmarkModelDataByDate = null; // {'YYYY-MM-DD': {icon:{tmax,tmin,rain}, ecmwf:{…}}} rempli par loadModelDisagreement
+        let benchmarkReality = null;          // {lat, lon, fetchedOn, byDate:{'YYYY-MM-DD':{tmax,tmin,precip,snow}}}
+        let benchmarkRealityNow = null;       // {temp, precip, ts} conditions du moment
+        let benchmarkRealityLoading = false;
+        let benchmarkRealityNowLoading = false;
+
+        function benchmarkLocalDateStr(d) {
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+        // Identité du lieu dans la mémoire de prévisions : une cellule d'environ 10 km × 10 km
+        // (tolérante aux petites variations GPS de "Ma position"), indépendante du nom affiché.
+        function benchmarkPlaceKey() {
+            if (typeof currentLat !== 'number' || typeof currentLon !== 'number') return null;
+            return `${currentLat.toFixed(1)}|${currentLon.toFixed(1)}`;
+        }
+        function benchmarkFmt1(v) {
+            return (typeof v === 'number' && isFinite(v)) ? v.toFixed(1).replace('.', ',') : '—';
+        }
+        function benchmarkFmtSigned(v) {
+            if (!(typeof v === 'number' && isFinite(v))) return '—';
+            const r = Math.round(v * 10) / 10;
+            return (r > 0 ? '+' : '') + r.toFixed(1).replace('.', ',');
+        }
+
+        // --- Mémoire des prévisions (Metehop affiché + ICON + ECMWF), une entrée par jour local. ---
+        function loadBenchmarkHistory() {
+            try { return JSON.parse(localStorage.getItem(BENCHMARK_HISTORY_KEY) || '[]'); }
+            catch (e) { return []; }
+        }
+        function saveBenchmarkHistory(list) {
+            try { localStorage.setItem(BENCHMARK_HISTORY_KEY, JSON.stringify(list)); } catch (e) {}
+        }
+
+        // À chaque chargement réussi : met à jour / crée le souvenir de chaque jour couvert par
+        // cette prévision (on garde la dernière, donc celle du jour même). Chaque souvenir est
+        // rattaché au lieu (benchmarkPlaceKey) : une mémoire propre à chaque endroit, comparée
+        // ensuite à la réalité de CET endroit. Purge des souvenirs plus vieux que
+        // BENCHMARK_KEEP_DAYS.
+        function saveBenchmarkSnapshot() {
+            if (!weatherData || !weatherData.daily || !weatherData.daily.time || !weatherData.daily.time.length) return;
+            const pk = benchmarkPlaceKey();
+            if (!pk) return;
+            const now = new Date();
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - BENCHMARK_KEEP_DAYS);
+            const cutoffStr = benchmarkLocalDateStr(cutoff);
+            const history = loadBenchmarkHistory();
+            const mine = new Map(history.filter(r => r.pk === pk).map(r => [r.date, r]));
+            const elsewhere = history.filter(r => r.pk !== pk);
+            for (let i = 0; i < weatherData.daily.time.length; i++) {
+                const date = weatherData.daily.time[i];
+                if (typeof date !== 'string' || date < cutoffStr) continue;
+                const prev = mine.get(date);
+                const dm = benchmarkModelDataByDate ? benchmarkModelDataByDate[date] : null;
+                const r = prev ? Object.assign({}, prev) : { pk, date, mMax: null, mMin: null, mRain: null, iMax: null, iMin: null, iRain: null, eMax: null, eMin: null, eRain: null };
+                r.recordedOn = benchmarkLocalDateStr(now);
+                const mm = displayedDayMaxMin(i);
+                const rain = displayedDayRain(i);
+                if (mm.max !== null && mm.max !== undefined && isFinite(mm.max)) r.mMax = Math.round(mm.max * 10) / 10;
+                if (mm.min !== null && mm.min !== undefined && isFinite(mm.min)) r.mMin = Math.round(mm.min * 10) / 10;
+                if (rain !== null && rain !== undefined && isFinite(rain)) r.mRain = Math.round(rain * 10) / 10;
+                if (dm) {
+                    if (dm.icon) {
+                        if (typeof dm.icon.tmax === 'number' && isFinite(dm.icon.tmax)) r.iMax = Math.round(dm.icon.tmax * 10) / 10;
+                        if (typeof dm.icon.tmin === 'number' && isFinite(dm.icon.tmin)) r.iMin = Math.round(dm.icon.tmin * 10) / 10;
+                        if (typeof dm.icon.rain === 'number' && isFinite(dm.icon.rain)) r.iRain = Math.round(dm.icon.rain * 10) / 10;
+                    }
+                    if (dm.ecmwf) {
+                        if (typeof dm.ecmwf.tmax === 'number' && isFinite(dm.ecmwf.tmax)) r.eMax = Math.round(dm.ecmwf.tmax * 10) / 10;
+                        if (typeof dm.ecmwf.tmin === 'number' && isFinite(dm.ecmwf.tmin)) r.eMin = Math.round(dm.ecmwf.tmin * 10) / 10;
+                        if (typeof dm.ecmwf.rain === 'number' && isFinite(dm.ecmwf.rain)) r.eRain = Math.round(dm.ecmwf.rain * 10) / 10;
+                    }
+                }
+                byDate.set(date, r);
+            }
+            const list = Array.from(mine.values()).concat(elsewhere)
+                .filter(r => typeof r.date === 'string' && r.date >= cutoffStr)
+                .sort((a, b) => (a.pk === b.pk ? a.date.localeCompare(b.date) : (a.pk || '').localeCompare(b.pk || '')));
+            saveBenchmarkHistory(list);
+        }
+
+        // --- Réalité passée : archive ERA5 (Open-Meteo), BENCHMARK_DAYS jours finissant hier. ---
+        function cachedBenchmarkReality(lat, lon) {
+            try {
+                const c = JSON.parse(localStorage.getItem(BENCHMARK_REALITY_KEY) || 'null');
+                if (c && c.byDate && Math.abs(c.lat - lat) < 0.01 && Math.abs(c.lon - lon) < 0.01 && (Date.now() - (c.fetchedOn || 0)) < 12 * 3600 * 1000) return c;
+            } catch (e) {}
+            return null;
+        }
+        async function loadBenchmarkReality(lat, lon) {
+            const cached = cachedBenchmarkReality(lat, lon);
+            if (cached) { benchmarkReality = cached; renderBenchmark(); return; }
+            if (benchmarkRealityLoading) return;
+            benchmarkRealityLoading = true;
+            try {
+                const start = new Date(); start.setDate(start.getDate() - BENCHMARK_DAYS);
+                const end = new Date(); end.setDate(end.getDate() - 1);
+                const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&start_date=${benchmarkLocalDateStr(start)}&end_date=${benchmarkLocalDateStr(end)}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,snowfall_sum&timezone=auto`;
+                const res = await fetchWithTimeout(url, { timeout: 20000 });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (!data || !data.daily || !data.daily.time) return;
+                const byDate = {};
+                for (let i = 0; i < data.daily.time.length; i++) {
+                    byDate[data.daily.time[i]] = {
+                        tmax: typeof data.daily.temperature_2m_max[i] === 'number' ? data.daily.temperature_2m_max[i] : null,
+                        tmin: typeof data.daily.temperature_2m_min[i] === 'number' ? data.daily.temperature_2m_min[i] : null,
+                        precip: typeof data.daily.precipitation_sum[i] === 'number' ? data.daily.precipitation_sum[i] : null,
+                        snow: typeof data.daily.snowfall_sum[i] === 'number' ? data.daily.snowfall_sum[i] : null
+                    };
+                }
+                benchmarkReality = { lat, lon, fetchedOn: Date.now(), byDate };
+                try { localStorage.setItem(BENCHMARK_REALITY_KEY, JSON.stringify(benchmarkReality)); } catch (e) {}
+                renderBenchmark();
+            } catch (e) {
+            } finally {
+                benchmarkRealityLoading = false;
+            }
+        }
+
+        // --- Réalité "aujourd'hui (en cours)" : conditions du moment (blend d'observations). ---
+        async function loadBenchmarkRealityNow(lat, lon) {
+            if (benchmarkRealityNowLoading) return;
+            benchmarkRealityNowLoading = true;
+            try {
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&current=temperature_2m,precipitation&timezone=auto&forecast_days=1`;
+                const res = await fetchWithTimeout(url, { timeout: 8000 });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data && data.current && typeof data.current.temperature_2m === 'number') {
+                    benchmarkRealityNow = {
+                        temp: data.current.temperature_2m,
+                        precip: (data.current.precipitation !== undefined && data.current.precipitation !== null) ? data.current.precipitation : null,
+                        ts: Date.now()
+                    };
+                    renderBenchmark();
+                }
+            } catch (e) {
+            } finally {
+                benchmarkRealityNowLoading = false;
+            }
+        }
+
+        // T° affichée "maintenant" par Metehop, même logique que le bandeau météo (une seule
+        // correction micro-climat).
+        function benchmarkDisplayedNow() {
+            if (!weatherData || !weatherData.hourly || !weatherData.hourly.temperature_2m) return null;
+            const hourOfDay = new Date().getHours();
+            const raw = weatherData.hourly.temperature_2m[hourOfDay];
+            if (typeof raw !== 'number') return null;
+            let delta = 0;
+            try { delta = microClimateDeltaAtHour(hourOfDay, 0).delta || 0; } catch (e) {}
+            return raw + delta;
+        }
+
+        function benchmarkDayLabel(dateStr) {
+            const today = benchmarkLocalDateStr(new Date());
+            if (dateStr === today) return "Aujourd'hui";
+            const y = new Date(); y.setDate(y.getDate() - 1);
+            if (dateStr === benchmarkLocalDateStr(y)) return 'Hier';
+            const [a, m, j] = dateStr.split('-').map(Number);
+            return new Date(a, m - 1, j).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+        }
+
+        function benchmarkRealCell(v, unit) {
+            return (typeof v === 'number' && isFinite(v)) ? `${benchmarkFmt1(v)}${unit}` : '—';
+        }
+        function benchmarkScoreCell(realTmax, pred) {
+            if (realTmax === null || realTmax === undefined || !isFinite(realTmax)) return '—';
+            if (pred === null || pred === undefined || !isFinite(pred)) return '—';
+            const delta = pred - realTmax;
+            const cls = Math.abs(delta) <= BENCHMARK_GOOD_DEG ? 'benchmark-ok' : 'benchmark-miss';
+            return `${benchmarkFmt1(pred)}° <span class="${cls}">${benchmarkFmtSigned(delta)}°</span>`;
+        }
+
+        function renderBenchmark() {
+            const card = document.getElementById('benchmark-card');
+            if (!card) return;
+            // Deux relèves lancées une seule fois par lieu : réalité passée + "maintenant".
+            if (typeof currentLat === 'number' && typeof currentLon === 'number') {
+                if (!benchmarkReality && !benchmarkRealityLoading) loadBenchmarkReality(currentLat, currentLon).catch(() => {});
+                if (!benchmarkRealityNow && !benchmarkRealityNowLoading && weatherData) loadBenchmarkRealityNow(currentLat, currentLon).catch(() => {});
+            }
+            // Bandeau "aujourd'hui (en cours)".
+            const liveEl = document.getElementById('benchmark-live');
+            if (liveEl) {
+                const dNow = benchmarkDisplayedNow();
+                const rNow = benchmarkRealityNow;
+                if (dNow !== null && rNow && typeof rNow.temp === 'number') {
+                    const delta = Math.round((rNow.temp - dNow) * 10) / 10;
+                    const cls = Math.abs(delta) <= BENCHMARK_GOOD_DEG ? 'benchmark-ok' : 'benchmark-miss';
+                    liveEl.innerHTML = `Aujourd'hui (en cours) : Metehop affiche <b>${Math.round(dNow)} °C</b> (micro-climat compris) · réel <b>${Math.round(rNow.temp)} °C</b> → écart <b class="${cls}">${benchmarkFmtSigned(delta)} °</b>`;
+                } else {
+                    liveEl.innerHTML = "Aujourd'hui (en cours) : chargement…";
+                }
+            }
+            // Tableau des BENCHMARK_DAYS derniers jours.
+            const tbody = document.getElementById('benchmark-tbody');
+            const noteEl = document.getElementById('benchmark-note');
+            if (!tbody) return;
+            const pk = benchmarkPlaceKey();
+            const byDate = new Map(loadBenchmarkHistory().filter(r => r.pk === pk).map(rec => [rec.date, rec]));
+            const real = benchmarkReality ? benchmarkReality.byDate : null;
+            const rows = [];
+            for (let d = BENCHMARK_DAYS; d >= 1; d--) {
+                const dt = new Date(); dt.setDate(dt.getDate() - d);
+                const date = benchmarkLocalDateStr(dt);
+                rows.push({ date, r: real ? real[date] : null, rec: byDate.get(date) || null });
+            }
+            tbody.innerHTML = rows.map(({ date, r, rec }) => {
+                const tmax = r ? r.tmax : null;
+                return `<tr>
+                    <td>${benchmarkDayLabel(date)}</td>
+                    <td>${benchmarkRealCell(tmax, '°')}</td>
+                    <td>${benchmarkRealCell(r ? r.tmin : null, '°')}</td>
+                    <td>${(r && typeof r.precip === 'number' && isFinite(r.precip)) ? benchmarkFmt1(r.precip) + ' mm' : '—'}</td>
+                    <td>${benchmarkScoreCell(tmax, rec ? rec.mMax : null)}</td>
+                    <td>${benchmarkScoreCell(tmax, rec ? rec.iMax : null)}</td>
+                    <td>${benchmarkScoreCell(tmax, rec ? rec.eMax : null)}</td>
+                </tr>`;
+            }).join('');
+            if (!noteEl) return;
+            // Score T° max (MAE + bons jours à ≤ 1,5 °C), rendu dès qu'un jour passé est comparé à
+            // la réalité — il se construit au fil des jours de visite.
+            const scored = rows.filter(x => x.rec && x.r && typeof x.r.tmax === 'number' && isFinite(x.r.tmax) && typeof x.rec.mMax === 'number' && isFinite(x.rec.mMax));
+            const scoreOf = (key) => {
+                const vals = scored.map(x => Math.abs(x.rec[key] - x.r.tmax)).filter(v => isFinite(v));
+                if (!vals.length) return null;
+                return { mae: vals.reduce((a, b) => a + b, 0) / vals.length, ok: vals.filter(v => v <= BENCHMARK_GOOD_DEG).length, total: vals.length };
+            };
+            const sM = scoreOf('mMax');
+            const parts = [];
+            if (sM) {
+                parts.push(`Metehop ± ${benchmarkFmt1(sM.mae)} °C en moyenne (${sM.ok}/${sM.total} jour${sM.total > 1 ? 's' : ''} à ≤ 1,5 °)`);
+                const sI = scoreOf('iMax');
+                if (sI) parts.push(`ICON ± ${benchmarkFmt1(sI.mae)} °C`);
+                const sE = scoreOf('eMax');
+                if (sE) parts.push(`ECMWF ± ${benchmarkFmt1(sE.mae)} °C`);
+            }
+            noteEl.innerHTML = (parts.length ? `Score T° max : ${parts.join(' · ')}.<br>` : '') +
+                `Rappel honnête : la météo ne garde pas trace de ce qu'elle avait annoncé — Metehop enregistre donc, à chaque visite, ce qu'il affiche (micro-climat compris), chaque endroit gardant sa propre mémoire. Les colonnes et le score se remplissent au fil des jours. Réalité = relèves de référence des jours passés (ERA5 via Open-Meteo) + conditions du moment pour aujourd'hui.`;
         }
 
         // Partie B — Bouton "Couches" de la carte : vent / température / nuages à l'heure actuelle,
