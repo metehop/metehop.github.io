@@ -695,7 +695,6 @@
             background: var(--card-inner-bg);
             border-radius: var(--radius-medium);
             padding: 10px 12px;
-            margin-top: 10px;
         }
         .local-effects-header-row {
             display: flex;
@@ -2252,6 +2251,36 @@
             </div>
         </div>
 
+        <!-- EFFETS LOCAUX (micro-climat) : voir analyzeLocalEffects(). Affichage réduit à des
+             puces emoji + signification indiquant les effets détectés pour ce jour ; la
+             méthodologie complète (sources, formules, coefficients) est dans la modale
+             Sources & modèles utilisés (💡), pas ici. Activable/désactivable via
+             l'interrupteur (préférence mémorisée en local). Placé sous le bandeau vigilance
+             (12/09/2026) pour rester visible aussi en mode "Je découvre la météo". -->
+        <div class="local-effects-card" id="local-effects-card" data-groups="general">
+            <div class="local-effects-header-row">
+                <div class="local-effects-header">
+                    <i class="fa-solid fa-mountain-sun"></i> Effets locaux (micro-climat)
+                </div>
+                <label class="micro-toggle-switch" title="Activer/désactiver l'analyse micro-climat (relief, bâti, cours d'eau)">
+                    <input type="checkbox" id="micro-climate-toggle" onchange="onMicroClimateToggleChange()">
+                    <span class="micro-toggle-slider"></span>
+                </label>
+            </div>
+            <div class="local-effects-note" id="local-effects-note">Analyse du relief et du bâti local...</div>
+            <div class="local-effects-list" id="local-effects-list"></div>
+            <!-- Risque de foudre heure par heure — voir loadStormRiskForLocation() / renderStormRiskRow().
+                 Masqué par défaut : n'apparaît que si un orage est prévu aujourd'hui ou demain
+                 (jamais au-delà, hors de portée d'ICON-D2). TOUJOURS actif, y compris micro-climat désactivé. -->
+            <div class="local-effects-lightning" id="local-effects-lightning" style="display:none;">
+                <div class="local-effects-lightning-label">
+                    <i class="fa-solid fa-bolt" style="color:#d97736;"></i>
+                    <span id="local-effects-lightning-title">Risque de foudre heure par heure</span>
+                </div>
+                <div class="storm-risk-frise" id="storm-risk-frise"></div>
+            </div>
+        </div>
+
         <!-- Carrousel Jours -->
         <div id="explore-day-section">
             <div class="section-header">
@@ -2292,35 +2321,6 @@
                 </div>
 
                 <div class="hours-row" id="hours-row-container"></div>
-
-                <!-- EFFETS LOCAUX (micro-climat) : voir analyzeLocalEffects(). Affichage réduit à des
-                     puces emoji + signification indiquant les effets détectés pour ce jour ; la
-                     méthodologie complète (sources, formules, coefficients) est dans la modale
-                     Sources & modèles utilisés (💡), pas ici. Activable/désactivable via
-                     l'interrupteur (préférence mémorisée en local). -->
-                <div class="local-effects-card" id="local-effects-card">
-                    <div class="local-effects-header-row">
-                        <div class="local-effects-header">
-                            <i class="fa-solid fa-mountain-sun"></i> Effets locaux (micro-climat)
-                        </div>
-                        <label class="micro-toggle-switch" title="Activer/désactiver l'analyse micro-climat (relief, bâti, cours d'eau)">
-                            <input type="checkbox" id="micro-climate-toggle" onchange="onMicroClimateToggleChange()">
-                            <span class="micro-toggle-slider"></span>
-                        </label>
-                    </div>
-                    <div class="local-effects-note" id="local-effects-note">Analyse du relief et du bâti local...</div>
-                    <div class="local-effects-list" id="local-effects-list"></div>
-                    <!-- Risque de foudre heure par heure — voir loadStormRiskForLocation() / renderStormRiskRow().
-                         Masqué par défaut : n'apparaît que si un orage est prévu aujourd'hui ou demain
-                         (jamais au-delà, hors de portée d'ICON-D2). TOUJOURS actif, y compris micro-climat désactivé. -->
-                    <div class="local-effects-lightning" id="local-effects-lightning" style="display:none;">
-                        <div class="local-effects-lightning-label">
-                            <i class="fa-solid fa-bolt" style="color:#d97736;"></i>
-                            <span id="local-effects-lightning-title">Risque de foudre heure par heure</span>
-                        </div>
-                        <div class="storm-risk-frise" id="storm-risk-frise"></div>
-                    </div>
-                </div>
 
             </div>
 
@@ -3568,7 +3568,7 @@
             <div class="footer-support-row">
                 <a class="footer-support-link" href="https://buymeacoffee.com/stridemetric" target="_blank" rel="noopener">🐸 Aide-moi à nourrir la grenouille Metehop</a>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 11/09/2026 - 108</div>
+            <div class="footer-last-update">Dernière mise à jour : 12/09/2026 - 109</div>
         </footer>
 
     </div>
@@ -4575,8 +4575,9 @@
 
         // Ré-applique le filtre data-groups/data-level pour l'onglet courant (sans le changer, sauf
         // si cet onglet vient justement d'être masqué par le mode Simple — voir ci-dessous) et
-        // synchronise les quelques éléments qui ne passent pas par ce mécanisme (le toggle
-        // micro-climat imbriqué dans "Les prochaines heures", et le libellé du footer).
+        // synchronise les quelques éléments qui ne passent pas par ce mécanisme (le libellé du
+        // footer). L'encart "Effets locaux" (micro-climat) est géré par setGroup via son attribut
+        // data-groups="general" : il reste visible en mode Simple depuis le 12/09/2026.
         function applyDisplayMode() {
             document.body.classList.toggle('simple-mode', displayMode === 'simple');
             document.querySelectorAll('.group-tab').forEach(tab => {
@@ -4585,8 +4586,6 @@
             });
             const targetGroup = (displayMode === 'simple' && SIMPLE_MODE_HIDDEN_TABS.includes(currentGroup)) ? 'general' : currentGroup;
             setGroup(targetGroup);
-            const localEffectsCard = document.getElementById('local-effects-card');
-            if (localEffectsCard) localEffectsCard.style.display = (displayMode === 'simple') ? 'none' : '';
             // En repassant en mode Expert, les stats avancées du bandeau (masquées sans condition en
             // mode Simple, voir syncHeroAdvancedStatsVisibility) doivent être recalculées, pas
             // seulement laissées telles quelles : on rejoue updateDayView() sur le jour actuellement
@@ -5969,11 +5968,12 @@
 
         // ============================================================================
         // TOGGLE MICRO-CLIMAT — active/désactive l'analyse ci-dessous (préférence mémorisée
-        // localement). Désactivé par défaut au tout premier lancement (opt-in) : l'analyse
-        // implique des appels réseau supplémentaires (Elevation + Overpass) à chaque lieu
-        // recherché, qu'on ne veut pas déclencher sans consentement explicite de l'utilisateur.
+        // localement). Actif par défaut depuis le 12/09/2026 (demande utilisateur) : les effets
+        // locaux s'appliquent aussi en mode "Je découvre la météo". L'analyse implique des
+        // appels réseau supplémentaires (Elevation + Overpass) à chaque lieu recherché ; elle
+        // reste désactivable via l'interrupteur.
         // ============================================================================
-        let microClimateEnabled = false;
+        let microClimateEnabled = true;
         // Corrigé le 05/09/2026 : l'ancienne variable unique `microClimateAdjustments` ne portait
         // l'ajustement que pour UN SEUL jour (celui analysé au moment de l'appel réseau), d'où deux bugs
         // signalés : (1) les effets locaux ne se recalculaient pas en changeant de jour de consultation
@@ -5994,7 +5994,7 @@
             // sous cette nouvelle clé.
             const stored = localStorage.getItem('metehop_microclimate_enabled_v2');
             if (stored !== null) microClimateEnabled = (stored === 'true');
-        } catch (e) { /* localStorage indisponible (navigation privée...) : reste désactivé par défaut */ }
+        } catch (e) { /* localStorage indisponible (navigation privée...) : reste activé par défaut */ }
 
         const MICRO_CLIMATE_DISABLED_TEXT = "Désactivée. Méthodologie → 💡";
 
@@ -6535,7 +6535,9 @@
                 list.innerHTML = '';
                 return;
             }
-            note.innerText = "Effets locaux détectés pour ce jour :";
+            // 12/09/2026 : la phrase "Effets locaux détectés pour ce jour :" a été retirée (gain de
+            // hauteur) — quand des corrections s'appliquent, seules les puces sont affichées.
+            note.innerText = '';
             list.innerHTML = adj.chips.map(c => `
                 <div class="local-effect-chip${c.alert ? ' alert' : ''}">
                     <span class="local-effect-emoji">${c.emoji}</span>
