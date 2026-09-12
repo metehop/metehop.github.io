@@ -564,17 +564,67 @@
         /* Carte "Benchmark — modèle vs réalité" (chantier 8) : compare la T° max/min et pluie
            prévues (Metehop affiché, ICON, ECMWF) aux relèves réelles des jours passés.
            Réalité passée : archive ERA5 (Open-Meteo) ; "aujourd'hui" : conditions en cours
-           (blend d'observations). Verdict de tous les écarts : ≤ 1,5 °C = bon. */
+           (blend d'observations). Verdict de tous les écarts : ≤ 1,5 °C = bon.
+           Rendu en LIGNES (chips) et non en tableau à colonnes fixes : parfaitement lisible
+           sur mobile, aucun chevauchement de mots possible. */
         .benchmark-live-row {
             margin-bottom: 8px;
             font-size: 0.78rem;
             padding: 6px 10px;
             background: rgba(43, 108, 176, 0.08);
             border-radius: 8px;
+            line-height: 1.5;
         }
-        .benchmark-table td { font-size: 0.72rem; }
-        .benchmark-table td .benchmark-ok { color: #2e7d56; font-weight: 700; }
-        .benchmark-table td .benchmark-miss { color: #c62828; font-weight: 700; }
+        .benchmark-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .benchmark-day-row {
+            border: 1px solid rgba(0, 0, 0, 0.07);
+            border-radius: 10px;
+            padding: 8px 10px;
+            background: rgba(0, 0, 0, 0.02);
+        }
+        html.dark .benchmark-day-row { background: rgba(255, 255, 255, 0.03); border-color: rgba(255, 255, 255, 0.09); }
+        .benchmark-day-head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 6px 10px;
+            margin-bottom: 6px;
+        }
+        .benchmark-day-label {
+            font-weight: 800;
+            font-size: 0.8rem;
+            color: var(--primary-dark);
+            white-space: nowrap;
+        }
+        html.dark .benchmark-day-label { color: var(--text-dark); }
+        .benchmark-day-real { font-size: 0.7rem; color: var(--text-muted); white-space: nowrap; }
+        .benchmark-day-models {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .benchmark-chip {
+            display: inline-flex;
+            align-items: baseline;
+            gap: 5px;
+            white-space: nowrap;
+            font-size: 0.7rem;
+            line-height: 1.4;
+            padding: 3px 9px;
+            border-radius: 999px;
+            background: rgba(0, 0, 0, 0.04);
+            border: 1px solid rgba(0, 0, 0, 0.07);
+        }
+        html.dark .benchmark-chip { background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.12); }
+        .benchmark-chip b { font-weight: 800; }
+        .benchmark-chip .benchmark-ok { color: #2e7d56; font-weight: 800; }
+        .benchmark-chip .benchmark-miss { color: #c62828; font-weight: 800; }
+        html.dark .benchmark-chip .benchmark-ok { color: #7ecba0; }
+        html.dark .benchmark-chip .benchmark-miss { color: #ef9a9a; }
         .benchmark-card-note { font-size: 0.7rem; }
 
         .map-layers-popover {
@@ -1422,6 +1472,95 @@
             border-top: 1px solid rgba(0,0,0,0.06);
             line-height: 1.45;
         }
+
+        /* Encart "Jardinage : quoi faire en ce moment ?" (ajouté avant la carte Chauffage) */
+        .garden-filter-row {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin: 10px 0 4px;
+        }
+        .garden-filter-btn {
+            border: 1px solid rgba(0,0,0,0.14);
+            background: #fff;
+            color: var(--text-muted);
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 4px 12px;
+            border-radius: 999px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.15s;
+        }
+        .garden-filter-btn:hover { border-color: var(--primary-dark); color: var(--primary-dark); }
+        .garden-filter-btn.active {
+            background: var(--primary-dark);
+            border-color: var(--primary-dark);
+            color: #fff;
+        }
+        .garden-cat-tag {
+            display: inline-block;
+            font-size: 0.58rem;
+            font-weight: 800;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+            padding: 1px 6px;
+            border-radius: 6px;
+            margin-top: 2px;
+        }
+        .garden-cat-tag.potager { background: rgba(67, 160, 71, 0.14); color: #2e7d32; }
+        .garden-cat-tag.fruitier { background: rgba(217, 119, 54, 0.14); color: #b45309; }
+        .garden-cat-tag.ornement { background: rgba(43, 108, 176, 0.14); color: #2b6cb0; }
+        .garden-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.68rem;
+            font-weight: 800;
+            padding: 3px 9px;
+            border-radius: 999px;
+            margin: 1px 3px 1px 0;
+            white-space: normal;
+        }
+        .garden-status i { font-size: 0.66rem; }
+        .garden-status.ok { background: rgba(67, 160, 71, 0.14); color: #2e7d32; }
+        .garden-status.soon { background: rgba(43, 108, 176, 0.14); color: #2b6cb0; }
+        .garden-status.warn { background: rgba(245, 124, 0, 0.16); color: #b45309; }
+        .garden-status.bad { background: rgba(239, 68, 68, 0.14); color: #b91c1c; }
+        .garden-status.muted { background: rgba(0,0,0,0.06); color: var(--text-muted); }
+        .garden-table td { white-space: normal; vertical-align: top; }
+        .garden-table .garden-plant-name { font-weight: 700; color: var(--primary-dark); }
+        .garden-window { font-size: 0.7rem; color: var(--primary-dark); line-height: 1.4; }
+        .garden-advice { font-size: 0.68rem; color: var(--text-muted); line-height: 1.4; margin-top: 2px; }
+        .garden-advice .ok-advice { color: #2e7d32; font-weight: 700; }
+        .garden-advice .warn-frost { color: #b45309; font-weight: 700; }
+        .garden-advice .bad-frost { color: #b91c1c; font-weight: 700; }
+
+        /* Tables dans la modal "Sources & modèles utilisés" (groupe Jardinage) */
+        .sources-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.68rem;
+            margin-top: 6px;
+        }
+        .sources-table th {
+            text-align: left;
+            color: var(--text-muted);
+            font-weight: 700;
+            font-size: 0.62rem;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            padding: 4px 6px;
+            border-bottom: 1px solid rgba(0,0,0,0.09);
+            white-space: nowrap;
+        }
+        .sources-table td {
+            padding: 4px 6px;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+            vertical-align: top;
+            line-height: 1.35;
+        }
+        .sources-table td:first-child { font-weight: 600; color: var(--primary-dark); white-space: nowrap; }
 
         .app-footer {
             text-align: center;
@@ -2388,8 +2527,8 @@
         }
         html.dark .model-disagree-table td { color: var(--text-dark); }
         html.dark .benchmark-live-row { background: rgba(96, 165, 250, 0.12); }
-        html.dark .benchmark-table td .benchmark-ok { color: #7ecba0; }
-        html.dark .benchmark-table td .benchmark-miss { color: #ef9a9a; }
+        html.dark .benchmark-chip .benchmark-ok { color: #7ecba0; }
+        html.dark .benchmark-chip .benchmark-miss { color: #ef9a9a; }
 
         html.dark .micro-toggle-slider { background-color: #335047; border-color: #335047; }
 
@@ -3069,7 +3208,7 @@
              des 7 jours passés. La réalité passée vient de l'archive ERA5 (Open-Meteo), la
              "réalité du moment" des conditions en cours (blend d'observations). Metehop ne pouvant
              pas reconstituer ses anciennes prévisions (les serveurs ne les re-mémorisent pas), il
-             enregistre désormais ce qu'il affiche à chaque chargement : les colonnes se remplissent
+             enregistre désormais ce qu'il affiche à chaque chargement : ses prévisions se remplissent
              au fil des jours. Un écart ≤ 1,5 °C sur la T° max = prévision "bonne". -->
         <div class="chart-card" id="benchmark-card" data-groups="general" data-level="expert" style="display:none;">
             <div class="chart-header">
@@ -3079,23 +3218,71 @@
                 </div>
             </div>
             <div id="benchmark-live" class="benchmark-live-row"></div>
-            <div class="table-responsive">
-                <table class="sage-table benchmark-table">
-                    <thead>
-                        <tr>
-                            <th>Jour</th>
-                            <th>Réel max°</th>
-                            <th>Réel min°</th>
-                            <th>Pluie réelle</th>
-                            <th>Metehop max° (écart)</th>
-                            <th>ICON max° (écart)</th>
-                            <th>ECMWF max° (écart)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="benchmark-tbody"></tbody>
-                </table>
+            <div class="benchmark-list" id="benchmark-rows"></div>
+            <div class="card-sage-sub benchmark-card-note" id="benchmark-note" style="margin-top:8px;"></div>
+        </div>
+
+        <!-- Jardinage : quoi faire en ce moment ? — conseils de plantation / taille / récolte
+             (puis floraison pour l'ornement), ajoutés juste avant la carte Chauffage le 12/09/2026.
+             Basé sur l'historique climatologique RÉEL du lieu (normales locales partagées, voir
+             loadHistoricalDailyNormals) pour décaler les fenêtres usuelles selon l'endroit, puis
+             affiné par la prévision réelle à 16 jours (gelées annoncées, température du sol, saison
+             en avance ou en retard). Méthode et tableau des variétés/températures clés dans la
+             modal "Sources & modèles utilisés" (groupe "Jardinage"). Chargement automatique à
+             l'ouverture de l'onglet, comme le Chauffage ci-dessous. -->
+        <div class="chart-card" id="garden-tasks-card" data-groups="eau" style="display:none;">
+            <div class="chart-header">
+                <div>
+                    <div class="card-sage-title">
+                        <i class="fa-solid fa-leaf" style="color: var(--accent-green); margin-right: 6px;"></i>
+                        Jardinage : quoi faire en ce moment ?
+                    </div>
+                    <div class="card-sage-sub" id="garden-tasks-note">Calendrier du lieu + prévisions à 16 jours.</div>
+                </div>
             </div>
-            <div class="card-sage-sub benchmark-card-note" id="benchmark-note" style="margin-top:6px;"></div>
+            <div id="garden-tasks-content">
+                <div class="heating-status-row">
+                    <div class="heating-status-pill">
+                        <div class="heating-pill-label">Température du sol</div>
+                        <div class="heating-pill-value" id="garden-soil-pill">--</div>
+                        <div class="heating-pill-eta" id="garden-soil-eta"></div>
+                    </div>
+                    <div class="heating-status-pill" id="garden-frost-pill-box">
+                        <div class="heating-pill-label">Prochaines gelées (&lt;1°C)</div>
+                        <div class="heating-pill-value" id="garden-frost-pill">--</div>
+                        <div class="heating-pill-eta" id="garden-frost-eta"></div>
+                    </div>
+                    <div class="heating-status-pill" id="garden-season-pill-box">
+                        <div class="heating-pill-label">Saison par rapport à la normale</div>
+                        <div class="heating-pill-value" id="garden-season-pill">--</div>
+                        <div class="heating-pill-eta" id="garden-season-eta"></div>
+                    </div>
+                </div>
+
+                <div class="garden-filter-row" id="garden-filter-row">
+                    <button type="button" class="garden-filter-btn active" data-garden-cat="all" onclick="setGardenFilter('all', this)">Tous</button>
+                    <button type="button" class="garden-filter-btn" data-garden-cat="potager" onclick="setGardenFilter('potager', this)">Potager</button>
+                    <button type="button" class="garden-filter-btn" data-garden-cat="fruitier" onclick="setGardenFilter('fruitier', this)">Fruitiers</button>
+                    <button type="button" class="garden-filter-btn" data-garden-cat="ornement" onclick="setGardenFilter('ornement', this)">Ornement</button>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="sage-table garden-table">
+                        <thead>
+                            <tr>
+                                <th style="width:20%;">Plante</th>
+                                <th style="width:26%;">À faire</th>
+                                <th style="width:22%;">Fenêtre usuelle ici</th>
+                                <th style="width:32%;">Conseil météo</th>
+                            </tr>
+                        </thead>
+                        <tbody id="garden-tasks-tbody">
+                            <tr><td colspan="4" style="text-align:center; color: var(--text-muted); padding: 16px;">Calcul du calendrier du lieu…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card-sage-sub" style="margin-top:8px; font-size:0.66rem; line-height:1.45;" id="garden-tasks-caveat">Fenêtres usuelles calculées sur l'historique climatologique du lieu (Open-Meteo) et ajustées par la prévision à 16 jours.</div>
+            </div>
         </div>
 
         <!-- Chauffage : quand allumer / éteindre ? — chargement automatique à l'ouverture de
@@ -4248,6 +4435,99 @@
             </div>
 
             <div class="sources-group">
+                <h4>Jardinage : "quoi faire en ce moment ?"</h4>
+                <div class="sources-item">
+                    <strong>Méthode</strong>
+                    <span>L'encart "Jardinage : quoi faire en ce moment ?" (onglet Eau/Jardinage) croise la base horticole ci-dessous (fenêtres de plantation/taille/récolte pour un climat tempéré français) avec <strong>l'historique climatologique réel du lieu consulté</strong> (15 dernières années, mêmes dates — Open-Meteo Archive ERA5, données mises en cache partagées avec le graphique sol/air, voir le groupe "Température sol & air" ci-dessus) : la date usuelle locale de chaque plantation est le 1er jour où le sol y atteint historiquement la température requise, sécurisé par le 1er passage de l'air à ≥10°C tenu 5 jours consécutifs (repère de fin des gelées tardives). Puis la <strong>prévision réelle à 16 jours</strong> départage l'instant présent : sol au-dessus du seuil ? gelées (min &lt;1°C) annoncées ? saison en avance ou en retard sur la normale ? Ces valeurs restent des repères : le micro-climat du terrain (exposition, altitude, protection) prime toujours.</span>
+                </div>
+                <div class="sources-item">
+                    <strong>Taille des arbres fruitiers : pépins vs noyaux</strong>
+                    <span>Pépins (pommier, poirier, cognassier) : taille d'hiver (novembre–février), hors gel. Noyaux (cerisier, prunier, pêcher, abricotier, amandier) : <strong>jamais de taille en hiver</strong> (risque de chancre/gommose) — taille de fin d'été (août–octobre) seulement. Source : références classiques d'arboriculture fruitière et fiches de taille INRAe/CTIFL.</span>
+                </div>
+                <table class="sources-table">
+                    <thead>
+                        <tr><th>Plante</th><th>Plantation</th><th>Taille / entretien</th><th>Récolte ou floraison</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>🍅 Tomate</td><td>mars–mai · sol ≥12°C</td><td>tuteurer, buttage</td><td>juin–oct</td></tr>
+                        <tr><td>🍆 Aubergine</td><td>mars–mai · sol ≥14°C</td><td>—</td><td>juil–sep</td></tr>
+                        <tr><td>🫑 Poivron</td><td>mars–mai · sol ≥15°C</td><td>—</td><td>juil–sep</td></tr>
+                        <tr><td>🥒 Courgette</td><td>avr–juin · sol ≥12°C</td><td>—</td><td>juin–sep</td></tr>
+                        <tr><td>🥒 Concombre</td><td>avr–juin · sol ≥15°C</td><td>—</td><td>juin–sep</td></tr>
+                        <tr><td>🍈 Melon</td><td>avr–mai · sol ≥18°C</td><td>—</td><td>juil–sep</td></tr>
+                        <tr><td>🎃 Courge &amp; potiron</td><td>avr–juin · sol ≥16°C</td><td>—</td><td>sep–nov</td></tr>
+                        <tr><td>🫘 Haricot vert</td><td>avr–juil · sol ≥10°C</td><td>—</td><td>juin–sep</td></tr>
+                        <tr><td>🫛 Petit pois</td><td>fév–avr · sol ≥8°C</td><td>—</td><td>mai–juil</td></tr>
+                        <tr><td>🥕 Carotte</td><td>mars–juin · sol ≥7°C</td><td>binage</td><td>juin–oct</td></tr>
+                        <tr><td>🌿 Radis</td><td>fév–sep · sol ≥6°C</td><td>semis échelonnés</td><td>avr–oct</td></tr>
+                        <tr><td>🥬 Laitue</td><td>fév–sep · sol ≥6°C</td><td>—</td><td>avr–nov</td></tr>
+                        <tr><td>🌿 Épinard</td><td>fév–avr / août–oct</td><td>—</td><td>avr–juin / oct–nov</td></tr>
+                        <tr><td>🌿 Mâche</td><td>août–oct</td><td>—</td><td>oct–mars</td></tr>
+                        <tr><td>🌿 Poireau</td><td>mars–juin</td><td>buttage</td><td>oct–mars</td></tr>
+                        <tr><td>🥦 Chou-fleur / brocoli</td><td>fév–juin</td><td>—</td><td>sep–nov</td></tr>
+                        <tr><td>🥬 Chou pommé</td><td>mars–juin</td><td>—</td><td>août–nov</td></tr>
+                        <tr><td>🥬 Chou kale</td><td>avr–juil</td><td>—</td><td>oct–mars</td></tr>
+                        <tr><td>🌱 Choux de Bruxelles</td><td>mars–mai</td><td>—</td><td>sep–janv</td></tr>
+                        <tr><td>🧅 Oignon</td><td>fév–avr</td><td>—</td><td>juin–août</td></tr>
+                        <tr><td>🧄 Ail</td><td>janv–mars</td><td>—</td><td>juin–août</td></tr>
+                        <tr><td>🥔 Pommes de terre</td><td>mars–mai · sol ≥8°C</td><td>buttage</td><td>juin–sep</td></tr>
+                        <tr><td>🌽 Maïs doux</td><td>avr–juin · sol ≥10°C</td><td>—</td><td>août–oct</td></tr>
+                        <tr><td>🌿 Persil / ciboulette</td><td>mars–juin</td><td>coupes régulières</td><td>avr–oct</td></tr>
+                        <tr><td>🌿 Basilic</td><td>avr–juil · sol ≥15°C</td><td>—</td><td>mai–oct</td></tr>
+                        <tr><td>🌿 Panais</td><td>fév–avr</td><td>—</td><td>sep–janv</td></tr>
+                        <tr><td>🍎 Pommier / 🍐 Poirier / 🍐 Cognassier</td><td>nov–mars (dormance)</td><td>taille hiver : nov–fév, hors gel</td><td>sep–oct</td></tr>
+                        <tr><td>🍒 Cerisier · 🍑 Pêcher · 🟣 Prunier · 🍊 Abricotier</td><td>nov–mars (dormance)</td><td>taille fin d'été : août–oct (jamais en hiver)</td><td>juin–sept</td></tr>
+                        <tr><td>🌳 Noyer · 🌰 Noisetier</td><td>nov–mars (dormance)</td><td>taille après récolte / fin d'hiver</td><td>sep–oct</td></tr>
+                        <tr><td>🫐 Cassissier · 🍇 Groseillier</td><td>nov–fév (dormance)</td><td>taille fin d'hiver</td><td>juin–juil</td></tr>
+                        <tr><td>🍓 Framboisier · 🍇 Ronce</td><td>nov–fév (dormance)</td><td>taille après fructification</td><td>juin–oct / août–sep</td></tr>
+                        <tr><td>🥝 Kiwi · 🍇 Vigne</td><td>déc–mars (dormance)</td><td>taille hivernale nov–mars</td><td>oct–nov / sep–oct</td></tr>
+                        <tr><td>🫒 Olivier</td><td>nov–mars (dormance)</td><td>taille légère après les grands froids</td><td>oct–nov</td></tr>
+                        <tr><td>🌹 Rosier</td><td>nov–mars (dormance)</td><td>taille fév–mars avant démarrage</td><td>mai–oct</td></tr>
+                        <tr><td>💮 Hortensia</td><td>oct–avr</td><td>taille mars–avr (ne pas trop tarder)</td><td>juin–sep</td></tr>
+                        <tr><td>🟣 Lilas · 🟡 Forsythia</td><td>oct–mars</td><td>taille juste après floraison</td><td>fév–mai</td></tr>
+                        <tr><td>🌸 Géranium · 🌺 Bégonia</td><td>avr–juin · sol ≥12°C</td><td>—</td><td>mai–oct</td></tr>
+                        <tr><td>🌼 Dahlia</td><td>avr–mai · sol ≥12°C</td><td>couvrir les tubères</td><td>juil–oct</td></tr>
+                        <tr><td>🌷 Tulipe · 🌼 Jonquille</td><td>oct–nov (bulbes)</td><td>—</td><td>mars–mai</td></tr>
+                        <tr><td>🌼 Pensée</td><td>sep–nov</td><td>—</td><td>oct–mai</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="sources-group">
+                <h4>Jardinage : températures clés</h4>
+                <div class="sources-item">
+                    <strong>Zéro de végétation (Zv)</strong>
+                    <span>Seuil de température en dessous duquel une espèce ne croît plus (reference INRAe / Ephytia). Exemples vérifiés : concombre 15°C, citrouille 16°C, tomate/aubergine/poivron 12°C, haricot 10°C, choux 3-5°C, petit pois 0°C. Le seuil de plantation retenu par l'encart est légèrement au-dessus du Zv (la croissance démarre mieux quelques degrés au-dessus du strict zéro de végétation).</span>
+                </div>
+                <table class="sources-table">
+                    <thead>
+                        <tr><th>Plante</th><th>Zéro de végétation</th><th>Seuil sol à la plantation</th><th>Sensibilité au gel</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>🍅 Tomate</td><td>12°C</td><td>≥12°C</td><td>Détruite au gel</td></tr>
+                        <tr><td>🍆 Aubergine</td><td>12°C</td><td>≥14°C</td><td>Détruite au gel</td></tr>
+                        <tr><td>🫑 Poivron</td><td>12°C</td><td>≥15°C</td><td>Détruite au gel</td></tr>
+                        <tr><td>🥒 Courgette</td><td>12°C</td><td>≥12°C</td><td>Détruite au gel</td></tr>
+                        <tr><td>🥒 Concombre</td><td>15°C</td><td>≥15°C</td><td>Détruite au gel</td></tr>
+                        <tr><td>🍈 Melon</td><td>12°C</td><td>≥18°C</td><td>Détruite au gel</td></tr>
+                        <tr><td>🎃 Courge / potiron</td><td>16°C</td><td>≥16°C</td><td>Détruite au gel</td></tr>
+                        <tr><td>🍉 Pastèque</td><td>12°C</td><td>≥18°C</td><td>Détruite au gel</td></tr>
+                        <tr><td>🫘 Haricot</td><td>10°C</td><td>≥10°C</td><td>Supporte un léger gel</td></tr>
+                        <tr><td>🫛 Petit pois</td><td>0°C</td><td>≥8°C</td><td>Rustique (gel léger OK)</td></tr>
+                        <tr><td>🥕 Carotte / 🌿 Betterave</td><td>3°C</td><td>≥7-8°C</td><td>Tolère un léger gel</td></tr>
+                        <tr><td>🥬 Laitue / 🌿 Épinard / 🌿 Mâche</td><td>2°C</td><td>≥5-6°C</td><td>Tolère un léger gel</td></tr>
+                        <tr><td>🥬 Choux divers</td><td>3-5°C</td><td>≥5-6°C</td><td>Tolère le froid</td></tr>
+                        <tr><td>🌿 Poireau / 🌿 Panais</td><td>0°C</td><td>≥5-6°C</td><td>Rustique (résiste sous la neige)</td></tr>
+                        <tr><td>🥔 Pommes de terre / 🧅 Oignon / 🧄 Ail</td><td>0-5°C</td><td>≥5-8°C</td><td>Rustique</td></tr>
+                        <tr><td>🌿 Basilic</td><td>10°C</td><td>≥15°C</td><td>Très gélif (2°C abîme)</td></tr>
+                        <tr><td>🌹 Rosier</td><td>—</td><td>dormance (racines nues)</td><td>Rustique</td></tr>
+                        <tr><td>🍒 Arbres fruitiers (pépins)</td><td>—</td><td>dormance</td><td>Rustiques</td></tr>
+                        <tr><td>🍑 Arbres à noyaux</td><td>—</td><td>dormance</td><td>Rustiques (taille hiver interdite)</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="sources-group">
                 <h4>Bibliothèques techniques</h4>
                 <div class="sources-item">
                     <strong>Chart.js</strong>
@@ -4566,6 +4846,7 @@
         let seasonalTrendsLoaded = false; // tendances saisonnières (bouton "Charger les données")
         let heatingLoaded = false;        // estimation chauffage (chargement auto à l'ouverture de l'onglet)
         let lastHeatingResult = null;     // { onDoy, offDoy, climByDoy, ... } pour éviter de recalculer au resize
+        let gardenCalendarLoaded = false; // encart "Jardinage : quoi faire en ce moment ?" (voir renderGardenCalendar)
         // Station météo personnelle (Tencin, Isère) affichée dans l'onglet Nature (ex-Hobby) quand
         // le lieu consulté est à proximité — source Weather Underground PWS, pas Open-Meteo.
         // Obfuscation légère (XOR + base64) de la clé API Weather Underground : ce n'est PAS un
@@ -5835,6 +6116,14 @@
                     document.getElementById('heating-note').innerText = 'Données indisponibles pour le moment.';
                 });
             }
+            // Encart "Jardinage : quoi faire en ce moment ?" : même chargement automatique que le
+            // Chauffage ci-dessus — il n'ajoute AUCUN appel réseau (normales partagées en cache +
+            // prévisions déjà chargées par fetchWeather), donc aucun frein à le re-calculer pour
+            // refléter la date du jour et le lieu courant.
+            if (group === 'eau' && !gardenCalendarLoaded && currentLat !== null) {
+                gardenCalendarLoaded = true;
+                renderGardenCalendar(currentLat, currentLon).catch(() => {});
+            }
             if (group === 'general' && !seasonalTrendsLoaded && currentLat !== null) {
                 seasonalTrendsLoaded = true;
                 document.getElementById('seasonal-trends-note').innerText = 'Chargement des moyennes historiques...';
@@ -5845,7 +6134,7 @@
             // setGroup('general') dans DOMContentLoaded) plutôt que seulement sur l'ex-onglet Hobby.
             if (group === 'general' && weatherData) {
                 renderAstroNightsRanking();
-                renderBenchmark(); // benchmark réaffiché à chaque retour dans l'onglet Général
+                safeBenchmarkRun(renderBenchmark); // benchmark réaffiché à chaque retour dans l'onglet Général (optionnel)
             }
 
             resizeGroupCharts(group);
@@ -6097,7 +6386,20 @@
         // Renvoie { air: {"MM-JJ": moyenne}, soil: {"MM-JJ": moyenne} } pour le lieu donné — objets
         // vides (jamais null) si l'archive est indisponible, pour que les appelants n'aient qu'à
         // tester la présence d'une clé MM-JJ précise plutôt que de vérifier la forme du retour.
+        // Un garde-fou anti-doublon (Promise en cours mémorisée par lieu) évite que deux
+        // fonctionnalités arrivées en même temps (graphique sol/air + encart jardinage) ne
+        // déclenchent deux appels archive identiques : elles se partagent la même promesse.
+        let _normalsInFlight = {};
         async function loadHistoricalDailyNormals(lat, lon) {
+            const flightKey = normalsCacheKeyFor(lat, lon);
+            if (_normalsInFlight[flightKey]) return _normalsInFlight[flightKey];
+            _normalsInFlight[flightKey] = loadHistoricalDailyNormalsImpl(lat, lon).finally(() => {
+                delete _normalsInFlight[flightKey];
+            });
+            return _normalsInFlight[flightKey];
+        }
+
+        async function loadHistoricalDailyNormalsImpl(lat, lon) {
             const cache = loadNormalsCache();
             const cacheKey = normalsCacheKeyFor(lat, lon);
             const entry = cache[cacheKey];
@@ -6210,10 +6512,12 @@
 render16DayTable();
                 renderModelDisagreementCard([]);
                 loadModelDisagreement(lat, lon).catch(() => {});
-                saveBenchmarkSnapshot(); // mémoire des prévisions (Metehop affiché) dès que possible
-                loadBenchmarkReality(lat, lon).catch(() => {});
-                loadBenchmarkRealityNow(lat, lon).catch(() => {});
-                renderBenchmark();
+                saveBenchmarkSnapshot(); // mémoire des prévisions dès que possible (Metehop affiché)
+                safeBenchmarkRun(() => {
+                    loadBenchmarkReality(lat, lon).catch(() => {});
+                    loadBenchmarkRealityNow(lat, lon).catch(() => {});
+                    renderBenchmark();
+                });
                 updateSnowEpisodeCard();
                 ensembleConfidenceByDay = null; // nouveau lieu : on repart sur l'heuristique le temps du chargement
                 loadEnsembleConfidence(lat, lon).catch(() => {});
@@ -6256,6 +6560,9 @@ render16DayTable();
                 resetWaterBalanceGate();
                 resetSeasonalTrendsGate();
                 resetHeatingGate();
+                resetGardenGate();
+                gardenCalendarLoaded = (currentGroup === 'eau');
+                if (gardenCalendarLoaded) renderGardenCalendar(lat, lon).catch(() => {});
                 seasonalTrendsLoaded = (currentGroup === 'general');
                 if (seasonalTrendsLoaded) {
                     document.getElementById('seasonal-trends-note').innerText = 'Chargement des moyennes historiques...';
@@ -10223,18 +10530,21 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
             renderModelDisagreementCard(rowList);
             // Chantier 8 (benchmark) : mémorise les valeurs brutes ICON/ECMWF par date, puis
             // enregistre la mémoire de prévisions de ce chargement (Metehop + ces deux modèles).
-            benchmarkModelDataByDate = {};
-            for (let i = 0; i < days; i++) {
-                const dateStr = baseline.time[i];
-                const mk = (resp) => (resp && resp.daily) ? {
-                    tmax: resp.daily.temperature_2m_max ? resp.daily.temperature_2m_max[i] : null,
-                    tmin: resp.daily.temperature_2m_min ? resp.daily.temperature_2m_min[i] : null,
-                    rain: resp.daily.precipitation_sum ? resp.daily.precipitation_sum[i] : null
-                } : null;
-                benchmarkModelDataByDate[dateStr] = { icon: mk(responses[0]), ecmwf: mk(responses[1]) };
-            }
-            saveBenchmarkSnapshot();
-            renderBenchmark();
+            // Tout reste optionnel : une erreur ici ne doit pas casser le désaccord entre modèles.
+            safeBenchmarkRun(() => {
+                benchmarkModelDataByDate = {};
+                for (let i = 0; i < days; i++) {
+                    const dateStr = baseline.time[i];
+                    const mk = (resp) => (resp && resp.daily) ? {
+                        tmax: resp.daily.temperature_2m_max ? resp.daily.temperature_2m_max[i] : null,
+                        tmin: resp.daily.temperature_2m_min ? resp.daily.temperature_2m_min[i] : null,
+                        rain: resp.daily.precipitation_sum ? resp.daily.precipitation_sum[i] : null
+                    } : null;
+                    benchmarkModelDataByDate[dateStr] = { icon: mk(responses[0]), ecmwf: mk(responses[1]) };
+                }
+                saveBenchmarkSnapshot();
+                renderBenchmark();
+            });
         }
 
         // Rows = jours signalés (dateStr, issues). Les valeurs "affichées" par Metehop pour chaque
@@ -10327,7 +10637,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
         // prévisions (interroger le passé renvoie l'OBSERVÉ, jamais ce qui avait été prévu) —
         // Metehop ne peut donc pas reconstituer ce qu'il affichait il y a 5 jours. C'est pourquoi il
         // MÉMORISE depuis son installation (mémoire locale) tout ce qu'il affiche à chaque
-        // chargement : le tableau se remplit au fil des jours de visite, puis le score d'exactitude
+        // chargement : ses prévisions sont mémorisées au fil des jours de visite, puis le score d'exactitude
         // de la T° max se construit tout seul. Réalité = archive ERA5 (Open-Meteo) pour la semaine
         // passée ; "aujourd'hui (en cours)" = conditions du moment (mélange d'observations).
         // Un écart ≤ 1,5 °C sur la T° max = prévision jugée "bonne".
@@ -10375,6 +10685,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
         // ensuite à la réalité de CET endroit. Purge des souvenirs plus vieux que
         // BENCHMARK_KEEP_DAYS.
         function saveBenchmarkSnapshot() {
+            try {
             if (!weatherData || !weatherData.daily || !weatherData.daily.time || !weatherData.daily.time.length) return;
             const pk = benchmarkPlaceKey();
             if (!pk) return;
@@ -10415,6 +10726,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 .filter(r => typeof r.date === 'string' && r.date >= cutoffStr)
                 .sort((a, b) => (a.pk === b.pk ? a.date.localeCompare(b.date) : (a.pk || '').localeCompare(b.pk || '')));
             saveBenchmarkHistory(list);
+            } catch (e) { /* la mémoire de prévisions reste optionnelle */ }
         }
 
         // --- Réalité passée : archive ERA5 (Open-Meteo), BENCHMARK_DAYS jours finissant hier. ---
@@ -10503,80 +10815,101 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
         function benchmarkRealCell(v, unit) {
             return (typeof v === 'number' && isFinite(v)) ? `${benchmarkFmt1(v)}${unit}` : '—';
         }
-        function benchmarkScoreCell(realTmax, pred) {
-            if (realTmax === null || realTmax === undefined || !isFinite(realTmax)) return '—';
-            if (pred === null || pred === undefined || !isFinite(pred)) return '—';
-            const delta = pred - realTmax;
-            const cls = Math.abs(delta) <= BENCHMARK_GOOD_DEG ? 'benchmark-ok' : 'benchmark-miss';
-            return `${benchmarkFmt1(pred)}° <span class="${cls}">${benchmarkFmtSigned(delta)}°</span>`;
+
+        // Le benchmark est un affichage SUPPLEMENTAIRE de l'app : il ne doit jamais pouvoir
+        // interrompre le chargement de la météo ni casser la page. Tout le rendu est donc isolé
+        // dans un try/catch et servi en lignes "chips" (pas de colonnes fixes) : aucun mot ne
+        // peut se superposer, sur téléphone comme sur ordinateur.
+        function renderBenchmark() {
+            try {
+                const card = document.getElementById('benchmark-card');
+                if (!card) return;
+                // Deux relèves lancées une seule fois par lieu : réalité passée + "maintenant".
+                if (typeof currentLat === 'number' && typeof currentLon === 'number') {
+                    if (!benchmarkReality && !benchmarkRealityLoading) loadBenchmarkReality(currentLat, currentLon).catch(() => {});
+                    if (!benchmarkRealityNow && !benchmarkRealityNowLoading && weatherData) loadBenchmarkRealityNow(currentLat, currentLon).catch(() => {});
+                }
+                // Bandeau "aujourd'hui (en cours)" : Metehop affiché vs conditions du moment.
+                const liveEl = document.getElementById('benchmark-live');
+                if (liveEl) {
+                    const dNow = benchmarkDisplayedNow();
+                    const rNow = benchmarkRealityNow;
+                    if (dNow !== null && rNow && typeof rNow.temp === 'number') {
+                        const delta = Math.round((rNow.temp - dNow) * 10) / 10;
+                        const cls = Math.abs(delta) <= BENCHMARK_GOOD_DEG ? 'benchmark-ok' : 'benchmark-miss';
+                        liveEl.innerHTML = `Aujourd'hui (en cours) : Metehop affiche <b>${Math.round(dNow)} °C</b> (micro-climat compris) · réel <b>${Math.round(rNow.temp)} °C</b> → écart <b class="${cls}">${benchmarkFmtSigned(delta)} °</b>`;
+                    } else {
+                        liveEl.innerHTML = "Aujourd'hui (en cours) : chargement…";
+                    }
+                }
+                // Les BENCHMARK_DAYS derniers jours, une ligne par jour : réel + 3 modèles (prévu, écart).
+                const rowsEl = document.getElementById('benchmark-rows');
+                const noteEl = document.getElementById('benchmark-note');
+                if (!rowsEl) return;
+                const pk = benchmarkPlaceKey();
+                const byDate = new Map(loadBenchmarkHistory().filter(r => r.pk === pk).map(rec => [rec.date, rec]));
+                const real = benchmarkReality ? benchmarkReality.byDate : null;
+                const rows = [];
+                for (let d = BENCHMARK_DAYS; d >= 1; d--) {
+                    const dt = new Date(); dt.setDate(dt.getDate() - d);
+                    const date = benchmarkLocalDateStr(dt);
+                    rows.push({ date, r: real ? real[date] : null, rec: byDate.get(date) || null });
+                }
+                const modelChip = (label, pred, r) => {
+                    let val = '—', delta = '';
+                    if (typeof pred === 'number' && isFinite(pred)) {
+                        val = `${benchmarkFmt1(pred)}°`;
+                        if (r && typeof r.tmax === 'number' && isFinite(r.tmax)) {
+                            const dlt = Math.round((pred - r.tmax) * 10) / 10;
+                            const cls = Math.abs(dlt) <= BENCHMARK_GOOD_DEG ? 'benchmark-ok' : 'benchmark-miss';
+                            delta = `<span class="${cls}">${benchmarkFmtSigned(dlt)}°</span>`;
+                        }
+                    }
+                    return `<span class="benchmark-chip"><b>${label}</b><span>${val}</span>${delta}</span>`;
+                };
+                rowsEl.innerHTML = rows.map(({ date, r, rec }) => {
+                    const realTxt = r
+                        ? `Réel : <b>${benchmarkRealCell(r.tmax, '°')}</b> / <b>${benchmarkRealCell(r.tmin, '°')}</b> · pluie ${(typeof r.precip === 'number' && isFinite(r.precip)) ? benchmarkFmt1(r.precip) + ' mm' : '—'}`
+                        : 'Réel : —';
+                    return `<div class="benchmark-day-row">
+                    <div class="benchmark-day-head">
+                        <span class="benchmark-day-label">${benchmarkDayLabel(date)}</span>
+                        <span class="benchmark-day-real">${realTxt}</span>
+                    </div>
+                    <div class="benchmark-day-models">
+                        ${modelChip('Metehop', rec ? rec.mMax : null, r)}
+                        ${modelChip('ICON', rec ? rec.iMax : null, r)}
+                        ${modelChip('ECMWF', rec ? rec.eMax : null, r)}
+                    </div>
+                </div>`;
+                }).join('');
+                if (!noteEl) return;
+                // Score T° max (MAE + "bons jours" à ≤ 1,5 °C), rendu dès qu'au moins un jour passé
+                // est comparé à la réalité — il se construit au fil des jours de visite.
+                const scored = rows.filter(x => x.rec && x.r && typeof x.r.tmax === 'number' && isFinite(x.r.tmax) && typeof x.rec.mMax === 'number' && isFinite(x.rec.mMax));
+                const scoreOf = (key) => {
+                    const vals = scored.map(x => Math.abs(x.rec[key] - x.r.tmax)).filter(v => isFinite(v));
+                    if (!vals.length) return null;
+                    return { mae: vals.reduce((a, b) => a + b, 0) / vals.length, ok: vals.filter(v => v <= BENCHMARK_GOOD_DEG).length, total: vals.length };
+                };
+                const sM = scoreOf('mMax');
+                const parts = [];
+                if (sM) {
+                    parts.push(`Metehop ± ${benchmarkFmt1(sM.mae)} °C en moyenne (${sM.ok}/${sM.total} jour${sM.total > 1 ? 's' : ''} à ≤ 1,5 °)`);
+                    const sI = scoreOf('iMax');
+                    if (sI) parts.push(`ICON ± ${benchmarkFmt1(sI.mae)} °C`);
+                    const sE = scoreOf('eMax');
+                    if (sE) parts.push(`ECMWF ± ${benchmarkFmt1(sE.mae)} °C`);
+                }
+                noteEl.innerHTML = (parts.length ? `Score T° max : ${parts.join(' · ')}.<br>` : '') +
+                    `Rappel honnête : la météo ne garde pas trace de ce qu'elle avait annoncé — Metehop enregistre donc, à chaque visite, ce qu'il affiche (micro-climat compris), chaque endroit gardant sa propre mémoire. Les prévisions et le score se remplissent au fil des jours. Réalité = relèves de référence des jours passés (ERA5 via Open-Meteo) + conditions du moment pour aujourd'hui.`;
+            } catch (e) { /* le benchmark reste optionnel : jamais bloquant */ }
         }
 
-        function renderBenchmark() {
-            const card = document.getElementById('benchmark-card');
-            if (!card) return;
-            // Deux relèves lancées une seule fois par lieu : réalité passée + "maintenant".
-            if (typeof currentLat === 'number' && typeof currentLon === 'number') {
-                if (!benchmarkReality && !benchmarkRealityLoading) loadBenchmarkReality(currentLat, currentLon).catch(() => {});
-                if (!benchmarkRealityNow && !benchmarkRealityNowLoading && weatherData) loadBenchmarkRealityNow(currentLat, currentLon).catch(() => {});
-            }
-            // Bandeau "aujourd'hui (en cours)".
-            const liveEl = document.getElementById('benchmark-live');
-            if (liveEl) {
-                const dNow = benchmarkDisplayedNow();
-                const rNow = benchmarkRealityNow;
-                if (dNow !== null && rNow && typeof rNow.temp === 'number') {
-                    const delta = Math.round((rNow.temp - dNow) * 10) / 10;
-                    const cls = Math.abs(delta) <= BENCHMARK_GOOD_DEG ? 'benchmark-ok' : 'benchmark-miss';
-                    liveEl.innerHTML = `Aujourd'hui (en cours) : Metehop affiche <b>${Math.round(dNow)} °C</b> (micro-climat compris) · réel <b>${Math.round(rNow.temp)} °C</b> → écart <b class="${cls}">${benchmarkFmtSigned(delta)} °</b>`;
-                } else {
-                    liveEl.innerHTML = "Aujourd'hui (en cours) : chargement…";
-                }
-            }
-            // Tableau des BENCHMARK_DAYS derniers jours.
-            const tbody = document.getElementById('benchmark-tbody');
-            const noteEl = document.getElementById('benchmark-note');
-            if (!tbody) return;
-            const pk = benchmarkPlaceKey();
-            const byDate = new Map(loadBenchmarkHistory().filter(r => r.pk === pk).map(rec => [rec.date, rec]));
-            const real = benchmarkReality ? benchmarkReality.byDate : null;
-            const rows = [];
-            for (let d = BENCHMARK_DAYS; d >= 1; d--) {
-                const dt = new Date(); dt.setDate(dt.getDate() - d);
-                const date = benchmarkLocalDateStr(dt);
-                rows.push({ date, r: real ? real[date] : null, rec: byDate.get(date) || null });
-            }
-            tbody.innerHTML = rows.map(({ date, r, rec }) => {
-                const tmax = r ? r.tmax : null;
-                return `<tr>
-                    <td>${benchmarkDayLabel(date)}</td>
-                    <td>${benchmarkRealCell(tmax, '°')}</td>
-                    <td>${benchmarkRealCell(r ? r.tmin : null, '°')}</td>
-                    <td>${(r && typeof r.precip === 'number' && isFinite(r.precip)) ? benchmarkFmt1(r.precip) + ' mm' : '—'}</td>
-                    <td>${benchmarkScoreCell(tmax, rec ? rec.mMax : null)}</td>
-                    <td>${benchmarkScoreCell(tmax, rec ? rec.iMax : null)}</td>
-                    <td>${benchmarkScoreCell(tmax, rec ? rec.eMax : null)}</td>
-                </tr>`;
-            }).join('');
-            if (!noteEl) return;
-            // Score T° max (MAE + bons jours à ≤ 1,5 °C), rendu dès qu'un jour passé est comparé à
-            // la réalité — il se construit au fil des jours de visite.
-            const scored = rows.filter(x => x.rec && x.r && typeof x.r.tmax === 'number' && isFinite(x.r.tmax) && typeof x.rec.mMax === 'number' && isFinite(x.rec.mMax));
-            const scoreOf = (key) => {
-                const vals = scored.map(x => Math.abs(x.rec[key] - x.r.tmax)).filter(v => isFinite(v));
-                if (!vals.length) return null;
-                return { mae: vals.reduce((a, b) => a + b, 0) / vals.length, ok: vals.filter(v => v <= BENCHMARK_GOOD_DEG).length, total: vals.length };
-            };
-            const sM = scoreOf('mMax');
-            const parts = [];
-            if (sM) {
-                parts.push(`Metehop ± ${benchmarkFmt1(sM.mae)} °C en moyenne (${sM.ok}/${sM.total} jour${sM.total > 1 ? 's' : ''} à ≤ 1,5 °)`);
-                const sI = scoreOf('iMax');
-                if (sI) parts.push(`ICON ± ${benchmarkFmt1(sI.mae)} °C`);
-                const sE = scoreOf('eMax');
-                if (sE) parts.push(`ECMWF ± ${benchmarkFmt1(sE.mae)} °C`);
-            }
-            noteEl.innerHTML = (parts.length ? `Score T° max : ${parts.join(' · ')}.<br>` : '') +
-                `Rappel honnête : la météo ne garde pas trace de ce qu'elle avait annoncé — Metehop enregistre donc, à chaque visite, ce qu'il affiche (micro-climat compris), chaque endroit gardant sa propre mémoire. Les colonnes et le score se remplissent au fil des jours. Réalité = relèves de référence des jours passés (ERA5 via Open-Meteo) + conditions du moment pour aujourd'hui.`;
+        // Exécute des appels du benchmark sans jamais laisser une erreur remonter (le chargement
+        // de la météo ne doit dépendre d'aucun de ces appels).
+        function safeBenchmarkRun(fn) {
+            try { fn(); } catch (e) { /* optionnel, ignoré */ }
         }
 
         // Partie B — Bouton "Couches" de la carte : vent / température / nuages à l'heure actuelle,
@@ -14756,6 +15089,507 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
 
             } catch (err) {
                 showUnavailable();
+            }
+        }
+
+        // ============================================================================
+        // JARDINAGE : "QUOI FAIRE EN CE MOMENT ?" — encart en tête de l'onglet Eau/Jardinage
+        // ============================================================================
+        // Ajouté le 12/09/2026, juste avant la carte Chauffage. Ce n'est PAS un simple calendrier
+        // "national" figé : Metehop décale les fenêtres horticoles de référence sur le lieu RÉEL
+        // consulté, puis les affronte aux prévisions réelles à 16 jours. Méthode en 4 temps :
+        //   1) Base horticole GARDEN_PLANTS : plantations, tailles, récoltes/floraisons et
+        //      températures clés (zéro de végétation INRAe/Ephytia, seuils de température du sol,
+        //      sensibilité au gel) — fenêtres de référence pour un climat tempéré français.
+        //   2) Décalage local : grâce à l'historique climatologique RÉEL du lieu (15 dernières
+        //      années, normales partagées via loadHistoricalDailyNormals + cache 30 j), on calcule
+        //      pour chaque plante sa date usuelle ici — premier jour où le sol y atteint
+        //      historiquement le seuil requis, sécurisé par le passage de l'air à ≥10°C tenu
+        //      5 jours (repère de fin des gelées tardives).
+        //   3) Affinage prévision : la prévision réelle à 16 jours (mêmes données que le reste de
+        //      l'app) décide du statut — le sol est-il au-dessus du seuil ? Des gelées
+        //      (min <1°C) sont-elles annoncées avant l'implantation ? La saison est-elle en avance
+        //      ou en retard sur la normale locale (premier passage à 10°C) ?
+        //   4) Affichage : un tableau filtré (Tous / Potager / Fruitiers / Ornement) avec le statut
+        //      du moment, la fenêtre usuelle ici, et un conseil météo individualisé par plante.
+        // Honnêteté : tout ceci reste des REPÈRES — le facteur n°1 d'un jardin, c'est l'œil sur le
+        // terrain (micro-climat, exposition, altitude, qualité du sol). Les dates affichées sont
+        // des "dès que possible" raisonnés, pas des consignes absolues.
+        const GARDEN_MONTH_END = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        const GARDEN_MONTHS_SHORT = ['jan', 'fév', 'mar', 'avr', 'mai', 'juin', 'juil', 'août', 'sep', 'oct', 'nov', 'déc'];
+
+        function gardenMonthStart(m) { let s = 0; for (let i = 1; i < m; i++) s += GARDEN_MONTH_END[i - 1]; return s + 1; }
+        function gardenMonthEnd(m) { return gardenMonthStart(m + 1) - 1; } // décembre inclus → doy 365
+        function gardenWindowContains(w, doy) {
+            const s = gardenMonthStart(w[0]), e = gardenMonthEnd(w[1]);
+            if (e < s) return doy <= e || doy >= s; // fenêtre chevauchant le Nouvel An (ex. nov–mars)
+            return doy >= s && doy <= e;
+        }
+        function gardenDaysUntilWindowStart(w, doy) {
+            let delta = gardenMonthStart(w[0]) - doy;
+            if (delta < 0) delta += 365; // ouverture suivante l'année prochaine
+            return delta;
+        }
+        function windowLabel(w) { return `${GARDEN_MONTHS_SHORT[w[0] - 1]}–${GARDEN_MONTHS_SHORT[w[1] - 1]}`; }
+        const normGardenWindows = wl => (Array.isArray(wl[0]) ? wl : [wl]);
+
+        // Premier index où une série reste ≥ minV pendant `sustain` valeurs consécutives (null si
+        // jamais, dans [start, end]). En domaine "jours" pour l'historique (doy direct) comme en
+        // domaine "index de prévision" pour les 16 jours.
+        function firstSustainIndex(values, minV, sustain, start, end) {
+            const arr = Array.isArray(values) ? values.map(v => (typeof v === 'number' ? v : null)) : values;
+            for (let i = start; i <= end - sustain + 1; i++) {
+                let ok = true;
+                for (let k = 0; k < sustain; k++) {
+                    const v = arr[i + k];
+                    if (!(typeof v === 'number' && v >= minV)) { ok = false; break; }
+                }
+                if (ok) return i;
+            }
+            return null;
+        }
+
+        function mmjjToDoy(key) {
+            const m = +key.slice(0, 2), d = +key.slice(3);
+            return gardenMonthStart(m) + d - 1;
+        }
+        // Historique {"MM-JJ": valeur} → tableau de 366 (index = doy, null si absent).
+        function histMapToArray(histMap) {
+            const arr = new Array(366).fill(null);
+            Object.keys(histMap || {}).forEach(k => {
+                const doy = mmjjToDoy(k);
+                if (doy >= 1 && doy <= 365) arr[doy] = histMap[k];
+            });
+            return arr;
+        }
+
+        // ---- Base horticole de référence (fenêtres = mois, ordre usuel en France tempérée) ----
+        // plant : fenêtre(s) de plantation/semis en place · soilMinC : seuil de température du sol
+        // (surface) à partir duquel planter · frost : 'hard' (détruit au gel), 'light' (supporte un
+        // léger gel), 'none' (rustique) · dormant : plantation à racines nues pendant le repos
+        // végétatif (pas de seuil de sol, éviter seulement le gel profond) · zeroVeg : zéro de
+        // végétation en °C (repère INRAe) · prune : fenêtre de taille/bouturage · harvest :
+        // fenêtre(s) de récolte · bloom : floraison (ornement) · note : conseil d'attention concis.
+        const GARDEN_PLANTS = [
+            // ============================== POTAGER ==============================
+            { id: 'tomate', name: 'Tomate', emoji: '🍅', cat: 'potager', plant: [[3, 5]], soilMinC: 12, frost: 'hard', zeroVeg: 12, harvest: [[6, 10]], note: 'Repiquage après les dernières gelées ; sol ≥ 12°C, tuteurer et butter.' },
+            { id: 'aubergine', name: 'Aubergine', emoji: '🍆', cat: 'potager', plant: [[3, 5]], soilMinC: 14, frost: 'hard', zeroVeg: 12, harvest: [[7, 9]], note: 'Exige plus de chaleur que la tomate : attendre un sol bien réchauffé.' },
+            { id: 'poivron', name: 'Poivron', emoji: '🫑', cat: 'potager', plant: [[3, 5]], soilMinC: 15, frost: 'hard', zeroVeg: 12, harvest: [[7, 9]], note: 'Très thermophile : plantation tardive conseillée sous abri si printemps frais.' },
+            { id: 'courgette', name: 'Courgette', emoji: '🥒', cat: 'potager', plant: [[4, 6]], soilMinC: 12, frost: 'hard', zeroVeg: 12, harvest: [[6, 9]], note: 'Semis en poquet après le 15 avril ; arrosage au pied en été.' },
+            { id: 'concombre', name: 'Concombre', emoji: '🥒', cat: 'potager', plant: [[4, 6]], soilMinC: 15, frost: 'hard', zeroVeg: 15, harvest: [[6, 9]], note: 'Sol à 15°C minimum, à ne jamais planter de terre froide.' },
+            { id: 'melon', name: 'Melon', emoji: '🍈', cat: 'potager', plant: [[4, 5]], soilMinC: 18, frost: 'hard', zeroVeg: 12, harvest: [[7, 9]], note: 'Très exigeant : sol à 18°C, réserver aux situations bien exposées.' },
+            { id: 'pasteque', name: 'Pastèque', emoji: '🍉', cat: 'potager', plant: [[4, 6]], soilMinC: 18, frost: 'hard', zeroVeg: 12, harvest: [[7, 9]], note: 'Comme le melon : pleine chaleur, sol très réchauffé.' },
+            { id: 'haricot', name: 'Haricot vert', emoji: '🫘', cat: 'potager', plant: [[4, 7]], soilMinC: 10, frost: 'light', zeroVeg: 10, harvest: [[6, 9]], note: 'Se rapproche du pois pour le froid mais craint le gel ; semer échelonné.' },
+            { id: 'petit-pois', name: 'Petit pois', emoji: '🫛', cat: 'potager', plant: [[2, 4]], soilMinC: 8, frost: 'none', zeroVeg: 4, harvest: [[5, 7]], note: 'Plante de fraîcheur : semer tôt, le gel léger ne lui fait pas peur.' },
+            { id: 'carotte', name: 'Carotte', emoji: '🥕', cat: 'potager', plant: [[3, 6]], soilMinC: 7, frost: 'light', zeroVeg: 3, harvest: [[6, 10]], note: 'Semis en place, terre fine ; binage régulier.' },
+            { id: 'radis', name: 'Radis', emoji: '🌿', cat: 'potager', plant: [[2, 9]], soilMinC: 6, frost: 'light', zeroVeg: 2, harvest: [[4, 10]], note: 'Cycle très court : semer en plusieurs fois (tous les 15 j en saison).' },
+            { id: 'betterave', name: 'Betterave', emoji: '🥬', cat: 'potager', plant: [[3, 6]], soilMinC: 8, frost: 'light', zeroVeg: 3, harvest: [[6, 11]], note: 'Semis en place d\'avril à juin, éclaircir après levée.' },
+            { id: 'navet', name: 'Navet', emoji: '🥕', cat: 'potager', plant: [[3, 8]], soilMinC: 6, frost: 'light', zeroVeg: 3, harvest: [[5, 11]], note: 'Fuit les grosses chaleurs : un semis d\'été pour l\'automne réussit bien.' },
+            { id: 'chou-pomme', name: 'Chou pommé', emoji: '🥬', cat: 'potager', plant: [[3, 6]], soilMinC: 5, frost: 'light', zeroVeg: 5, harvest: [[8, 11]], note: 'Rustique ; le chou tolère le froid mais pas la plantation par sol glaiseux.' },
+            { id: 'chou-fleur', name: 'Chou-fleur', emoji: '🥦', cat: 'potager', plant: [[2, 5]], soilMinC: 6, frost: 'light', zeroVeg: 3, harvest: [[9, 11]], note: 'Semis en pépinière possible dès février sous abri.' },
+            { id: 'brocoli', name: 'Brocoli', emoji: '🥦', cat: 'potager', plant: [[3, 6]], soilMinC: 6, frost: 'light', zeroVeg: 3, harvest: [[8, 11]], note: 'Récolte avant floraison complète des bouquets.' },
+            { id: 'chou-kale', name: 'Chou kale', emoji: '🥬', cat: 'potager', plant: [[4, 7]], soilMinC: 5, frost: 'light', zeroVeg: 0, harvest: [[10, 3]], note: 'Se bonifie avec les premières gelées d\'automne.' },
+            { id: 'chou-bruxelles', name: 'Choux de Bruxelles', emoji: '🌱', cat: 'potager', plant: [[3, 5]], soilMinC: 6, frost: 'light', zeroVeg: 3, harvest: [[9, 1]], note: 'Récolte d\'automne-hiver, les griffes se développent après les gelées.' },
+            { id: 'poireau', name: 'Poireau', emoji: '🥬', cat: 'potager', plant: [[3, 6]], soilMinC: 6, frost: 'light', zeroVeg: 0, harvest: [[10, 3]], note: 'Très rustique : récolte de l\'automne au printemps, résiste sous la neige.' },
+            { id: 'oignon', name: 'Oignon', emoji: '🧅', cat: 'potager', plant: [[2, 4]], soilMinC: 6, frost: 'light', zeroVeg: 5, harvest: [[6, 8]], note: 'Planter de bonne heure ; l\'oignon pousse mieux en jours longs.' },
+            { id: 'ail', name: 'Ail', emoji: '🧄', cat: 'potager', plant: [[1, 3]], soilMinC: 5, frost: 'none', zeroVeg: 5, harvest: [[6, 8]], note: 'Caïeux plantés au chaud (janvier–mars) ; arrêter l\'arrosage avant récolte.' },
+            { id: 'echalote', name: 'Échalote', emoji: '🌱', cat: 'potager', plant: [[2, 4]], soilMinC: 6, frost: 'light', zeroVeg: 5, harvest: [[6, 8]], note: 'Bulbille enterrée, pointe affleurante ; sol drainé.' },
+            { id: 'epinard', name: 'Épinard', emoji: '🌿', cat: 'potager', plant: [[2, 4], [8, 10]], soilMinC: 5, frost: 'light', zeroVeg: 2, harvest: [[4, 6], [10, 11]], note: 'Deux saisons : début de printemps et fin d\'été-automne.' },
+            { id: 'laitue', name: 'Laitue', emoji: '🥬', cat: 'potager', plant: [[2, 9]], soilMinC: 6, frost: 'light', zeroVeg: 2, harvest: [[4, 11]], note: 'Semis échelonné presque toute l\'année ; arroser sans mouiller le cœur.' },
+            { id: 'mache', name: 'Mâche', emoji: '🌿', cat: 'potager', plant: [[8, 10]], soilMinC: 5, frost: 'light', zeroVeg: 2, harvest: [[10, 3]], note: 'Semis d\'automne, récolte d\'hiver : la salade des mois froids.' },
+            { id: 'roquette', name: 'Roquette', emoji: '🌿', cat: 'potager', plant: [[3, 9]], soilMinC: 6, frost: 'light', zeroVeg: 2, harvest: [[4, 10]], note: 'Pousse vite ; couper et laisser repousser (3-4 coupes).' },
+            { id: 'blette', name: 'Blette (côte)', emoji: '🥬', cat: 'potager', plant: [[3, 6]], soilMinC: 8, frost: 'light', zeroVeg: 5, harvest: [[5, 10]], note: 'Supportes bien la chaleur ; côtes tendres à cueillir jeunes.' },
+            { id: 'celeri', name: 'Céleri', emoji: '🥬', cat: 'potager', plant: [[3, 5]], soilMinC: 10, frost: 'light', zeroVeg: 5, harvest: [[7, 10]], note: 'Sol frais et riche ; arrosage régulier indispensable.' },
+            { id: 'persil', name: 'Persil', emoji: '🌿', cat: 'potager', plant: [[3, 8]], soilMinC: 8, frost: 'light', zeroVeg: 0, harvest: [[5, 11]], note: 'Germe lentement ; prétremper les graines une nuit.' },
+            { id: 'basilic', name: 'Basilic', emoji: '🌿', cat: 'potager', plant: [[4, 7]], soilMinC: 15, frost: 'hard', zeroVeg: 10, harvest: [[5, 10]], note: 'Zéro absolu le froid : même 2°C abîme les feuilles.' },
+            { id: 'ciboulette', name: 'Ciboulette', emoji: '🌿', cat: 'potager', plant: [[3, 6]], soilMinC: 5, frost: 'none', zeroVeg: 0, harvest: [[4, 10]], note: 'Vivace rustique coupez au ras 2-3 fois par saison.' },
+            { id: 'tubercules', name: 'Pommes de terre', emoji: '🥔', cat: 'potager', plant: [[3, 5]], soilMinC: 8, frost: 'light', zeroVeg: 0, harvest: [[6, 9]], note: 'Plantation précoce en mars si terre ressuyée ; buttage régulier.' },
+            { id: 'courge', name: 'Courge & potiron', emoji: '🎃', cat: 'potager', plant: [[4, 6]], soilMinC: 16, frost: 'hard', zeroVeg: 12, harvest: [[9, 11]], note: 'Gourmande en soleil et en place ; récolte avant les grosses pluies d\'automne.' },
+            { id: 'mais', name: 'Maïs doux', emoji: '🌽', cat: 'potager', plant: [[4, 6]], soilMinC: 10, frost: 'hard', zeroVeg: 10, harvest: [[8, 10]], note: 'Pieds en carré pour la pollinisation ; sol 10°C minimum.' },
+            { id: 'panais', name: 'Panais', emoji: '🌿', cat: 'potager', plant: [[2, 4]], soilMinC: 5, frost: 'light', zeroVeg: 0, harvest: [[9, 1]], note: 'Se récolte après les gelées : le goût s\'adoucit (amidons → sucres).' },
+
+            // ============================== FRUITIERS ==============================
+            { id: 'pommier', name: 'Pommier', emoji: '🍎', cat: 'fruitier', plant: [[11, 3]], dormant: true, prune: [11, 2], harvest: [[9, 10]], note: 'Pépins : taille d\'hiver sans gel (nov–fév). Plantation à racines nues en dormance.' },
+            { id: 'poirier', name: 'Poirier', emoji: '🍐', cat: 'fruitier', plant: [[11, 3]], dormant: true, prune: [11, 2], harvest: [[9, 10]], note: 'Comme le pommier : taille hivernale hors gel, plantation en dormance.' },
+            { id: 'prunier', name: 'Prunier', emoji: '🟣', cat: 'fruitier', plant: [[11, 3]], dormant: true, prune: [8, 10], harvest: [[7, 9]], note: 'Noyaux : jamais de taille d\'hiver (chancre) — taille de fin d\'été seulement.' },
+            { id: 'cerisier', name: 'Cerisier', emoji: '🍒', cat: 'fruitier', plant: [[11, 3]], dormant: true, prune: [8, 10], harvest: [[6, 7]], note: 'Noyaux : taille de fin d\'été après récolte, uniquement si nécessaire.' },
+            { id: 'pecher', name: 'Pêcher', emoji: '🍑', cat: 'fruitier', plant: [[11, 3]], dormant: true, prune: [8, 10], harvest: [7, 8], note: 'Noyaux : taille en fin d\'été, jamais pendant les froids.' },
+            { id: 'abricotier', name: 'Abricotier', emoji: '🍊', cat: 'fruitier', plant: [[11, 3]], dormant: true, prune: [8, 10], harvest: [7, 8], note: 'Noyaux : taille d\'été légère, floraison précoce = sensible aux gelées printanières.' },
+            { id: 'noyer', name: 'Noyer', emoji: '🌰', cat: 'fruitier', plant: [[11, 3]], dormant: true, prune: [9, 10], harvest: [10], note: 'Fruit à coque : tailler juste après la récolte, jamais en plein hiver.' },
+            { id: 'noisetier', name: 'Noisetier', emoji: '🌰', cat: 'fruitier', plant: [[11, 3]], dormant: true, prune: [12, 2], harvest: [9, 10], note: 'Tailler les vieilles branches en hiver (avant la montée de sève).' },
+            { id: 'framboisier', name: 'Framboisier', emoji: '🍓', cat: 'fruitier', plant: [[11, 2]], dormant: true, prune: [10, 2], harvest: [6, 10], note: 'Tiges de l\'année + de l\'an dernier : tailler après fructification.' },
+            { id: 'cassissier', name: 'Cassissier', emoji: '🫐', cat: 'fruitier', plant: [[11, 2]], dormant: true, prune: [2, 3], harvest: [[6, 7]], note: 'Taille de fin d\'hiver : rabattre les branches les plus âgées.' },
+            { id: 'groseillier', name: 'Groseillier', emoji: '🍇', cat: 'fruitier', plant: [[11, 2]], dormant: true, prune: [2, 3], harvest: [[6, 7]], note: 'Comme le cassissier : taille d\'entretien en fin d\'hiver.' },
+            { id: 'ronce', name: 'Ronce (mûre)', emoji: '🍇', cat: 'fruitier', plant: [[11, 2]], dormant: true, prune: [8, 9], harvest: [[8, 9]], note: 'Taille après récolte : supprimer les cannes qui ont fructifié.' },
+            { id: 'vigne', name: 'Vigne', emoji: '🍇', cat: 'fruitier', plant: [[12, 3]], dormant: true, prune: [11, 3], harvest: [[9, 10]], note: 'Taille sèche hivernale (nov–mars) ; raisin en fin d\'été.' },
+            { id: 'kiwi', name: 'Kiwi (actinidia)', emoji: '🥝', cat: 'fruitier', plant: [[11, 3]], dormant: true, prune: [11, 2], harvest: [[10, 11]], note: 'Sensible aux gelées tardives sur les jeunes pousses.' },
+            { id: 'figuier', name: 'Figuier', emoji: '🌳', cat: 'fruitier', plant: [[11, 3]], dormant: true, prune: null, harvest: [[8, 10]], note: 'Presque pas de taille ; protéger du gel les variétés peu rustiques.' },
+            { id: 'cognassier', name: 'Cognassier', emoji: '🍐', cat: 'fruitier', plant: [[11, 3]], dormant: true, prune: [11, 2], harvest: [10], note: 'Pépins : taille hivernale, fruits très durs à cueillir froid.' },
+            { id: 'olivier', name: 'Olivier', emoji: '🫒', cat: 'fruitier', plant: [[11, 3]], dormant: true, prune: [11, 2], harvest: [[10, 11]], note: 'Gélif sous -10°C ; taille légère après les grands froids.' },
+
+            // ============================== ORNEMENT ==============================
+            { id: 'rosier', name: 'Rosier', emoji: '🌹', cat: 'ornement', plant: [[11, 3]], dormant: true, prune: [2, 3], bloom: [5, 10], note: 'Taille de fin d\'hiver avant le démarrage ; plantation à racines nues.' },
+            { id: 'hortensia', name: 'Hortensia (hydrangea)', emoji: '💮', cat: 'ornement', plant: [[10, 4]], dormant: true, prune: [3, 4], bloom: [6, 9], note: 'Ne pas tailler trop tard (fleurs sur pousses de l\'année précédente).' },
+            { id: 'lavande', name: 'Lavande', emoji: '💜', cat: 'ornement', plant: [[4, 5]], soilMinC: 10, frost: 'none', prune: [3, 4], bloom: [6, 8], note: 'Sol très drainé, plein soleil ; taille de printemps sur le vert.' },
+            { id: 'lilas', name: 'Lilas', emoji: '🟣', cat: 'ornement', plant: [[10, 3]], dormant: true, prune: [6, 7], bloom: [4, 5], note: 'Tailler juste après la floraison (sinon les boutons de l\'an prochain disparaissent).' },
+            { id: 'forsythia', name: 'Forsythia', emoji: '🟡', cat: 'ornement', plant: [[10, 3]], dormant: true, prune: [4, 5], bloom: [2, 4], note: 'Floraison hâtive à ne pas confondre avec un réchauffement général.' },
+            { id: 'buddleia', name: 'Buddleia (arbre à papillons)', emoji: '🦋', cat: 'ornement', plant: [[10, 4]], dormant: true, prune: [3, 4], bloom: [6, 9], note: 'Rabattre court en fin d\'hiver pour une belle floraison.' },
+            { id: 'pivoine', name: 'Pivoine', emoji: '🌸', cat: 'ornement', plant: [[10, 2]], dormant: true, prune: null, bloom: [5, 6], note: 'Ne pas tailler : juste supprimer les fleurs fanées.' },
+            { id: 'iris', name: 'Iris des jardins', emoji: '⚜️', cat: 'ornement', plant: [[7, 9]], dormant: true, prune: null, bloom: [5, 6], note: 'Rhizomes replantés en fin d\'été (juillet–septembre).' },
+            { id: 'geranium', name: 'Géranium (pélargonium)', emoji: '🌸', cat: 'ornement', plant: [[4, 6]], soilMinC: 12, frost: 'hard', bloom: [5, 10], note: 'Plante de balcon très gélive : sortir seulement après les gelées.' },
+            { id: 'begonia', name: 'Bégonia', emoji: '🌺', cat: 'ornement', plant: [[4, 6]], soilMinC: 12, frost: 'hard', bloom: [5, 10], note: 'Comme le géranium : à installer hors gel.' },
+            { id: 'dahlia', name: 'Dahlia', emoji: '🌼', cat: 'ornement', plant: [[4, 5]], soilMinC: 12, frost: 'hard', bloom: [7, 10], note: 'Couvrir les tubères : toute gelée les détruit.' },
+            { id: 'pensee', name: 'Pensée', emoji: '🌼', cat: 'ornement', plant: [[9, 11]], soilMinC: 6, frost: 'light', bloom: [10, 5], note: 'Plénot automnale qui fleurit tout l\'hiver.' },
+            { id: 'tulipe', name: 'Tulipe', emoji: '🌷', cat: 'ornement', plant: [[10, 11]], dormant: true, bloom: [3, 5], note: 'Bulbes plantés en automne, pas de taille.' },
+            { id: 'jonquille', name: 'Jonquille', emoji: '🌼', cat: 'ornement', plant: [[9, 11]], dormant: true, bloom: [3, 4], note: 'Comme la tulipe : bulbes d\'automne, floraison précoce.' },
+            { id: 'clematite', name: 'Clématite', emoji: '💜', cat: 'ornement', plant: [[10, 4]], dormant: true, prune: [2, 3], bloom: [5, 9], note: 'Pied à l\'ombre, tête au soleil ; taille selon la variété (facultative ici).' },
+            { id: 'cherefeuille', name: 'Chèvrefeuille', emoji: '🌸', cat: 'ornement', plant: [[10, 4]], dormant: true, prune: [2, 3], bloom: [5, 7], note: 'Grimpant parfumé ; taille d\'éclaircissage en fin d\'hiver.' }
+        ];
+
+        // ---- Rendu de l'encart ----
+        function setGardenFilter(cat, btn) {
+            document.querySelectorAll('.garden-filter-btn').forEach(b => b.classList.toggle('active', b === btn));
+            document.querySelectorAll('#garden-tasks-tbody tr[data-garden-cat]').forEach(r => {
+                r.style.display = (cat === 'all' || r.dataset.gardenCat === cat) ? '' : 'none';
+            });
+        }
+
+        function resetGardenGate() {
+            gardenCalendarLoaded = false;
+            const noteEl = document.getElementById('garden-tasks-note');
+            if (noteEl) noteEl.innerText = 'Calendrier du lieu + prévisions à 16 jours.';
+            const tbody = document.getElementById('garden-tasks-tbody');
+            if (tbody) tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:16px;">Calcul du calendrier du lieu…</td></tr>';
+            ['garden-soil-pill', 'garden-frost-pill', 'garden-season-pill'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) { el.innerText = '--'; el.style.color = ''; el.style.fontWeight = ''; }
+            });
+            ['garden-soil-eta', 'garden-frost-eta', 'garden-season-eta'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = '';
+            });
+            ['garden-frost-pill-box', 'garden-season-pill-box'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.background = '';
+            });
+        }
+
+        function gardenChip(cls, label, icon) {
+            return `<span class="garden-status ${cls}"><i class="fa-solid ${icon}"></i>${label}</span>`;
+        }
+        const GARDEN_CHIP_ICON = { ok: 'fa-check', soon: 'fa-clock', warn: 'fa-triangle-exclamation', bad: 'fa-snowflake', muted: 'fa-circle-minus' };
+        const GARDEN_CHIP_ORDER = { bad: 0, ok: 1, warn: 2, soon: 3, muted: 4 };
+
+        async function renderGardenCalendar(lat, lon) {
+            const mySeq = weatherRequestSeq;
+            const tbody = document.getElementById('garden-tasks-tbody');
+            if (!tbody) return;
+            const caveatEl = document.getElementById('garden-tasks-caveat');
+            const noteEl = document.getElementById('garden-tasks-note');
+
+            try {
+                if (!weatherData || !weatherData.daily || !weatherData.daily.time || !weatherData.hourly || !weatherData.hourly.soil_temperature_0cm) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:16px;">Prévisions non chargées pour le moment : revenez dans un instant.</td></tr>';
+                    return;
+                }
+
+                // Normales historiques du lieu (partagées + cache 30 j, un seul appel archive possible)
+                const hist = await loadHistoricalDailyNormals(lat, lon);
+                if (mySeq !== weatherRequestSeq) return;
+
+                const dayList = weatherData.daily.time;
+                const fcDoy = dayList.map(ds => {
+                    const p = ds.split('-');
+                    return dayOfYear365(new Date(+p[0], +p[1] - 1, +p[2]));
+                });
+                // Moyenne journalière du sol par jour de prévision (agrégation horaire, comme le
+                // graphique sol/air : il n'existe pas d'agrégation daily côté API forecast).
+                const fcSoil = dayList.map(dateStr => {
+                    const vals = [];
+                    weatherData.hourly.time.forEach((t, i) => {
+                        if (t.slice(0, 10) === dateStr) {
+                            const v = weatherData.hourly.soil_temperature_0cm[i];
+                            if (typeof v === 'number') vals.push(v);
+                        }
+                    });
+                    return vals.length ? average(vals) : null;
+                });
+                const fcMean = dayList.map((_, i) => {
+                    const v = weatherData.daily.temperature_2m_mean ? weatherData.daily.temperature_2m_mean[i] : undefined;
+                    return typeof v === 'number' ? v : null;
+                });
+                const fcMin = dayList.map((_, i) => {
+                    const v = weatherData.daily.temperature_2m_min ? weatherData.daily.temperature_2m_min[i] : undefined;
+                    return typeof v === 'number' ? v : null;
+                });
+
+                const ctx = {
+                    todayDoy: dayOfYear365(new Date()),
+                    dayList, fcDoy, fcSoil, fcMean, fcMin,
+                    histAirArr: histMapToArray(hist.air), histSoilArr: histMapToArray(hist.soil),
+                    hasHist: !!(hist.air && Object.keys(hist.air).length)
+                };
+                ctx.firstFrostIdx = ctx.fcMin.findIndex(v => typeof v === 'number' && v < 1.0);
+                ctx.firstFrost = ctx.firstFrostIdx >= 0
+                    ? { i: ctx.firstFrostIdx, label: doyToDateLabel(ctx.fcDoy[ctx.firstFrostIdx]), min: Math.round(ctx.fcMin[ctx.firstFrostIdx]) }
+                    : null;
+
+                // Premières gelées < -5°C (pertinent pour la taille : jamais par gel dur)
+                ctx.hardFrostIdx = ctx.fcMin.findIndex(v => typeof v === 'number' && v < -5.0);
+                ctx.hardFrost = ctx.hardFrostIdx >= 0
+                    ? { i: ctx.hardFrostIdx, label: doyToDateLabel(ctx.fcDoy[ctx.hardFrostIdx]) }
+                    : null;
+
+                // Premières "soleils" de saison : air ≥ 10°C (repère de fin des gelées tardives)
+                const histSpringDoy = ctx.hasHist ? firstSustainIndex(ctx.histAirArr, 10, 5, 40, 240) : null;
+                const fcSpringIdx = firstSustainIndex(ctx.fcMean, 10, 3, 0, 15);
+
+                // ---- Pilules d'en-tête ----
+                const soilPill = document.getElementById('garden-soil-pill');
+                const soilEta = document.getElementById('garden-soil-eta');
+                const frostBox = document.getElementById('garden-frost-pill-box');
+                const frostPill = document.getElementById('garden-frost-pill');
+                const frostEta = document.getElementById('garden-frost-eta');
+                const seasonBox = document.getElementById('garden-season-pill-box');
+                const seasonPill = document.getElementById('garden-season-pill');
+                const seasonEta = document.getElementById('garden-season-eta');
+
+                if (typeof ctx.fcSoil[0] === 'number') {
+                    const sv = Math.round(ctx.fcSoil[0]);
+                    soilPill.innerText = `${sv}°C`;
+                    soilPill.style.color = sv < 5 ? '#b91c1c' : (sv < 8 ? '#b45309' : (sv < 12 ? '#2b6cb0' : '#2e7d32'));
+                } else {
+                    soilPill.innerText = '--';
+                }
+                if (ctx.hasHist) {
+                    const nv = ctx.histSoilArr[ctx.todayDoy];
+                    if (typeof nv === 'number') soilEta.innerText = `normale ${Math.round(nv)}°C`;
+                }
+
+                if (ctx.firstFrost) {
+                    frostPill.innerText = ctx.firstFrost.label;
+                    frostPill.style.color = '#b91c1c';
+                    frostPill.style.fontWeight = '800';
+                    frostBox.style.background = 'rgba(239, 68, 68, 0.10)';
+                    frostEta.innerText = `min ${ctx.firstFrost.min}°C`;
+                } else {
+                    frostPill.innerText = 'Pas de gel dans les 16 j';
+                    frostPill.style.color = '#2e7d32';
+                    frostBox.style.background = '';
+                    frostEta.innerText = '';
+                }
+
+                if (ctx.hasHist && histSpringDoy !== null) {
+                    const normLabel = doyToDateLabel(histSpringDoy);
+                    if (fcSpringIdx !== null) {
+                        const fcDoySpring = ctx.fcDoy[fcSpringIdx];
+                        const diff = fcDoySpring - histSpringDoy;
+                        const verdict = diff <= -5 ? `en avance de ${Math.abs(diff)} j` : (diff >= 5 ? `en retard de ${diff} j` : '≈ normale');
+                        seasonPill.innerText = `${doyToDateLabel(fcDoySpring)} · ${verdict}`;
+                        seasonPill.style.color = diff <= -5 ? '#2e7d32' : (diff >= 5 ? '#b45309' : 'var(--primary-dark)');
+                        seasonBox.style.background = (Math.abs(diff) >= 5) ? 'rgba(245, 124, 0, 0.10)' : '';
+                    } else {
+                        seasonPill.innerText = `Normale : ${normLabel}`;
+                        seasonPill.style.color = 'var(--primary-dark)';
+                    }
+                    seasonEta.innerText = 'printemps = 1er palier 10°C';
+                } else {
+                    seasonPill.innerText = 'Normale locale indisponible';
+                }
+
+                // ---- Table par plante ----
+                const CAT_TAG = { potager: 'Potager', fruitier: 'Fruitier', ornement: 'Ornement' };
+                const rows = [];
+                GARDEN_PLANTS.forEach(p => {
+                    const plantWins = p.plant ? normGardenWindows(p.plant) : [];
+                    const harvestWins = p.harvest ? normGardenWindows(p.harvest) : [];
+                    const pruneWin = p.prune ? normGardenWindows(p.prune)[0] : null;
+                    const bloomWin = p.bloom || null;
+
+                    // Date usuelle locale de début de plantation
+                    let plantLocalStart = null;
+                    if (plantWins.length) {
+                        const refStart = gardenMonthStart(plantWins[0][0]);
+                        const refEnd = gardenMonthEnd(plantWins[plantWins.length - 1][1]);
+                        if (p.dormant || !ctx.hasHist) {
+                            plantLocalStart = refStart; // dormance ou pas d'historique : fenêtre de référence
+                        } else {
+                            let ls = refStart;
+                            if (typeof p.soilMinC === 'number') {
+                                for (let d = 40; d <= 290; d++) {
+                                    if (ctx.histSoilArr[d] != null && ctx.histSoilArr[d] >= p.soilMinC) { ls = Math.max(ls, d); break; }
+                                }
+                            }
+                            if (p.frost !== 'none') {
+                                const fs = firstSustainIndex(ctx.histAirArr, 10, 5, 40, 240);
+                                if (fs !== null) ls = Math.max(ls, fs);
+                            }
+                            plantLocalStart = Math.min(ls, refEnd);
+                        }
+                    }
+
+                    // ---- Statuts par action ----
+                    const st = [];
+                    if (plantWins.length) {
+                        const refEnd = gardenMonthEnd(plantWins[plantWins.length - 1][1]);
+                        const inRef = plantWins.some(w => gardenWindowContains(w, ctx.todayDoy));
+                        if (p.dormant) {
+                            if (inRef) st.push({ cls: 'ok', label: 'À planter', icon: GARDEN_CHIP_ICON.ok });
+                            else {
+                                const n = gardenDaysUntilWindowStart(plantWins[0], ctx.todayDoy);
+                                if (n <= 25) st.push({ cls: 'soon', label: `Plantation dès ${windowLabel(plantWins[0])}`, icon: GARDEN_CHIP_ICON.soon });
+                                else st.push({ cls: 'muted', label: `Plantation : ${plantWins.map(windowLabel).join(' · ')}`, icon: GARDEN_CHIP_ICON.muted });
+                            }
+                        } else {
+                            const thrLabel = typeof p.soilMinC === 'number' ? ` · sol ≥ ${p.soilMinC}°C` : '';
+                            if (ctx.todayDoy > refEnd) {
+                                st.push({ cls: 'muted', label: `Plantation passée${thrLabel}`, icon: GARDEN_CHIP_ICON.muted });
+                            } else {
+                                const frostLimit = p.frost === 'hard' ? 1.0 : (p.frost === 'light' ? 0.0 : -99);
+                                let readyIdx = -1;
+                                for (let i = 0; i < ctx.fcSoil.length; i++) {
+                                    const soilOk = typeof p.soilMinC !== 'number' || (typeof ctx.fcSoil[i] === 'number' && ctx.fcSoil[i] >= p.soilMinC);
+                                    let frostOk = true;
+                                    for (let j = i; j < ctx.fcSoil.length; j++) {
+                                        if (typeof ctx.fcMin[j] === 'number' && ctx.fcMin[j] < frostLimit) { frostOk = false; break; }
+                                    }
+                                    if (soilOk && frostOk) { readyIdx = i; break; }
+                                }
+                                if (readyIdx >= 0) {
+                                    const readyDoy = ctx.fcDoy[readyIdx];
+                                    if (readyDoy <= ctx.todayDoy + 1) {
+                                        if (ctx.todayDoy < plantLocalStart - 9) {
+                                            st.push({ cls: 'soon', label: `Sol prêt dès maintenant (avance sur la normale du ${doyToDateLabel(plantLocalStart)})`, icon: GARDEN_CHIP_ICON.soon });
+                                        } else {
+                                            st.push({ cls: 'ok', label: `À planter${thrLabel}`, icon: GARDEN_CHIP_ICON.ok });
+                                        }
+                                    } else if (readyDoy < plantLocalStart) {
+                                        st.push({ cls: 'soon', label: `Sol prêt dès ${doyToDateLabel(readyDoy)} (en avance)`, icon: GARDEN_CHIP_ICON.soon });
+                                    } else {
+                                        st.push({ cls: 'soon', label: `Possible dès ${doyToDateLabel(readyDoy)}`, icon: GARDEN_CHIP_ICON.soon });
+                                    }
+                                } else if (ctx.firstFrost) {
+                                    st.push({ cls: 'bad', label: `Attendre gelées du ${ctx.firstFrost.label}`, icon: GARDEN_CHIP_ICON.bad });
+                                } else if (ctx.todayDoy < plantLocalStart) {
+                                    if (ctx.hasHist) st.push({ cls: 'soon', label: `Plantation dès ${doyToDateLabel(plantLocalStart)} (normale locale)`, icon: GARDEN_CHIP_ICON.soon });
+                                    else st.push({ cls: 'muted', label: `Plantation : ${plantWins.map(windowLabel).join(' · ')}`, icon: GARDEN_CHIP_ICON.muted });
+                                } else if (typeof ctx.fcSoil[0] === 'number' && p.soilMinC !== undefined) {
+                                    st.push({ cls: 'warn', label: `Sol encore froid (${Math.round(ctx.fcSoil[0])}°C vs ${p.soilMinC}°C)`, icon: GARDEN_CHIP_ICON.warn });
+                                } else {
+                                    st.push({ cls: 'muted', label: `Normale locale : dès ${doyToDateLabel(plantLocalStart)}`, icon: GARDEN_CHIP_ICON.muted });
+                                }
+                            }
+                        }
+                    }
+
+                    if (pruneWin) {
+                        const shown = windowLabel(pruneWin);
+                        if (gardenWindowContains(pruneWin, ctx.todayDoy)) {
+                            let endDoy = gardenMonthEnd(pruneWin[1]);
+                            if (endDoy < gardenMonthStart(pruneWin[0])) endDoy += 365; // fenêtre chevauchant le Nouvel An
+                            let right = endDoy - ctx.todayDoy;
+                            if (right < 0) right += 365;
+                            if (right <= 15) st.push({ cls: 'warn', label: `Taille : fin de période (${right} j restants)`, icon: GARDEN_CHIP_ICON.warn });
+                            else st.push({ cls: 'ok', label: 'À tailler', icon: GARDEN_CHIP_ICON.ok });
+                        } else {
+                            const n = gardenDaysUntilWindowStart(pruneWin, ctx.todayDoy);
+                            if (n <= 25) st.push({ cls: 'soon', label: `Taille dès ${shown}`, icon: GARDEN_CHIP_ICON.soon });
+                            else st.push({ cls: 'muted', label: `Taille : ${shown}`, icon: GARDEN_CHIP_ICON.muted });
+                        }
+                    }
+
+                    if (harvestWins.length) {
+                        const inAny = harvestWins.some(w => gardenWindowContains(w, ctx.todayDoy));
+                        if (inAny) {
+                            if (p.frost === 'hard' && ctx.firstFrost) st.push({ cls: 'warn', label: `Récolter avant gel du ${ctx.firstFrost.label}`, icon: GARDEN_CHIP_ICON.warn });
+                            else if (ctx.hardFrost && p.frost !== 'none') st.push({ cls: 'warn', label: `Récolter avant froid intense du ${ctx.hardFrost.label}`, icon: GARDEN_CHIP_ICON.warn });
+                            else st.push({ cls: 'ok', label: 'À récolter', icon: GARDEN_CHIP_ICON.ok });
+                        } else {
+                            const starts = harvestWins.map(w => gardenDaysUntilWindowStart(w, ctx.todayDoy));
+                            const minStart = Math.min(...starts);
+                            if (minStart >= 1 && minStart <= 15) {
+                                const idx = starts.indexOf(minStart);
+                                st.push({ cls: 'soon', label: `Récolte dès ${windowLabel(harvestWins[idx])}`, icon: GARDEN_CHIP_ICON.soon });
+                            } else {
+                                const lastEnd = Math.max(...harvestWins.map(w => gardenMonthEnd(w[1])));
+                                const gap = ctx.todayDoy - lastEnd;
+                                if (gap >= 0 && gap <= 25) st.push({ cls: 'warn', label: 'Dernières récoltes…', icon: GARDEN_CHIP_ICON.warn });
+                                else st.push({ cls: 'muted', label: `Récolte : ${harvestWins.map(windowLabel).join(' · ')}`, icon: GARDEN_CHIP_ICON.muted });
+                            }
+                        }
+                    }
+
+                    if (bloomWin) {
+                        if (gardenWindowContains(bloomWin, ctx.todayDoy)) {
+                            st.push({ cls: 'ok', label: 'En floraison', icon: GARDEN_CHIP_ICON.ok });
+                        } else {
+                            const n = gardenDaysUntilWindowStart(bloomWin, ctx.todayDoy);
+                            if (n <= 20) st.push({ cls: 'soon', label: `Floraison dès ${windowLabel(bloomWin)}`, icon: GARDEN_CHIP_ICON.soon });
+                            else st.push({ cls: 'muted', label: `Floraison : ${windowLabel(bloomWin)}`, icon: GARDEN_CHIP_ICON.muted });
+                        }
+                    }
+
+                    const sorted = st.slice().sort((a, b) => GARDEN_CHIP_ORDER[a.cls] - GARDEN_CHIP_ORDER[b.cls]).slice(0, 3);
+
+                    // ---- Colonne "Fenêtre usuelle ici" ----
+                    const winLines = [];
+                    if (plantWins.length) {
+                        if (p.dormant) winLines.push(`Plantation : ${plantWins.map(windowLabel).join(' · ')}`);
+                        else if (ctx.hasHist) winLines.push(`Plantation dès ${doyToDateLabel(plantLocalStart)} (normale locale)`);
+                        else winLines.push(`Plantation : ${plantWins.map(windowLabel).join(' · ')}`);
+                        if (typeof p.soilMinC === 'number') winLines.push(`sol ≥ ${p.soilMinC}°C`);
+                    }
+                    if (pruneWin) winLines.push(`Taille : ${windowLabel(pruneWin)}`);
+                    if (harvestWins.length) winLines.push(`Récolte : ${harvestWins.map(windowLabel).join(' · ')}`);
+                    if (bloomWin) winLines.push(`Floraison : ${windowLabel(bloomWin)}`);
+
+                    // ---- Colonne "Conseil météo" ----
+                    let advice = p.note || '';
+                    const bumps = [];
+                    if (ctx.firstFrost && p.frost !== 'none') {
+                        const activeNow = sorted.some(s => (s.cls === 'ok' || s.cls === 'warn'));
+                        if (activeNow) bumps.push(`Gel prévu le ${ctx.firstFrost.label} : <span class="warn-frost">protégez les sujets sensibles</span>.`);
+                    }
+                    if (ctx.hardFrost && p.frost !== 'none' && pruneWin && gardenWindowContains(pruneWin, ctx.todayDoy)) {
+                        bumps.push(`Évitez la taille les jours de gel dur (<span class="bad-frost">prévu le ${ctx.hardFrost.label}</span>).`);
+                    }
+                    if (typeof p.zeroVeg === 'number' && p.cat === 'potager') {
+                        bumps.push(`Zéro de végétation : ${p.zeroVeg}°C.`);
+                    }
+                    if (bumps.length) advice = `${advice} ${bumps.join(' ')}`;
+
+                    rows.push({
+                        cat: p.cat, id: p.id,
+                        cellName: `${p.emoji} <span class="garden-plant-name">${p.name}</span><br><span class="garden-cat-tag ${p.cat}">${CAT_TAG[p.cat]}</span>`,
+                        cellStatus: sorted.length ? sorted.map(s => gardenChip(s.cls, s.label, s.icon)).join(' ') : '-',
+                        cellWin: `<div class="garden-window">${winLines.join('<br>') || '—'}</div>`,
+                        cellAdvice: `<div class="garden-advice">${advice}</div>`
+                    });
+                });
+
+                if (mySeq !== weatherRequestSeq) return;
+                tbody.innerHTML = rows.map(r => {
+                    return `<tr data-garden-cat="${r.cat}" id="garden-row-${r.id}">
+                        <td>${r.cellName}</td>
+                        <td>${r.cellStatus}</td>
+                        <td>${r.cellWin}</td>
+                        <td>${r.cellAdvice}</td>
+                    </tr>`;
+                }).join('');
+
+                const hasHistTxt = ctx.hasHist
+                    ? ` sur l'historique climatologique réel du lieu (${lat.toFixed(3)}, ${lon.toFixed(3)})`
+                    : ' sur les fenêtres nationales de référence (historique local indisponible)';
+                noteEl.innerText = ctx.firstFrost
+                    ? `Gelées annoncées le ${ctx.firstFrost.label} — attention aux plantations non rustiques.`
+                    : 'Aucune gelée (<1°C) annoncée dans les 16 jours.';
+                caveatEl.innerHTML = `Fenêtres usuelles calculées${hasHistTxt}, puis ajustées par la prévision réelle à 16 jours. Dates = repères raisonnés, pas des consignes absolues : la météo réelle et le micro-climat du terrain (exposition, altitude, protection) priment toujours dans le doute.`;
+
+                const activeBtn = document.querySelector('.garden-filter-btn.active');
+                if (activeBtn) setGardenFilter(activeBtn.dataset.gardenCat, activeBtn);
+            } catch (e) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:16px;">Calendrier indisponible pour le moment.</td></tr>';
+                console.error('renderGardenCalendar:', e);
             }
         }
 

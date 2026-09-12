@@ -3,8 +3,8 @@
 // - Bibliothèques CDN (Chart.js, SunCalc, Leaflet) : cache-first puis actualisation en arrière-plan.
 // - Données (météo Open-Meteo, radar, hydrologie, webcams…) : réseau EN PRIORITÉ — jamais de
 //   donnée périmée tant qu'on est connecté — avec repli sur la dernière version vue si hors-ligne.
-// Incrémenter le nom du cache à chaque nouvelle version du contenu (PWA version v1, footer 110).
-const CACHE = 'metehop-v1';
+// Incrémenter le nom du cache à chaque nouvelle version du contenu (PWA version v2, footer 115).
+const CACHE = 'metehop-v2';
 
 const APP_SHELL = [
     './',
