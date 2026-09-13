@@ -531,6 +531,25 @@
         }
         .weather-error-retry:hover { background: #801717; }
 
+        /* Bandeau hors-ligne (13/09/2026) : affiché uniquement quand navigator.onLine est
+           faux — les données visibles viennent alors du cache du service worker et ne sont
+           plus actualisées. Discret, pas de bouton : il disparaît seul au retour réseau. */
+        .offline-banner {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #eef2f7;
+            color: #334155;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            padding: 9px 14px;
+            margin: 10px 0;
+            font-size: 0.78rem;
+            font-weight: 600;
+            white-space: normal;
+        }
+        .offline-banner i { font-size: 0.9rem; flex-shrink: 0; }
+
         .model-disagree-card {
             background: #fff7ed;
             border: 1px solid #fdba74;
@@ -641,6 +660,11 @@
         html.dark .benchmark-chip .benchmark-ok { color: #7ecba0; }
         html.dark .benchmark-chip .benchmark-miss { color: #ef9a9a; }
         .benchmark-card-note { font-size: 0.7rem; }
+        /* Médaille du jour (12/09/2026, v116) : le modèle le plus proche du réel ce jour-là
+           (majorité sur T° max, T° min, pluie), posée à côté de la date, jamais de doublon. */
+        .benchmark-day-medal { font-size: 0.72rem; font-weight: 800; color: #b8860b; white-space: nowrap; }
+        html.dark .benchmark-day-medal { color: #f0c94e; }
+        .benchmark-metric-label { font-size: 0.68rem; font-weight: 800; color: var(--text-muted); min-width: 52px; }
 
         .map-layers-popover {
             position: absolute;
@@ -672,6 +696,22 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 8px;
+        }
+        /* Bouton de partage du tableau 16 jours (voir shareWeekImage) : même esprit que
+           .btn-share-weather du bandeau, mais en position statique à droite du titre. */
+        .btn-share-week {
+            background: rgba(255, 255, 255, 0.6);
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary-dark);
+            cursor: pointer;
+            font-size: 0.75rem;
+            flex-shrink: 0;
         }
         .section-title {
             font-size: 0.9rem;
@@ -1111,7 +1151,7 @@
             padding: 5px 12px;
             cursor: pointer;
         }
-        html.dark .snow1km-tab { background: #233028; }
+        html.dark .snow1km-tab { background: #17171d; }
         .snow1km-tab.active { background: var(--accent-green); color: #ffffff; }
         .snow1km-slider-row {
             display: flex;
@@ -2489,13 +2529,14 @@
            via applyChartTheme() en JavaScript. */
         html.dark {
             color-scheme: dark;
-            --bg-color: #0e1613;
-            --card-bg: #16211c;
-            --card-inner-bg: #1d2b25;
-            --text-dark: #d9e3dd;
-            --text-muted: #8fa79d;
-            --primary-dark: #cbded3;
-            --accent-green: #64a391;
+            --bg-color: #000000;
+            --card-bg: #101014;
+            --card-inner-bg: #17171d;
+            --text-dark: #f2f2f2;
+            --text-muted: #8e8e93;
+            --primary-dark: #f2f2f2;
+            --accent-green: #4a6cf7;
+            --accent-orange: #e2725b;
         }
 
         /* Surfaces qui employaient --primary-dark en FOND (avec texte blanc par-dessus) : on
@@ -2508,10 +2549,10 @@
         html.dark .ski-snow-map-legend,
         html.dark .ski-snow-map-legend-bar,
         html.dark .btn-load-data {
-            background-color: #1c3730;
+            background-color: #1b2340;
         }
         html.dark .mode-btn.active {
-            background-color: #1c3730;
+            background-color: #1b2340;
             color: #ffffff;
         }
 
@@ -2527,20 +2568,20 @@
         html.dark .ski-compare-select,
         html.dark .tide-time-card,
         html.dark .group-selector {
-            background-color: #22312b;
+            background-color: #141519;
             color: var(--text-dark);
         }
-        html.dark input[type="text"]:focus { background-color: #26372f; }
-        html.dark .btn-search-icon { background-color: #2a3d34; color: #d9e3dd; }
+        html.dark input[type="text"]:focus { background-color: #1c1e26; }
+        html.dark .btn-search-icon { background-color: #1c1e26; color: #f2f2f2; }
 
         /* Cartes/encarts à fond blanc codé en dur */
         html.dark .map-layers-popover {
-            background: #17251f;
+            background: #141519;
             color: var(--text-dark);
-            border: 1px solid #335047;
+            border: 1px solid #2c2e38;
         }
         html.dark .model-disagree-card {
-            background: #1a201b;
+            background: #141519;
             color: var(--text-dark);
         }
         html.dark .model-disagree-table td { color: var(--text-dark); }
@@ -2548,12 +2589,17 @@
         html.dark .benchmark-chip .benchmark-ok { color: #7ecba0; }
         html.dark .benchmark-chip .benchmark-miss { color: #ef9a9a; }
 
-        html.dark .micro-toggle-slider { background-color: #335047; border-color: #335047; }
+        html.dark .micro-toggle-slider { background-color: #3a3f4d; border-color: #3a3f4d; }
 
         html.dark .weather-error-banner {
             background: rgba(160, 28, 28, 0.22);
             border-color: rgba(160, 28, 28, 0.5);
             color: #ffb4a5;
+        }
+        html.dark .offline-banner {
+            background: rgba(74, 108, 247, 0.14);
+            border-color: rgba(74, 108, 247, 0.45);
+            color: #b9c6ff;
         }
 
         /* Tableaux : bordures et rangée de week-end */
@@ -2577,7 +2623,7 @@
         html.dark .metehop-summary strong,
         html.dark .metehop-summary .mg-proba { color: #b9a0f5; }
         html.dark .astro-night-pill.best { border-color: #a97dff; }
-        html.dark .snow-quality-label { color: #cbded3; }
+        html.dark .snow-quality-label { color: #c9c9d4; }
         html.dark .sources-item a,
         html.dark .snow-avalanche-note a { color: #8ab4f8; }
         html.dark .footer-icon-btn:hover { background: rgba(255, 255, 255, 0.08); }
@@ -2604,7 +2650,7 @@
             background: rgba(14, 22, 19, 0.8) !important;
             color: #8fa79d !important;
         }
-        html.dark .leaflet-control-attribution a { color: #a9c8bc !important; }
+        html.dark .leaflet-control-attribution a { color: #a9b4d8 !important; }
 
 </style>
 </head>
@@ -2728,6 +2774,14 @@
             <i class="fa-solid fa-triangle-exclamation"></i>
             <span id="weather-error-text">Impossible de charger la météo.</span>
             <button type="button" class="weather-error-retry" onclick="retryWeatherLoad()">Réessayer</button>
+        </div>
+
+        <!-- Bandeau hors-ligne (13/09/2026) : visible uniquement sans connexion (voir
+             updateOfflineBanner() + écouteurs online/offline). Les données affichées
+             viennent alors du cache du service worker : elles sont figées, pas actualisées. -->
+        <div class="offline-banner" id="offline-banner" style="display:none;">
+            <i class="fa-solid fa-wifi"></i>
+            <span>Hors-ligne — données en cache, non actualisées.</span>
         </div>
 
         <!-- EFFETS LOCAUX (micro-climat) : voir analyzeLocalEffects(). Affichage réduit à des
@@ -3074,6 +3128,9 @@
                 <div id="nearby-station-content" style="display:none;">
                     <div class="snow-details-row" id="nearby-station-pills"></div>
                     <div class="card-sage-sub" id="nearby-station-updated" style="margin-top:6px; font-size:0.62rem;"></div>
+                    <!-- Biais moyen affiché−observé (voir logItenci3Calibration) : aide au
+                         réglage des coefficients micro-climat sur des mesures réelles. -->
+                    <div class="card-sage-sub" id="nearby-station-calib" style="margin-top:4px; font-size:0.62rem; font-style:italic; display:none;"></div>
                 </div>
             </div>
 
@@ -3170,6 +3227,9 @@
                     <div class="card-sage-title">Les 16 prochains jours</div>
                     <div class="card-sage-sub" id="confidence-source-note">Matin, après-midi, précipitations, vent et indice de confiance (calcul en cours...)</div>
                 </div>
+                <button type="button" class="btn-share-week" onclick="shareWeekImage()" title="Partager les 16 jours en image">
+                    <i class="fa-solid fa-share-nodes"></i>
+                </button>
             </div>
             <div class="table-responsive">
                 <table class="sage-table">
@@ -3223,7 +3283,7 @@
             <div class="chart-header">
                 <div>
                     <div class="card-sage-title"><i class="fa-solid fa-bullseye"></i>&nbsp; Benchmark — modèle vs réalité</div>
-                    <div class="card-sage-sub">Metehop, ICON et ECMWF comparés aux relèves réelles des 7 derniers jours pour ce lieu.</div>
+                    <div class="card-sage-sub">Metehop, ICON et ECMWF comparés aux relèves réelles (T° max, T° min, pluie) des 7 derniers jours pour ce lieu — une médaille 🥇 par jour au modèle le plus proche du réel.</div>
                 </div>
                 <button type="button" class="model-disagree-toggle" id="benchmark-toggle" onclick="toggleBenchmarkDetails()">Détails</button>
             </div>
@@ -3932,7 +3992,7 @@
             <div class="webcam-grid" id="webcam-grid"></div>
 
             <div class="card-sage-sub" style="margin-top: 10px; font-size: 0.6rem; font-style: italic;">
-                Aucune base de données de webcams publique, gratuite et sans clé d'API ne couvre correctement les stations de ski françaises : les tuiles "Rechercher" ouvrent une recherche ciblée sur ce lieu ; seules les tuiles "LIVE" (rares, via OpenStreetMap) affichent une image incrustée en direct.
+                Aucune base de données de webcams publique, gratuite et sans clé d'API ne couvre correctement les stations de ski françaises : les tuiles proposent des liens directs vers les webcams des stations (site officiel) et Windy (carte centrée sur la station) ; les tuiles "LIVE" (rares, via OpenStreetMap) affichent une image incrustée en direct.
             </div>
         </div>
 
@@ -3958,7 +4018,7 @@
             <div class="webcam-grid" id="webcam-grid-beach"></div>
 
             <div class="card-sage-sub" style="margin-top: 10px; font-size: 0.6rem; font-style: italic;">
-                Aucune base de données de webcams publique, gratuite et sans clé d'API ne couvre correctement les stations balnéaires françaises : les tuiles "Rechercher" ouvrent une recherche ciblée sur ce lieu ; seules les tuiles "LIVE" (rares, via OpenStreetMap) affichent une image incrustée en direct.
+                Aucune base de données de webcams publique, gratuite et sans clé d'API ne couvre correctement les stations balnéaires françaises : les tuiles proposent des liens directs vers les webcams des stations et Windy ; les tuiles "LIVE" (rares, via OpenStreetMap) affichent une image incrustée en direct.
             </div>
         </div>
 
@@ -4241,7 +4301,7 @@
             <div class="footer-support-row">
                 <a class="footer-support-link" href="https://buymeacoffee.com/stridemetric" target="_blank" rel="noopener">🐸 Aide-moi à nourrir la grenouille Metehop</a>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 12/09/2026 - 115</div>
+            <div class="footer-last-update">Dernière mise à jour : 13/09/2026 - 119</div>
         </footer>
 
     </div>
@@ -6284,12 +6344,55 @@
 
                 loadingEl.style.display = 'none';
                 contentEl.style.display = '';
+                if (typeof m.temp === 'number') { try { logItenci3Calibration(m.temp); } catch (e) {} }
             } catch (e) {
                 console.error('Erreur station météo à proximité (Tencin):', e);
                 loadingEl.style.display = 'none';
                 errorTextEl.innerText = "Relevés indisponibles pour le moment (station hors ligne, ou requête bloquée depuis le navigateur).";
                 errorEl.style.display = '';
             }
+        }
+
+        // ---- Calibration micro-climat via ITENCI3 (13/09/2026) ----
+        // Chaque relevé réussi de la station de Tencin est comparé à la température affichée
+        // dans le bandeau au même moment (modèle + micro-climat) et archivé en local (200
+        // derniers max, clé metehop_itenci3_calib_v1). La carte affiche le biais moyen :
+        // positif = Metehop surestime, négatif = sous-estime — de quoi ajuster les
+        // coefficients (ex. VALLEY_URBAN_SUPPRESSION, calibré sur 2 points seulement) sur
+        // des mesures réelles plutôt qu'à l'aveugle. On ne logue que si le jour affiché
+        // est aujourd'hui (selectedDayIndex 0), sinon la comparaison n'aurait aucun sens.
+        const ITENCI3_CALIB_KEY = 'metehop_itenci3_calib_v1';
+        const ITENCI3_CALIB_MAX = 200;
+        function readItenci3CalibLog() {
+            try {
+                const raw = localStorage.getItem(ITENCI3_CALIB_KEY);
+                const arr = raw ? JSON.parse(raw) : [];
+                return Array.isArray(arr) ? arr : [];
+            } catch (e) { return []; }
+        }
+        function logItenci3Calibration(obsTempC) {
+            if (typeof obsTempC !== 'number' || !isFinite(obsTempC)) return;
+            if (typeof selectedDayIndex !== 'undefined' && selectedDayIndex !== 0) { renderItenci3Calibration(); return; }
+            let shown = null;
+            try {
+                const t = parseFloat((document.getElementById('hero-temp-val').innerText || '').replace(',', '.'));
+                if (isFinite(t)) shown = Math.round(t * 10) / 10;
+            } catch (e) {}
+            const log = readItenci3CalibLog();
+            log.push({ ts: Date.now(), obs: Math.round(obsTempC * 10) / 10, shown });
+            while (log.length > ITENCI3_CALIB_MAX) log.shift();
+            try { localStorage.setItem(ITENCI3_CALIB_KEY, JSON.stringify(log)); } catch (e) {}
+            renderItenci3Calibration();
+        }
+        function renderItenci3Calibration() {
+            const el = document.getElementById('nearby-station-calib');
+            if (!el) return;
+            const log = readItenci3CalibLog().filter(e => e && typeof e.obs === 'number' && typeof e.shown === 'number');
+            if (!log.length) { el.style.display = 'none'; el.innerText = ''; return; }
+            const bias = log.reduce((a, e) => a + (e.shown - e.obs), 0) / log.length;
+            const sign = bias > 0.05 ? '+' : (bias < -0.05 ? '' : '±');
+            el.innerText = `Écart moyen affiché−observé : ${sign}${bias.toFixed(1)}°C sur ${log.length} relevé${log.length > 1 ? 's' : ''} (positif = Metehop surestime)`;
+            el.style.display = '';
         }
 
         // ---- Balise de vent Pioupiou/OpenWindMap la plus proche (11/09/2026) ----
@@ -6649,6 +6752,22 @@ render16DayTable();
         function retryWeatherLoad() {
             if (lastWeatherRequest) fetchWeather(lastWeatherRequest.lat, lastWeatherRequest.lon, lastWeatherRequest.name, lastWeatherRequest.population);
         }
+
+        // ---- Bandeau hors-ligne (13/09/2026) ----
+        // Le service worker met déjà l'app shell et les dernières données en cache, mais
+        // rien ne le signalait à l'écran : l'utilisateur voyait des données figées sans
+        // savoir pourquoi. Ce bandeau s'affiche uniquement quand le navigateur détecte
+        // l'absence de connexion (navigator.onLine + événements online/offline) et
+        // disparaît seul au retour réseau. Aucun appel réseau, jamais bloquant.
+        function updateOfflineBanner() {
+            const banner = document.getElementById('offline-banner');
+            if (!banner) return;
+            const online = (typeof navigator === 'undefined') || navigator.onLine !== false;
+            banner.style.display = online ? 'none' : '';
+        }
+        window.addEventListener('online', () => { updateOfflineBanner(); hideWeatherError(); });
+        window.addEventListener('offline', () => { updateOfflineBanner(); });
+        updateOfflineBanner();
 
         // ---- Stations de ski réelles dans un rayon de 60km (jamais de résultat inventé) ----
         // Source des noms/coordonnées : OpenStreetMap (Overpass API), zones taguées landuse=winter_sports.
@@ -7569,15 +7688,14 @@ render16DayTable();
         //
         // Améliorations du 06/09/2026 (sur demande) :
         // - 6 stations proches par grille au lieu de 3.
-        // - En plus de la recherche Google Images, chaque station connue propose désormais aussi
-        //   un lien direct vers Windy et une recherche vidéo YouTube (beaucoup de stations
-        //   diffusent en direct sur YouTube).
+        // - Chaque station connue propose désormais un lien Windy centré sur ses coordonnées.
+        // - Supprimé le 13/09/2026 : liens YouTube et Google (recherches génériques) remplacés
+        //   par de vrais liens directs vers les pages webcams des stations (site officiel).
         // - Tri de la grille finale par distance croissante (au lieu de toujours afficher les
         //   webcams OSM avant les tuiles de recherche, sans lien avec leur proximité réelle).
         // - Anti-doublon : quand une webcam OSM (image ou lien réel) correspond déjà à une station
-        //   connue (nom proche + distance quasi identique), on n'affiche plus les tuiles génériques
-        //   de cette station à côté — la vraie webcam OSM est de toute façon la meilleure source,
-        //   inutile de la répéter en 3 tuiles génériques.
+        //   connue (nom proche + distance quasi identique), on n'affiche plus les tuiles
+        //   de cette station à côté — la vraie webcam OSM est de toute façon la meilleure source.
         //
         // Corrigé le 06/09/2026 (retour utilisateur) : le lien Windy pointait vers la page générique
         // https://www.windy.com/webcams/, en pensant qu'un lien profond par coordonnées n'était pas
@@ -7601,8 +7719,9 @@ render16DayTable();
         }
 
         // Génère les tuiles "fiables" pour une station connue (aucun appel réseau) : un lien vers
-        // Windy centré sur ses coordonnées, une recherche vidéo YouTube, et une recherche d'images
-        // Google — dans cet ordre d'affichage (le plus qualitatif en premier).
+        // le site officiel de la station (webcam dédiée, si disponible), puis Windy centré sur
+        // ses coordonnées. Les liens YouTube et Google (recherches génériques) ont été supprimés
+        // au profit de vrais liens directs vers les pages webcams des stations.
         //
         // WEBCAM_STATION_EXTRA_TILES (06/09/2026) : certaines stations ont un site communautaire
         // dédié qui vaut mieux qu'une recherche générique (ex. lessetlo.com pour Les 7 Laux — 5
@@ -7614,12 +7733,17 @@ render16DayTable();
         // liste (avant windy/YouTube/Google) car c'est la source la plus qualitative pour cette
         // station précise.
         const WEBCAM_STATION_EXTRA_TILES = {
-            'ski-7laux': [{ kind: 'directory', url: 'https://www.lessetlo.com/', label: 'Lessetlo', icon: 'fa-video' }]
+            'ski-7laux': [{ kind: 'directory', url: 'https://www.lessetlo.com/', label: 'Lessetlo', icon: 'fa-video' }],
+            'ski-chamrousse': [{ kind: 'directory', url: 'https://www.chamrousse.com/webcams.html', label: 'chamrousse.com', icon: 'fa-video' }],
+            'ski-villard-lans': [{ kind: 'directory', url: 'https://www.villard-de-lans.com/webcams.html', label: 'villard-de-lans.com', icon: 'fa-video' }],
+            'ski-autrans': [{ kind: 'directory', url: 'https://www.autrans-meaude.com/webcams', label: 'autrans-meaude.com', icon: 'fa-video' }],
+            'ski-alpe-huez': [{ kind: 'directory', url: 'https://www.alpedhuez.com/hiver/webcams/', label: 'alpedhuez.com', icon: 'fa-video' }],
+            'ski-2-alpes': [{ kind: 'directory', url: 'https://www.les2alpes.com/hiver/live/webcams/', label: 'les2alpes.com', icon: 'fa-video' }],
+            'ski-la-grave': [{ kind: 'directory', url: 'https://www.la-grave.com/hiver/webcams/', label: 'la-grave.com', icon: 'fa-video' }],
+            'ski-auris': [{ kind: 'directory', url: 'https://www.auris-en-oisans.com/webcams', label: 'auris-en-oisans.com', icon: 'fa-video' }]
         };
 
         function buildWebcamTiles(name, dist, stationId, lat, lon) {
-            const youtubeQuery = `webcam ${name} en direct`;
-            const imagesQuery = `webcam en direct ${name}`;
             const extras = (stationId && WEBCAM_STATION_EXTRA_TILES[stationId]) || [];
             const hasCoords = typeof lat === 'number' && typeof lon === 'number';
             const windyUrl = hasCoords
@@ -7632,18 +7756,6 @@ render16DayTable();
                     name,
                     dist,
                     url: windyUrl
-                },
-                {
-                    kind: 'search-video',
-                    name,
-                    dist,
-                    url: `https://www.youtube.com/results?search_query=${encodeURIComponent(youtubeQuery)}`
-                },
-                {
-                    kind: 'search',
-                    name,
-                    dist,
-                    url: `https://www.google.com/search?q=${encodeURIComponent(imagesQuery)}&tbm=isch`
                 }
             ];
         }
@@ -7682,14 +7794,10 @@ render16DayTable();
                 thumb = `<div class="webcam-thumb-placeholder"><i class="fa-solid ${w.icon || 'fa-wind'}"></i></div>`;
                 badge = '';
                 subLabel = w.label || 'windy.com';
-            } else if (w.kind === 'search-video') {
-                thumb = `<div class="webcam-thumb-placeholder"><i class="fa-brands fa-youtube"></i></div>`;
-                badge = '';
-                subLabel = 'YouTube';
             } else {
-                thumb = `<div class="webcam-thumb-placeholder"><i class="fa-solid fa-magnifying-glass"></i></div>`;
+                thumb = `<div class="webcam-thumb-placeholder"><i class="fa-solid fa-up-right-from-square"></i></div>`;
                 badge = '';
-                subLabel = 'Rechercher →';
+                subLabel = host ? escapeWebcamText(host) : '';
             }
             return `<a class="webcam-tile" href="${safeUrl}" target="_blank" rel="noopener">
                 <div class="webcam-thumb-wrap">
@@ -7722,8 +7830,8 @@ render16DayTable();
             grid.style.display = '';
             noDataMsg.style.display = 'none';
             note.innerText = osmWebcams.length
-                ? `${osmWebcams.length} webcam${osmWebcams.length > 1 ? 's' : ''} OpenStreetMap à proximité, + recherche ciblée pour les stations connues.`
-                : `Recherche ciblée pour les stations ${domainLabel} connues les plus proches.`;
+                ? `${osmWebcams.length} webcam${osmWebcams.length > 1 ? 's' : ''} OpenStreetMap à proximité, + liens directs vers les webcams des stations connues.`
+                : `Liens directs vers les webcams des stations ${domainLabel} connues les plus proches.`;
             grid.innerHTML = all.map(renderWebcamTile).join('');
         }
 
@@ -10752,12 +10860,19 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
         // prévisions (interroger le passé renvoie l'OBSERVÉ, jamais ce qui avait été prévu) —
         // Metehop ne peut donc pas reconstituer ce qu'il affichait il y a 5 jours. C'est pourquoi il
         // MÉMORISE depuis son installation (mémoire locale) tout ce qu'il affiche à chaque
-        // chargement : ses prévisions sont mémorisées au fil des jours de visite, puis le score d'exactitude
-        // de la T° max se construit tout seul. Réalité = archive ERA5 (Open-Meteo) pour la semaine
+        // chargement : ses prévisions sont mémorisées au fil des jours de visite, puis les scores
+        // d'exactitude se construisent tout seuls, un par grandeur (T° max, T° min, pluie).
+        // Chaque jour passé porte une médaille 🥇 au modèle le plus proche du réel (majorité
+        // sur ces mêmes 3 grandeurs ; égalité au sommet = pas de médaille plutôt que loterie).
+        // Réalité = archive ERA5 (Open-Meteo) pour la semaine
         // passée ; "aujourd'hui (en cours)" = conditions du moment (mélange d'observations).
         // Un écart ≤ 1,5 °C sur la T° max = prévision jugée "bonne".
         const BENCHMARK_DAYS = 7;
         const BENCHMARK_GOOD_DEG = 1.5;
+        // v116 (12/09/2026) : les 3 grandeurs sont comparées (T° max, T° min, pluie) et chaque
+        // jour porte une médaille au vainqueur (majorité sur les 3 grandeurs). Un écart ≤ 1,5 mm
+        // sur la pluie = prévision jugée "bonne", même principe que le 1,5 °C des températures.
+        const BENCHMARK_GOOD_RAIN_MM = 1.5;
         const BENCHMARK_HISTORY_KEY = 'metehop_benchmark_v1';
         const BENCHMARK_REALITY_KEY = 'metehop_benchmark_reality_v1';
         const BENCHMARK_KEEP_DAYS = 45;
@@ -10931,6 +11046,37 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
             return (typeof v === 'number' && isFinite(v)) ? `${benchmarkFmt1(v)}${unit}` : '—';
         }
 
+        // v116 (12/09/2026) — Médaille du jour : le modèle le plus proche du réel, au vote
+        // majoritaire sur les trois grandeurs comparées (T° max, T° min, pluie) : chacune vaut
+        // 1 point pour le modèle au plus petit écart absolu (mélanger °C et mm dans un score
+        // unique n'aurait pas de sens physique). Égalité en tête → pas de médaille.
+        function benchmarkDayWinner(rec, r) {
+            if (!rec || !r) return null;
+            const reals = { tmax: r.tmax, tmin: r.tmin, rain: r.precip };
+            const stocks = {
+                Metehop: { tmax: rec.mMax, tmin: rec.mMin, rain: rec.mRain },
+                ICON: { tmax: rec.iMax, tmin: rec.iMin, rain: rec.iRain },
+                ECMWF: { tmax: rec.eMax, tmin: rec.eMin, rain: rec.eRain }
+            };
+            const wins = { Metehop: 0, ICON: 0, ECMWF: 0 };
+            ['tmax', 'tmin', 'rain'].forEach(metric => {
+                const real = reals[metric];
+                if (typeof real !== 'number' || !isFinite(real)) return;
+                let best = null, bestD = Infinity;
+                for (const m in stocks) {
+                    const v = stocks[m][metric];
+                    if (typeof v !== 'number' || !isFinite(v)) continue;
+                    const d = Math.abs(v - real);
+                    if (d < bestD - 1e-9) { bestD = d; best = m; }
+                }
+                if (best) wins[best]++;
+            });
+            const top = Object.entries(wins).filter(e => e[1] > 0).sort((a, b) => b[1] - a[1]);
+            if (!top.length) return null;
+            if (top.length > 1 && top[0][1] === top[1][1]) return null;
+            return top[0][0];
+        }
+
         // Le benchmark est un affichage SUPPLEMENTAIRE de l'app : il ne doit jamais pouvoir
         // interrompre le chargement de la météo ni casser la page. Tout le rendu est donc isolé
         // dans un try/catch et servi en lignes "chips" (pas de colonnes fixes) : aucun mot ne
@@ -10970,54 +11116,72 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                     const date = benchmarkLocalDateStr(dt);
                     rows.push({ date, r: real ? real[date] : null, rec: byDate.get(date) || null });
                 }
-                const modelChip = (label, pred, r) => {
+                // v116 (12/09/2026) : les 3 grandeurs sont comparées, pas seulement la T° max :
+                // une ligne (label + 1 chip par modèle) par grandeur. « Bon » = écart ≤ 1,5 °C
+                // (températures) ou ≤ 1,5 mm (pluie).
+                const modelChip = (label, pred, realVal, unit, good) => {
                     let val = '—', delta = '';
                     if (typeof pred === 'number' && isFinite(pred)) {
-                        val = `${benchmarkFmt1(pred)}°`;
-                        if (r && typeof r.tmax === 'number' && isFinite(r.tmax)) {
-                            const dlt = Math.round((pred - r.tmax) * 10) / 10;
-                            const cls = Math.abs(dlt) <= BENCHMARK_GOOD_DEG ? 'benchmark-ok' : 'benchmark-miss';
-                            delta = `<span class="${cls}">${benchmarkFmtSigned(dlt)}°</span>`;
+                        val = `${benchmarkFmt1(pred)}${unit}`;
+                        if (typeof realVal === 'number' && isFinite(realVal)) {
+                            const dlt = Math.round((pred - realVal) * 10) / 10;
+                            const cls = Math.abs(dlt) <= good ? 'benchmark-ok' : 'benchmark-miss';
+                            delta = `<span class="${cls}">${benchmarkFmtSigned(dlt)}${unit}</span>`;
                         }
                     }
                     return `<span class="benchmark-chip"><b>${label}</b><span>${val}</span>${delta}</span>`;
                 };
                 rowsEl.innerHTML = rows.map(({ date, r, rec }) => {
                     const realTxt = r
-                        ? `Réel : <b>${benchmarkRealCell(r.tmax, '°')}</b> / <b>${benchmarkRealCell(r.tmin, '°')}</b> · pluie ${(typeof r.precip === 'number' && isFinite(r.precip)) ? benchmarkFmt1(r.precip) + ' mm' : '—'}`
+                        ? `Réel : max <b>${benchmarkRealCell(r.tmax, '°')}</b> · min <b>${benchmarkRealCell(r.tmin, '°')}</b> · pluie ${(typeof r.precip === 'number' && isFinite(r.precip)) ? benchmarkFmt1(r.precip) + ' mm' : '—'}`
                         : 'Réel : —';
+                    const realValOf = (key) => (r && typeof r[key] === 'number' && isFinite(r[key]) ? r[key] : null);
+                    const metricRow = (label, mKey, iKey, eKey, realKey, unit, good) => `
+                    <div class="benchmark-day-models">
+                        <span class="benchmark-metric-label">${label}</span>
+                        ${modelChip('Metehop', rec ? rec[mKey] : null, realValOf(realKey), unit, good)}
+                        ${modelChip('ICON', rec ? rec[iKey] : null, realValOf(realKey), unit, good)}
+                        ${modelChip('ECMWF', rec ? rec[eKey] : null, realValOf(realKey), unit, good)}
+                    </div>`;
+                    const winner = benchmarkDayWinner(rec, r);
                     return `<div class="benchmark-day-row">
                     <div class="benchmark-day-head">
                         <span class="benchmark-day-label">${benchmarkDayLabel(date)}</span>
+                        ${winner ? `<span class="benchmark-day-medal" title="Modèle le plus proche du réel ce jour-là (majorité sur T° max, T° min et pluie).">🥇 ${winner}</span>` : ''}
                         <span class="benchmark-day-real">${realTxt}</span>
                     </div>
-                    <div class="benchmark-day-models">
-                        ${modelChip('Metehop', rec ? rec.mMax : null, r)}
-                        ${modelChip('ICON', rec ? rec.iMax : null, r)}
-                        ${modelChip('ECMWF', rec ? rec.eMax : null, r)}
-                    </div>
+                    ${metricRow('T° max', 'mMax', 'iMax', 'eMax', 'tmax', '°', BENCHMARK_GOOD_DEG)}
+                    ${metricRow('T° min', 'mMin', 'iMin', 'eMin', 'tmin', '°', BENCHMARK_GOOD_DEG)}
+                    ${metricRow('Pluie', 'mRain', 'iRain', 'eRain', 'precip', ' mm', BENCHMARK_GOOD_RAIN_MM)}
                 </div>`;
                 }).join('');
                 if (!noteEl) return;
-                // Score T° max (MAE + "bons jours" à ≤ 1,5 °C), rendu dès qu'au moins un jour passé
-                // est comparé à la réalité — il se construit au fil des jours de visite.
-                const scored = rows.filter(x => x.rec && x.r && typeof x.r.tmax === 'number' && isFinite(x.r.tmax) && typeof x.rec.mMax === 'number' && isFinite(x.rec.mMax));
-                const scoreOf = (key) => {
-                    const vals = scored.map(x => Math.abs(x.rec[key] - x.r.tmax)).filter(v => isFinite(v));
-                    if (!vals.length) return null;
-                    return { mae: vals.reduce((a, b) => a + b, 0) / vals.length, ok: vals.filter(v => v <= BENCHMARK_GOOD_DEG).length, total: vals.length };
+                // v116 (12/09/2026) : un score (MAE + "bons jours") PAR GRANDEUR — T° max,
+                // T° min et pluie — rendu dès qu'au moins un jour passé a été comparé ; chacun
+                // se construit au fil des jours de visite.
+                const metricScore = (label, realKey, mKey, iKey, eKey, good, unit, goodTxt) => {
+                    const days = rows.filter(x => x.rec && x.r && typeof x.r[realKey] === 'number' && isFinite(x.r[realKey]));
+                    if (!days.length) return null;
+                    const parts = [];
+                    const one = (modelLabel, key) => {
+                        const errs = days
+                            .filter(x => typeof x.rec[key] === 'number' && isFinite(x.rec[key]))
+                            .map(x => Math.abs(x.rec[key] - x.r[realKey]));
+                        if (!errs.length) return;
+                        const mae = errs.reduce((a, b) => a + b, 0) / errs.length;
+                        const ok = errs.filter(v => v <= good).length;
+                        parts.push(`${modelLabel} ± ${benchmarkFmt1(mae)}${unit} (${ok}/${errs.length} à ${goodTxt})`);
+                    };
+                    one('Metehop', mKey); one('ICON', iKey); one('ECMWF', eKey);
+                    return parts.length ? `Score ${label} : ${parts.join(' · ')}` : null;
                 };
-                const sM = scoreOf('mMax');
-                const parts = [];
-                if (sM) {
-                    parts.push(`Metehop ± ${benchmarkFmt1(sM.mae)} °C en moyenne (${sM.ok}/${sM.total} jour${sM.total > 1 ? 's' : ''} à ≤ 1,5 °)`);
-                    const sI = scoreOf('iMax');
-                    if (sI) parts.push(`ICON ± ${benchmarkFmt1(sI.mae)} °C`);
-                    const sE = scoreOf('eMax');
-                    if (sE) parts.push(`ECMWF ± ${benchmarkFmt1(sE.mae)} °C`);
-                }
-                noteEl.innerHTML = (parts.length ? `Score T° max : ${parts.join(' · ')}.<br>` : '') +
-                    `Rappel honnête : la météo ne garde pas trace de ce qu'elle avait annoncé — Metehop enregistre donc, à chaque visite, ce qu'il affiche (micro-climat compris), chaque endroit gardant sa propre mémoire. Les prévisions et le score se remplissent au fil des jours. Réalité = relèves de référence des jours passés (ERA5 via Open-Meteo) + conditions du moment pour aujourd'hui.`;
+                const scoreLines = [
+                    metricScore('T° max', 'tmax', 'mMax', 'iMax', 'eMax', BENCHMARK_GOOD_DEG, ' °', '≤ 1,5 °'),
+                    metricScore('T° min', 'tmin', 'mMin', 'iMin', 'eMin', BENCHMARK_GOOD_DEG, ' °', '≤ 1,5 °'),
+                    metricScore('Pluie', 'precip', 'mRain', 'iRain', 'eRain', BENCHMARK_GOOD_RAIN_MM, ' mm', '≤ 1,5 mm')
+                ].filter(Boolean);
+                noteEl.innerHTML = (scoreLines.length ? scoreLines.join('<br>') + '<br>' : '') +
+                    `Rappel honnête : d'où vient le « réel » s'il n'y a pas de station météo au bout de la rue ? Pour les jours passés, Metehop utilise l'archive ERA5 (réanalyse du CEPMMT, servie par Open-Meteo) : un modèle numérique assimile toutes les mesures disponibles des stations officielles (réseau Météo-France / OMM — pour Grenoble : station de Grenoble–Saint-Geoirs et station urbaine CEA) pour reconstruire, sur une grille d'environ 25-30 km, le temps le plus probable à chaque point — votre rue est donc couverte par la grille même sans capteur sur place. « Aujourd'hui (en cours) » = conditions du moment (mélange d'observations). Côté prévisions, la météo ne garde pas trace de ce qu'elle avait annoncé : Metehop enregistre donc, à chaque visite, ce qu'il affiche (micro-climat compris), chaque endroit gardant sa propre mémoire. Tableau, médailles et scores se remplissent au fil des jours.`;
             } catch (e) { /* le benchmark reste optionnel : jamais bloquant */ }
         }
 
@@ -16440,6 +16604,96 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                     }
                 }
                 // Repli desktop / navigateurs sans Web Share API de fichiers : téléchargement direct.
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                setTimeout(() => URL.revokeObjectURL(url), 2000);
+            }, 'image/png');
+        }
+
+        // ---- Image partageable des 16 prochains jours (voir bouton .btn-share-week) ----
+        // Lit les lignes DÉJÀ RENDUES du tableau (render16DayTable) plutôt que de recalculer :
+        // l'image correspond donc exactement à ce qui est affiché (micro-climat compris).
+        // Si le tableau n'est pas encore chargé (ligne "Chargement..."), on ne fait rien.
+        function shareWeekImage() {
+            if (!weatherData) return;
+            const rows = Array.from(document.querySelectorAll('#forecast-table-body tr'));
+            if (!rows.length || rows[0].querySelector('td[colspan]')) return;
+            const days = rows.slice(0, 16).map(tr => {
+                const tds = tr.querySelectorAll('td');
+                if (tds.length < 5) return null;
+                return {
+                    day: (tds[0].innerText || '').replace(/\s+/g, ' ').trim(),
+                    mm: (tds[3].innerText || '').replace(/\s+/g, '').trim(),
+                    rain: (tds[4].innerText || '').replace(/\s+/g, '').trim()
+                };
+            }).filter(Boolean);
+            if (!days.length) return;
+
+            const W = 1080, rowH = 58, headH = 230, footH = 120;
+            const H = headH + days.length * rowH + footH;
+            const canvas = document.createElement('canvas');
+            canvas.width = W;
+            canvas.height = H;
+            const ctx = canvas.getContext('2d');
+
+            const bg = ctx.createLinearGradient(0, 0, 0, H);
+            bg.addColorStop(0, '#e5eee8');
+            bg.addColorStop(1, '#c9ddd2');
+            ctx.fillStyle = bg;
+            ctx.fillRect(0, 0, W, H);
+
+            const locationName = document.getElementById('title').innerText;
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#1c3832';
+            ctx.font = '600 44px sans-serif';
+            ctx.fillText(locationName, W / 2, 90);
+            ctx.fillStyle = '#5e706a';
+            ctx.font = '400 28px sans-serif';
+            ctx.fillText('Prévisions 16 jours', W / 2, 135);
+            const upd = document.getElementById('hero-date-str').innerText.split('•')[0].trim();
+            ctx.font = '400 24px sans-serif';
+            ctx.fillText(upd, W / 2, 170);
+
+            ctx.textAlign = 'left';
+            days.forEach((d, i) => {
+                const y = headH + i * rowH + 38;
+                if (i % 2 === 1) { ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(60, headH + i * rowH, W - 120, rowH); }
+                ctx.fillStyle = '#1c3832';
+                ctx.font = '600 30px sans-serif';
+                ctx.fillText(d.day, 90, y);
+                ctx.textAlign = 'right';
+                ctx.fillText(d.mm, W - 260, y);
+                ctx.fillStyle = '#2b6cb0';
+                ctx.font = '400 28px sans-serif';
+                ctx.fillText(d.rain, W - 90, y);
+                ctx.textAlign = 'left';
+            });
+
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#3b6e61';
+            ctx.font = '600 30px sans-serif';
+            ctx.fillText('🐸 Metehop', W / 2, H - 60);
+            ctx.fillStyle = '#5e706a';
+            ctx.font = '400 22px sans-serif';
+            ctx.fillText('metehop.github.io', W / 2, H - 28);
+
+            canvas.toBlob(async (blob) => {
+                if (!blob) return;
+                const fileName = `metehop-16j-${locationName.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.png`;
+                const file = new File([blob], fileName, { type: 'image/png' });
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    try {
+                        await navigator.share({ files: [file], title: 'Metehop', text: `Prévisions 16 jours à ${locationName}` });
+                        return;
+                    } catch (e) {
+                        // partage annulé : repli téléchargement ci-dessous
+                    }
+                }
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;

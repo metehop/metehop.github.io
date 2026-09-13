@@ -3,9 +3,11 @@
 // - Bibliothèques CDN (Chart.js, SunCalc, Leaflet) : cache-first puis actualisation en arrière-plan.
 // - Données (météo Open-Meteo, radar, hydrologie, webcams…) : réseau EN PRIORITÉ — jamais de
 //   donnée périmée tant qu'on est connecté — avec repli sur la dernière version vue si hors-ligne.
-// Incrémenter le nom du cache à chaque nouvelle version du contenu (PWA version v4, 12/09/2026 :
-// nom court "Metehop" + icônes 512/180 à coins arrondis).
-const CACHE = 'metehop-v4';
+// Incrémenter le nom du cache à chaque nouvelle version du contenu (v8, 13/09/2026 :
+// bandeau hors-ligne, calibration ITENCI3, partage 16 jours, palette sombre noir/bleu/corail).
+// v7 : retrait du bandeau meteo-grenoble du benchmark.
+// v5 : benchmark T° min / pluie / médailles. v4 : nom court "Metehop" + icônes.
+const CACHE = 'metehop-v8';
 
 const APP_SHELL = [
     './',
