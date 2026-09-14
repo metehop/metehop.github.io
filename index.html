@@ -4301,7 +4301,7 @@
             <div class="footer-support-row">
                 <a class="footer-support-link" href="https://buymeacoffee.com/stridemetric" target="_blank" rel="noopener">🐸 Aide-moi à nourrir la grenouille Metehop</a>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 13/09/2026 - 119</div>
+            <div class="footer-last-update">Dernière mise à jour : 14/09/2026 - 120</div>
         </footer>
 
     </div>
@@ -7534,14 +7534,17 @@ render16DayTable();
             //    Calibré le 04/09/2026 sur Grenoble, UNE FOIS le facteur général UHI_AFTERNOON_BASE_FACTOR
             //    déjà appliqué ci-dessus (+6,8°C brut × 0,2 = +1,4°C "après-midi générique") : écart
             //    encore observé jusqu'à +2°C → coefficient d'amplification retenu 1,5.
+            //    Corrigé le 14/09/2026 d'après monitoring terrain prolongé : +2°C affiché vs +1°C
+            //    réellement observé → coefficient ramené à 0,8 (Grenoble : 1,28°C base × 0,8 ≈ +1°C).
             //
             // Le coefficient d'inversion nocturne repose maintenant sur 2 points de calibration
             // (conflictuels en magnitude, voir ci-dessus — valeur médiane retenue en attendant mieux) ;
-            // celui d'échauffement diurne encore sur un seul — à réévaluer avec d'autres observations
-            // de terrain (voir contexte.txt). Les vallées rurales isolées et les villes de plaine
+            // celui d'échauffement diurne repose sur le monitoring terrain de Grenoble (14/09/2026) —
+            // à réévaluer avec d'autres observations de vallées urbaines (voir contexte.txt).
+            // Les vallées rurales isolées et les villes de plaine
             // (sans les deux effets combinés) ne sont pas concernées.
             const VALLEY_URBAN_SUPPRESSION = 0.5; // inversion nocturne atténuée par la chaleur urbaine — médiane provisoire entre 0,3 et 0,79 (2 points de calibration contradictoires, voir commentaire ci-dessus)
-            const UHI_VALLEY_AMPLIFICATION = 1.5; // échauffement diurne amplifié par la cuvette peu ventilée
+            const UHI_VALLEY_AMPLIFICATION = 0.8; // échauffement diurne amplifié par la cuvette peu ventilée (corrigé 14/09/2026 : 1,5 → 0,8 d'après monitoring terrain Grenoble, +2°C affiché vs +1°C observé)
             const urbanValleyCoLocated = valleyDetected && uhiDetected;
             if (urbanValleyCoLocated) {
                 valleyDeltaC = Math.round(valleyDeltaC * VALLEY_URBAN_SUPPRESSION * 10) / 10;
