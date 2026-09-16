@@ -4423,7 +4423,7 @@
             <div class="footer-support-row">
                 <a class="footer-support-link" href="https://buymeacoffee.com/stridemetric" target="_blank" rel="noopener">🐸 Aide-moi à nourrir la grenouille Metehop</a>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 14/09/2026 - 120</div>
+            <div class="footer-last-update">Dernière mise à jour : 16/09/2026 - 121</div>
         </footer>
 
     </div>
@@ -5072,7 +5072,7 @@
             lat: 45.311,
             lon: 5.961,
             alt: 232,
-            maxDistanceKm: 10,
+            maxDistanceKm: 20,
             maxAltDiffM: 100
         };
         let nearbyStationInRange = false; // recalculé à chaque changement de lieu (voir fetchWeather)
@@ -5537,7 +5537,7 @@
         // footer). L'encart "Effets locaux" (micro-climat) est géré par setGroup via son attribut
         // data-groups="general" : il reste visible en mode Simple depuis le 12/09/2026.
         
-        // ---- Temp live ITENCI3 dans le Hero (mode Expert, <10km + <100m alt) - ajout 16/09/2026 ----
+        // ---- Temp live ITENCI3 dans le Hero (mode Expert, <20km + <100m alt) - ajout 16/09/2026 ----
         function updateHeroLiveTemp() {
             const el = document.getElementById('hero-live-temp');
             if (!el) return;
@@ -5563,7 +5563,6 @@
         function startNearbyStationAutoRefresh() {
             if (nearbyStationRefreshInterval) { clearInterval(nearbyStationRefreshInterval); nearbyStationRefreshInterval = null; }
             if (!nearbyStationInRange) return;
-            // refresh toutes les 2 min si à proximité
             nearbyStationRefreshInterval = setInterval(() => {
                 if (nearbyStationInRange && (typeof displayMode === 'undefined' || displayMode === 'expert')) {
                     loadNearbyStation({silent: true}).catch(()=>{});
@@ -6471,7 +6470,7 @@ function applyDisplayMode() {
         // échouera et le message d'indisponibilité honnête ci-dessous s'affichera — jamais de valeur
         // inventée en remplacement.
         async function loadNearbyStation(options = {}) {
-            const silent = !!options.silent; // silent = true pour refresh Hero sans toucher la carte Nature
+            const silent = !!options.silent;
             const mySeq = weatherRequestSeq;
             const loadingEl = document.getElementById('nearby-station-loading');
             const errorEl = document.getElementById('nearby-station-error');
@@ -6497,7 +6496,6 @@ function applyDisplayMode() {
                 if (!obs || !obs.metric) throw new Error('réponse vide');
 
                 const m = obs.metric;
-                // MAJ Hero live
                 if (typeof m.temp === 'number') {
                     nearbyStationLiveTemp = m.temp;
                     nearbyStationLiveTime = obs.obsTimeLocal || new Date().toISOString();
@@ -6505,7 +6503,7 @@ function applyDisplayMode() {
                     try { logItenci3Calibration(m.temp); } catch (e) {}
                 }
 
-                if (silent) return; // pas besoin de remplir la carte Nature
+                if (silent) return;
 
                 const pills = [];
                 if (typeof m.temp === 'number') pills.push(`<div class="station-pill"><i class="fa-solid fa-temperature-half"></i> ${Math.round(m.temp)}°C</div>`);
@@ -6878,7 +6876,6 @@ render16DayTable();
                 // moins de NEARBY_STATION.maxDistanceKm ; rechargée seulement si l'onglet Eau/Jardinage
                 // est déjà actif (même logique de chargement différé que Été/Hiver et Eau ci-dessus).
                 nearbyStationInRange = calculateDistance(lat, lon, NEARBY_STATION.lat, NEARBY_STATION.lon) <= NEARBY_STATION.maxDistanceKm;
-                // Condition altitude <100m (16/09/2026)
                 try {
                     const curAlt = (weatherData && typeof weatherData.elevation === 'number') ? weatherData.elevation : null;
                     const stationAlt = (typeof NEARBY_STATION.alt === 'number') ? NEARBY_STATION.alt : null;
@@ -6899,13 +6896,11 @@ render16DayTable();
                     if (loadingEl) loadingEl.style.display = '';
                     if (errEl) errEl.style.display = 'none';
                     if (contEl) contEl.style.display = 'none';
-                    // Chargement immédiat pour le Hero (même si onglet eau pas actif)
                     loadNearbyStation({silent: currentGroup !== 'eau'}).catch(()=>{});
                     startNearbyStationAutoRefresh();
                 }
                 nearbyStationLoaded = (currentGroup === 'eau' && nearbyStationInRange);
                 if (nearbyStationLoaded) {
-                    // déjà chargé en mode silent ci-dessus, on recharge en mode complet pour remplir la carte
                     if (currentGroup === 'eau') loadNearbyStation({silent: false}).catch(()=>{});
                 }
                 try { updateHeroLiveTemp(); } catch(e) {}
@@ -12328,10 +12323,8 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                     "🏖️ Plan canicule : nénuphar climatisé + brumisateur à moucherons !"
                 ]
             };
-            const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
             const seed = (typeof opts.temp === 'number' ? Math.floor(opts.temp) : 0) + (code || 0) + (new Date().getMinutes() % 5);
             const rnd = (arr) => arr[seed % arr.length];
-
             const phrases = [];
             if (tier === 'freezing') phrases.push(rnd(funny.freezing));
             else if (tier === 'cold') phrases.push(rnd(funny.cold));
@@ -12339,7 +12332,6 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
             else if (tier === 'warm') phrases.push(rnd(funny.warm));
             else if (tier === 'hot') phrases.push(rnd(funny.hot));
             else phrases.push(rnd(funny.scorching));
-
             if (isStorm) {
                 const stormJokes = [
                     "⛈️ Orage : à l'abri sous le parapluie !",
@@ -12395,7 +12387,6 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 ];
                 if (seed % 2 === 0) phrases.push(rnd(nightJokes));
             }
-
             return { svg, message: phrases.join(' '), tier, isRain, isSnow, isStorm, isWindy, isFog };
         }
 
