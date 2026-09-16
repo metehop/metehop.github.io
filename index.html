@@ -12083,12 +12083,13 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
         
         function getFrogRendering(opts) {
             const { temp, code, windSpeed, uvMax, isDayNow } = opts;
-            const isRain = [51, 61, 63, 65, 80].includes(code);
-            const isSnow = [71, 73, 75, 85].includes(code);
-            const isStorm = (code === 95);
-            const isFog = (code === 45);
+            // v147 - priorité météo > température (pluie/vent/neige prennent le dessus)
+            const isRain = [51,53,55,56,57,61,63,65,66,67,80,81,82].includes(code);
+            const isSnow = [71,73,75,77,85,86].includes(code);
+            const isStorm = [95,96,99].includes(code);
+            const isFog = [45,48].includes(code);
             const isClearCode = [0, 1].includes(code);
-            const isWindy = (typeof windSpeed === 'number' && windSpeed >= 45);
+            const isWindy = (typeof windSpeed === 'number' && windSpeed >= 35);
             const isSunny = (isDayNow === 1 && isClearCode && !isRain && !isSnow && !isStorm);
             const isNight = (isDayNow === 0);
             const strongUV = (typeof uvMax === 'number' && uvMax >= 6);
@@ -12102,19 +12103,24 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 else tier = 'scorching';
             }
 
-            let outfitId = 'doux';
-            if (tier === 'freezing') outfitId = 'froid';
-            else if (tier === 'cold') outfitId = 'froid';
-            else if (tier === 'mild') outfitId = 'doux';
-            else if (tier === 'warm') outfitId = 'beau';
-            else if (tier === 'hot') outfitId = 'chaud';
-            else if (tier === 'scorching') outfitId = 'canicule';
-
+            // PRIORITÉ 1 : temps significatif (même s'il fait 30°C, s'il pleut on met pluie)
+            let outfitId = null;
             if (isSnow) outfitId = 'froid';
-            else if (isStorm) outfitId = 'pluie';
+            else if (isStorm) outfitId = 'pluie'; // orage = tenue pluie + parapluie
             else if (isRain) outfitId = 'pluie';
             else if (isFog) outfitId = 'brouillard';
-            else if (isWindy && tier !== 'freezing' && tier !== 'scorching') outfitId = 'vent';
+            else if (isWindy) outfitId = 'vent';
+
+            // PRIORITÉ 2 : sinon on retombe sur la température
+            if (!outfitId) {
+                if (tier === 'freezing') outfitId = 'froid';
+                else if (tier === 'cold') outfitId = 'froid';
+                else if (tier === 'mild') outfitId = 'doux';
+                else if (tier === 'warm') outfitId = 'beau';
+                else if (tier === 'hot') outfitId = 'chaud';
+                else if (tier === 'scorching') outfitId = 'canicule';
+                else outfitId = 'doux';
+            }
 
             let svg = NEW_OUTFITS[outfitId] || NEW_OUTFITS['doux'];
 
