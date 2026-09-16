@@ -5161,23 +5161,57 @@
         function updateStormProximityBox(distanceKm, approach) {
             const box = document.getElementById('storm-proximity-box');
             const text = document.getElementById('storm-proximity-text');
-            const d = typeof distanceKm === 'number' ? distanceKm : null;
-            const eta = approach && typeof approach.etaMinutes === 'number' ? approach.etaMinutes : null;
+            if (!box || !text) return;
+            const d = typeof distanceKm === 'number' && isFinite(distanceKm) ? distanceKm : null;
+            const eta = approach && typeof approach.etaMinutes === 'number' && isFinite(approach.etaMinutes) ? approach.etaMinutes : null;
+            const aDist = approach && typeof approach.distanceKm === 'number' && isFinite(approach.distanceKm) ? approach.distanceKm : null;
+            const aSpeed = approach && typeof approach.speedKmh === 'number' && isFinite(approach.speedKmh) ? approach.speedKmh : null;
 
             let level = null, message = '';
             if (d !== null && d <= STORM_PROXIMITY_KM) {
                 level = 'danger';
                 message = d <= 0.5
                     ? "Orage actuellement sur votre position."
-                    : `Orage détecté à ~${d}km de votre position.`;
+                    : `Orage détecté à ~${Math.round(d*10)/10}km de votre position.`;
             } else if (d !== null && d <= STORM_WATCH_KM) {
                 level = 'watch';
-                message = `Orage à proximité, à ~${d}km de votre position.`;
-            } else if (eta !== null && eta <= STORM_WATCH_ETA_MIN) {
+                message = `Orage à proximité, à ~${Math.round(d*10)/10}km de votre position.`;
+            } else if (eta !== null && eta <= STORM_WATCH_ETA_MIN && eta >= 0) {
                 level = 'watch';
-                const dTxt = typeof approach.distanceKm === 'number' ? ` à ~${approach.distanceKm}km` : '';
-                const sTxt = approach.speedKmh ? ` (~${approach.speedKmh} km/h)` : '';
-                message = `Orage${dTxt}${sTxt} se dirigeant vers votre position, arrivée estimée dans ~${Math.round(eta)} min.`;
+                // v149 - vérification cohérence distance / vitesse / ETA
+                // Cas signalé : 250km / 15km/h / 7min => physiquement impossible.
+                // On calcule ETA attendu = distance / vitesse * 60
+                let showDist = true;
+                let showSpeed = true;
+                let dVal = aDist;
+                let sVal = aSpeed;
+                if (dVal !== null && sVal !== null && sVal > 1) {
+                    const expectedMin = (dVal / sVal) * 60;
+                    // Si l'écart est énorme (> factor 3) ou si distance>100km et ETA<15min => incohérent
+                    const isHugeDistShortEta = (dVal > 80 && eta < 20);
+                    const isFactorOff = expectedMin > 15 && (eta < expectedMin * 0.25 || eta > expectedMin * 4);
+                    const isNearlyStationaryButEtaSmall = (sVal < 5 && dVal > 20);
+                    if (isHugeDistShortEta || isFactorOff || isNearlyStationaryButEtaSmall) {
+                        // incohérence détectée : on masque distance/vitesse pour ne pas afficher de bêtise
+                        // et on ne garde que l'ETA qui reste la donnée projetée la plus utile
+                        showDist = false;
+                        showSpeed = false;
+                        // log pour debug
+                        try { console.warn('STORM coherence fail', {dVal, sVal, eta, expectedMin}); } catch(e) {}
+                    }
+                }
+                // Filtrage vitesse aberrante
+                if (sVal !== null && (sVal < 3 || sVal > 150)) showSpeed = false;
+
+                const dTxt = (showDist && typeof dVal === 'number') ? ` à ~${Math.round(dVal*10)/10}km` : '';
+                const sTxt = (showSpeed && typeof sVal === 'number') ? ` (~${Math.round(sVal)} km/h)` : '';
+                if (dTxt === '' && sTxt === '') {
+                    message = `Orage se dirigeant vers votre position, arrivée estimée dans ~${Math.max(1, Math.round(eta))} min.`;
+                } else {
+                    message = `Orage${dTxt}${sTxt} se dirigeant vers votre position, arrivée estimée dans ~${Math.max(1, Math.round(eta))} min.`;
+                }
+                // Si incohérence extrême (ex 250km/7min), on rétrograde en watch mais on garde l'alerte
+                // plutôt que de mentir sur la distance.
             }
 
             if (level) {
@@ -5189,9 +5223,6 @@
                 box.style.display = 'none';
             }
 
-            // Rafraîchissement accéléré : sur le danger immédiat comme avant, et désormais aussi
-            // quand un orage est projeté sur le lieu à courte échéance — c'est précisément le
-            // moment où une image radar de plus change quelque chose.
             const fast = level === 'danger' || (eta !== null && eta <= STORM_FAST_REFRESH_ETA_MIN);
             if (fast !== stormNearbyActive) {
                 stormNearbyActive = fast;
@@ -10402,9 +10433,20 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 // projetées : le premier appel plus haut ne connaissait que la distance (il reste
                 // nécessaire, c'est le seul qui s'exécute quand aucune trajectoire n'est
                 // exploitable). On y ajoute ici l'orage en approche le plus précoce.
-                const stormApproach = results
-                    .filter(r => (r.hasStorm || r.hasHail) && r.etaMinutes !== null)
-                    .sort((a, b) => a.etaMinutes - b.etaMinutes)[0];
+                const stormApproachRaw = results
+                    .filter(r => (r.hasStorm || r.hasHail) && r.etaMinutes !== null && r.etaMinutes >= 0)
+                    .sort((a, b) => a.etaMinutes - b.etaMinutes);
+                // v149 - filtre cohérence : on élimine les approches physiquement impossibles (ex: 250km en 7min à 15km/h)
+                const stormApproachFiltered = stormApproachRaw.filter(r => {
+                    if (typeof r.distanceToStormKm === 'number' && typeof r.speedKmh === 'number' && r.speedKmh > 1) {
+                        const expected = (r.distanceToStormKm / r.speedKmh) * 60;
+                        if (r.distanceToStormKm > 80 && r.etaMinutes < 15) return false;
+                        if (expected > 20 && r.etaMinutes < expected * 0.15) return false;
+                        if (r.speedKmh < 3 && r.distanceToStormKm > 25) return false;
+                    }
+                    return true;
+                });
+                const stormApproach = (stormApproachFiltered[0] || stormApproachRaw[0]);
                 updateStormProximityBox(nearestStormKm, stormApproach ? {
                     etaMinutes: stormApproach.etaMinutes,
                     distanceKm: stormApproach.distanceToStormKm,
