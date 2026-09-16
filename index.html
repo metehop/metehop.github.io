@@ -5199,6 +5199,16 @@
             }
         }
 
+        
+        function isCacheStaleForLocation(cached, lat, lon, maxDistKm) {
+            try {
+                if (!cached || typeof cached.lat !== 'number' || typeof cached.lon !== 'number') return true;
+                if (typeof lat !== 'number' || typeof lon !== 'number') return true;
+                const d = calculateDistance(lat, lon, cached.lat, cached.lon);
+                return d > maxDistKm;
+            } catch(e) { return true; }
+        }
+
         const wmoMap = {
             0: { icon: 'fa-sun', label: 'Ensoleillé' },
             1: { icon: 'fa-cloud-sun', label: 'Peu nuageux' },
@@ -6678,57 +6688,84 @@ function applyDisplayMode() {
         async function fetchMetarNearestTemp(lat, lon) {
             if (typeof isFileOrigin==='function' && isFileOrigin()) return null;
             if (metarLiveLoading) return metarLiveCache;
+            // v148 - cache 15min : retour instantané au démarrage
+            try {
+                if (metarLiveCache && metarLiveCache.ts && (Date.now()-metarLiveCache.ts) < 15*60*1000 && metarLiveCache.lat && metarLiveCache.lon) {
+                    const d = calculateDistance(lat, lon, metarLiveCache.lat, metarLiveCache.lon);
+                    if (d < 30) return metarLiveCache;
+                }
+            } catch(e) {}
             metarLiveLoading = true;
             try {
                 const cands = findNearestMetarAirports(lat, lon);
-                if (!cands.length) { console.warn('METAR: aucun aéroport <120km'); return null; }
-                console.log('METAR: candidats', cands.map(c=>c.icao+' '+c.dist.toFixed(1)+'km').join(', '));
-                for (const apt of cands) {
+                if (!cands.length) return null;
+                // v148 - lancement en parallèle des 3 aéroports, et pour chaque aéroport course parallèle des proxies (rapide)
+                const tryOneAirport = async (apt) => {
                     const metarUrl = `https://aviationweather.gov/api/data/metar?ids=${apt.icao}&format=json`;
-                    // v141 - 5 tentatives silencieuses (évite le spam console "METAR erreur proxy")
                     const proxyUrls = [
                         `https://api.allorigins.win/raw?url=${encodeURIComponent(metarUrl)}`,
                         `https://api.allorigins.win/get?url=${encodeURIComponent(metarUrl)}`,
                         `https://corsproxy.io/?${encodeURIComponent(metarUrl)}`,
                         `https://thingproxy.freeboard.io/fetch/${metarUrl}`,
-                        metarUrl // direct en dernier (si CORS ok un jour)
+                        metarUrl
                     ];
-                    for (const proxyUrl of proxyUrls) {
-                        try {
-                            const res = await fetch(proxyUrl, {cache:'no-store'});
-                            if (!res.ok) { continue; }
-                            let data;
-                            try {
-                                data = await res.json();
-                            } catch(e) {
-                                const t2 = await res.text();
-                                try { data = JSON.parse(t2); } catch(e2) { continue; }
-                            }
-                            if (data && typeof data.contents === 'string') {
-                                try { data = JSON.parse(data.contents); } catch(e) { continue; }
-                            }
-                            let metar = Array.isArray(data) && data.length ? data[0] : data;
-                            if (metar && metar[0]) metar = metar[0];
-                            if (Array.isArray(metar) && metar.length) metar = metar[0];
-                            let t = null;
-                            if (metar) {
-                                if (typeof metar.temp === 'number') t = metar.temp;
-                                else if (typeof metar.temperature === 'number') t = metar.temperature;
-                                else if (typeof metar.temp === 'string') t = parseFloat(metar.temp);
-                            }
-                            if (t!==null && isFinite(t) && t>-60 && t<60) {
-                                let obs = metar.reportTime || metar.obsTime || metar.receiptTime || '';
-                                if (typeof obs === 'number') { try { obs = new Date(obs*1000).toISOString(); } catch(e) {} }
-                                metarLiveCache = {ts:Date.now(), temp:t, station:`${apt.name} (${apt.icao})`, distKm:apt.dist, obsTime: obs, lat:apt.lat, lon:apt.lon, source:'METAR NOAA', icao:apt.icao};
-                                console.log('METAR trouvé', metarLiveCache, 'via', proxyUrl);
-                                return metarLiveCache;
-                            }
-                        } catch(e) { /* échec silencieux, on tente proxy suivant */ continue; }
+                    const tryProxy = async (proxyUrl) => {
+                        const res = await fetchWithTimeout(proxyUrl, {timeout: 3500, cache:'no-store'});
+                        if (!res || !res.ok) throw new Error('proxy fail');
+                        let data;
+                        try { data = await res.json(); } catch(e) {
+                            const t2 = await res.text();
+                            data = JSON.parse(t2);
+                        }
+                        if (data && typeof data.contents === 'string') data = JSON.parse(data.contents);
+                        let metar = Array.isArray(data) && data.length ? data[0] : data;
+                        if (metar && metar[0]) metar = metar[0];
+                        if (Array.isArray(metar) && metar.length) metar = metar[0];
+                        if (!metar) throw new Error('no metar');
+                        let t = null;
+                        if (typeof metar.temp === 'number') t = metar.temp;
+                        else if (typeof metar.temperature === 'number') t = metar.temperature;
+                        else if (typeof metar.temp === 'string') t = parseFloat(metar.temp);
+                        if (t===null || !isFinite(t) || t<-60 || t>60) throw new Error('bad temp');
+                        let obs = metar.reportTime || metar.obsTime || metar.receiptTime || '';
+                        if (typeof obs === 'number') { try { obs = new Date(obs*1000).toISOString(); } catch(e) {} }
+                        // v148 - extraction complète : vent, pression, pluie, min/max si présents
+                        const windDir = (typeof metar.wdir === 'number' ? metar.wdir : (typeof metar.wdir === 'string' ? parseFloat(metar.wdir) : null));
+                        const windSpd = (typeof metar.wspd === 'number' ? metar.wspd : (typeof metar.wspd === 'string' ? parseFloat(metar.wspd) : null)); // kt
+                        const windGust = (typeof metar.wgst === 'number' ? metar.wgst : (typeof metar.wgst === 'string' ? parseFloat(metar.wgst) : null));
+                        const press = (typeof metar.altim === 'number' ? metar.altim : (typeof metar.slp === 'number' ? metar.slp : null)); // hPa si altim déjà en hPa, sinon inch->hPa conversion approx
+                        let pressHpa = press;
+                        if (press && press < 100) pressHpa = press * 33.8639; // inch Hg -> hPa
+                        const precip = (typeof metar.precip === 'number' ? metar.precip : null);
+                        const visib = metar.visib || null;
+                        return {ts:Date.now(), temp:t, station:`${apt.name} (${apt.icao})`, distKm:apt.dist, obsTime: obs, lat:apt.lat, lon:apt.lon, source:'METAR NOAA', icao:apt.icao, windDir: windDir, windSpeedKt: windSpd, windGustKt: windGust, pressureHpa: pressHpa, precipMm: precip, visib: visib, raw: metar};
+                    };
+                    // course parallèle des proxies, premier qui réussit gagne
+                    const promises = proxyUrls.map(u => tryProxy(u));
+                    // on attend le premier succès, les autres sont ignorés
+                    if (typeof Promise.any === 'function') {
+                        return await Promise.any(promises);
+                    } else {
+                        // fallback Promise.any polyfill via race
+                        return await Promise.race(promises);
                     }
+                };
+                // On lance les 3 aéroports en parallèle, on prend le premier qui répond (le plus proche d'abord mais vitesse prime)
+                const airportPromises = cands.map(apt => tryOneAirport(apt));
+                let result = null;
+                if (typeof Promise.any === 'function') {
+                    try { result = await Promise.any(airportPromises); } catch(e) { result = null; }
+                } else {
+                    // si Promise.any pas dispo, on tente séquentiel rapide
+                    for (const p of airportPromises) { try { result = await p; if (result) break; } catch(e) {} }
                 }
-                console.warn('METAR: aucun relevé trouvé, fallback Open-Meteo');
+                if (result) {
+                    metarLiveCache = result;
+                    return result;
+                }
                 return null;
-            } finally { metarLiveLoading=false; }
+            } catch(e) { return null; }
+            finally { metarLiveLoading=false; }
         }
 
         async function fetchSynopNearestTemp(lat, lon) {
@@ -6736,7 +6773,6 @@ function applyDisplayMode() {
             synopLiveLoading = true;
             try {
                 const nowUtc = new Date();
-                // On tente 6h en arrière car publication SYNOP a 20-50min de retard, et à xxh05 le fichier de xxh n'existe pas encore
                 for (let hOff = 0; hOff < 6; hOff++) {
                     const d = new Date(nowUtc.getTime() - hOff * 3600000);
                     d.setUTCMinutes(0,0,0);
@@ -6744,7 +6780,6 @@ function applyDisplayMode() {
                     const mm = String(d.getUTCMonth()+1).padStart(2,'0');
                     const dd = String(d.getUTCDate()).padStart(2,'0');
                     const hh = String(d.getUTCHours()).padStart(2,'0');
-                    // 2 nomenclatures observées : .../synop.YYYYMMDDHH00.csv.gz et .../synop.YYYYMMDDHH.csv.gz + variantes .csv
                     const urlsToTry = [
                         `https://object.files.data.gouv.fr/meteofrance/data/synop/synop.${yyyy}${mm}${dd}${hh}00.csv.gz`,
                         `https://object.files.data.gouv.fr/meteofrance/data/synop/synop.${yyyy}${mm}${dd}${hh}.csv.gz`,
@@ -6755,8 +6790,8 @@ function applyDisplayMode() {
                     let usedUrl = '';
                     for (const url of urlsToTry) {
                         try {
-                            const res = await fetch(url, {cache: 'no-store'});
-                            if (!res.ok) continue; // 404 -> on tente heure précédente, normal
+                            const res = await fetchWithTimeout(url, {timeout: 5000, cache:'no-store'});
+                            if (!res || !res.ok) continue;
                             if (url.endsWith('.gz')) {
                                 const buf = await res.arrayBuffer();
                                 if (!buf || buf.byteLength < 100) continue;
@@ -6777,54 +6812,104 @@ function applyDisplayMode() {
                         const lines = csvText.split(/\r?\n/);
                         if (lines.length < 2) continue;
                         const header = lines[0].trim().split(';');
-                        const idxLat = header.indexOf('lat');
-                        const idxLon = header.indexOf('lon');
-                        const idxT = header.indexOf('t');
-                        const idxNom = header.indexOf('nom');
-                        const idxDate = header.indexOf('date');
+                        const idx = (name) => header.indexOf(name);
+                        const idxLat = idx('lat');
+                        const idxLon = idx('lon');
+                        const idxT = idx('t');
+                        const idxNom = idx('nom');
+                        const idxDate = idx('date');
+                        const idxPmer = idx('pmer');
+                        const idxPm = idx('pres');
+                        const idxPa = idx('pmer'); // pression mer
+                        const idxFf = idx('ff');
+                        const idxDd = idx('dd');
+                        const idxGust = idx('raf10')!==-1 ? idx('raf10') : idx('gust');
+                        const idxRr1 = idx('rr1');
+                        const idxRr3 = idx('rr3');
+                        const idxRr24 = idx('rr24');
+                        const idxU = idx('u');
+                        const idxTn = idx('tn12')!==-1 ? idx('tn12') : idx('tn');
+                        const idxTx = idx('tx12')!==-1 ? idx('tx12') : idx('tx');
                         if (idxLat===-1 || idxLon===-1 || idxT===-1) continue;
                         let best=null; let bestDist=Infinity;
                         for (let i=1;i<lines.length;i++) {
                             const line=lines[i].trim(); if(!line) continue;
                             const cols=line.split(';');
                             if (cols.length <= Math.max(idxLat, idxLon, idxT)) continue;
-                            const tK=parseFloat(cols[idxT].replace(',', '.'));
+                            const tK=parseFloat((cols[idxT]||'').replace(',', '.'));
                             if (!isFinite(tK) || tK < 223 || tK > 323) continue;
-                            const plat=parseFloat(cols[idxLat].replace(',', '.'));
-                            const plon=parseFloat(cols[idxLon].replace(',', '.'));
+                            const plat=parseFloat((cols[idxLat]||'').replace(',', '.'));
+                            const plon=parseFloat((cols[idxLon]||'').replace(',', '.'));
                             if (!isFinite(plat)||!isFinite(plon)) continue;
                             const dist=calculateDistance(lat, lon, plat, plon);
                             if (dist>120) continue;
                             if (dist<bestDist) {
                                 bestDist=dist;
-                                best={temp:tK-273.15, lat:plat, lon:plon, dist:dist, station: idxNom!==-1?cols[idxNom]:'', obsTime: idxDate!==-1?cols[idxDate]:`${yyyy}-${mm}-${dd} ${hh}h UTC`};
+                                const getF = (ii) => {
+                                    if (ii===-1) return null;
+                                    const v = (cols[ii]||'').replace(',', '.').trim();
+                                    if (v==='' || v==='mq') return null;
+                                    const n = parseFloat(v);
+                                    return isFinite(n) ? n : null;
+                                };
+                                let p = getF(idxPmer);
+                                if (p===null) p = getF(idxPm);
+                                // pmer est en Pa, conversion hPa = /100
+                                let pHpa = p;
+                                if (pHpa!==null && pHpa>10000) pHpa = pHpa/100;
+                                const ff = getF(idxFf); // m/s
+                                const dd = getF(idxDd);
+                                const gust = getF(idxGust);
+                                let rr = getF(idxRr1);
+                                if (rr===null) rr = getF(idxRr3);
+                                if (rr===null) rr = getF(idxRr24);
+                                const u = getF(idxU);
+                                let tn = getF(idxTn);
+                                let tx = getF(idxTx);
+                                if (tn!==null && tn>100) tn = tn-273.15;
+                                if (tx!==null && tx>100) tx = tx-273.15;
+                                best={temp:tK-273.15, lat:plat, lon:plon, dist:dist, station: idxNom!==-1?cols[idxNom]:'', obsTime: idxDate!==-1?cols[idxDate]:`${yyyy}-${mm}-${dd} ${hh}h UTC`, pressureHpa: pHpa, windSpeedMs: ff, windDir: dd, windGustMs: gust, precipMm: rr, humidity: u, minTemp: tn, maxTemp: tx, source:'SYNOP Météo-France', sourceUrl: usedUrl};
                             }
                         }
                         if (best) {
-                            synopLiveCache={ts:Date.now(), temp:best.temp, station:best.station, distKm:best.dist, obsTime:best.obsTime, lat:best.lat, lon:best.lon, sourceUrl: usedUrl};
-                            console.log('SYNOP trouvé', synopLiveCache, 'depuis', usedUrl);
+                            synopLiveCache={ts:Date.now(), ...best, source:'SYNOP Météo-France', sourceUrl: usedUrl};
                             return synopLiveCache;
                         }
-                    } catch(e) { console.warn('SYNOP parse échoué', e); continue; }
+                    } catch(e) { continue; }
                 }
-                console.warn('SYNOP: aucun fichier trouvé sur les 6 dernières heures (404 normaux si retard publi)');
                 return null;
             } finally { synopLiveLoading=false; }
         }
                         async function loadSynopLiveTemp(lat, lon) {
-            // v137 : affichage instantané, ne bloque jamais le chargement de l'app
+            // v148.1 : fix ville changée = données anciennes qui restent
+            try {
+                // Si on change de ville à plus de 20km, on purge tout de suite l'ancien affichage
+                if (synopLiveCache && isCacheStaleForLocation(synopLiveCache, lat, lon, 20)) {
+                    synopLiveCache=null; metarLiveCache=null;
+                    try {
+                        const loadingEl=document.getElementById('mf-synop-temp-loading');
+                        const contentEl=document.getElementById('mf-synop-temp-content');
+                        const pillsEl=document.getElementById('mf-synop-temp-pills');
+                        if (loadingEl) loadingEl.style.display='';
+                        if (contentEl) contentEl.style.display='none';
+                        if (pillsEl) pillsEl.innerHTML='';
+                    } catch(e){}
+                }
+            } catch(e){}
             try {
                 const ls = localStorage.getItem('metehop_metar_cache_v1');
                 if (ls) {
                     const cached = JSON.parse(ls);
+                    // v148.1 - on ne réutilise le localStorage que si c'est la même zone (<30km)
                     if (cached && (Date.now()-cached.ts) < 30*60*1000 && !isCacheStaleForLocation(cached, lat, lon, 30)) {
                         synopLiveCache = cached; metarLiveCache = cached;
                         try { updateHeroLiveTemp(); renderMfSynopTempCard(); } catch(e){}
+                    } else if (cached && isCacheStaleForLocation(cached, lat, lon, 30)) {
+                        // cache d'une autre ville : on le supprime pour ne pas le réafficher au prochain démarrage
+                        try { localStorage.removeItem('metehop_metar_cache_v1'); } catch(e){}
                     }
                 }
             } catch(e){}
-            try { if (synopLiveCache && isCacheStaleForLocation(synopLiveCache, lat, lon, 20)) { synopLiveCache=null; metarLiveCache=null; } } catch(e){}
-            // Affiche tout de suite Open-Meteo (0ms) - ne bloque pas
             if (!synopLiveCache) {
                 try {
                     if (typeof benchmarkRealityNow !== 'undefined' && benchmarkRealityNow && typeof benchmarkRealityNow.temp === 'number') {
@@ -6836,16 +6921,34 @@ function applyDisplayMode() {
             } else {
                 try { updateHeroLiveTemp(); renderMfSynopTempCard(); } catch(e){}
             }
-            // METAR en arrière-plan, sans await bloquant
-            setTimeout(()=>{
-                fetchMetarNearestTemp(lat, lon).then(metar=>{
-                    if (metar) {
-                        synopLiveCache = metar;
-                        try { localStorage.setItem('metehop_metar_cache_v1', JSON.stringify(metar)); } catch(e){}
-                        try { updateHeroLiveTemp(); renderMfSynopTempCard(); } catch(e){}
-                    }
-                }).catch(()=>{});
-            }, 100);
+            // v148 - METAR et SYNOP en parallèle immédiat (plus de setTimeout 100ms qui délayait)
+            // On lance les deux, le premier qui revient écrase l'autre si plus précis
+            const launch = async () => {
+                try {
+                    const metarP = fetchMetarNearestTemp(lat, lon).then(metar=>{
+                        if (metar) {
+                            synopLiveCache = metar;
+                            metarLiveCache = metar;
+                            try { localStorage.setItem('metehop_metar_cache_v1', JSON.stringify(metar)); } catch(e){}
+                            try { updateHeroLiveTemp(); renderMfSynopTempCard(); } catch(e){}
+                        }
+                        return metar;
+                    });
+                    const synopP = fetchSynopNearestTemp(lat, lon).then(synop=>{
+                        if (synop) {
+                            // Si METAR déjà arrivé et plus proche, on garde METAR, sinon SYNOP
+                            if (!metarLiveCache || (synop.distKm < (metarLiveCache.distKm||999))) {
+                                synopLiveCache = synop;
+                            }
+                            try { localStorage.setItem('metehop_metar_cache_v1', JSON.stringify(synopLiveCache)); } catch(e){}
+                            try { updateHeroLiveTemp(); renderMfSynopTempCard(); } catch(e){}
+                        }
+                        return synop;
+                    });
+                    await Promise.allSettled([metarP, synopP]);
+                } catch(e) {}
+            };
+            launch();
             return synopLiveCache;
         }
                         function renderMfSynopTempCard() {
@@ -6864,7 +6967,48 @@ function applyDisplayMode() {
                 const badge = isMetar ? 'METAR aéroport - NOAA (fiable)' : ((cache.source||'').includes('SYNOP') ? 'Météo-France SYNOP' : 'Open-Meteo current');
                 const bg = isMetar ? 'rgba(59,110,97,0.12)' : 'rgba(43,108,176,0.10)';
                 if (pillsEl) {
-                    pillsEl.innerHTML=`<span class="snow-pill" style="background: ${bg};"><i class="fa-solid fa-temperature-half"></i> ${tempRounded}°C — ${stationName} à ${distTxt} km</span><span class="snow-pill">${badge}</span>`;
+                    let html = `<span class="snow-pill" style="background: ${bg};"><i class="fa-solid fa-temperature-half"></i> ${tempRounded}°C — ${stationName} à ${distTxt} km</span><span class="snow-pill">${badge}</span>`;
+                    // v148 - nouvelles données : vent, pression, pluie, min/max si dispo
+                    try {
+                        // Vent
+                        let windTxt = null;
+                        if (typeof cache.windSpeedMs === 'number' && isFinite(cache.windSpeedMs)) {
+                            windTxt = `${Math.round(cache.windSpeedMs*3.6)} km/h`;
+                            if (typeof cache.windDir === 'number') windTxt += ` ${Math.round(cache.windDir)}°`;
+                            if (typeof cache.windGustMs === 'number' && cache.windGustMs>0) windTxt += ` (raf ${Math.round(cache.windGustMs*3.6)})`;
+                            html += `<span class="snow-pill"><i class="fa-solid fa-wind"></i> ${windTxt}</span>`;
+                        } else if (typeof cache.windSpeedKt === 'number' && isFinite(cache.windSpeedKt)) {
+                            windTxt = `${Math.round(cache.windSpeedKt*1.852)} km/h`;
+                            if (typeof cache.windDir === 'number') windTxt += ` ${Math.round(cache.windDir)}°`;
+                            if (typeof cache.windGustKt === 'number' && cache.windGustKt>0) windTxt += ` (raf ${Math.round(cache.windGustKt*1.852)})`;
+                            html += `<span class="snow-pill"><i class="fa-solid fa-wind"></i> ${windTxt}</span>`;
+                        }
+                        // Pression
+                        if (typeof cache.pressureHpa === 'number' && isFinite(cache.pressureHpa) && cache.pressureHpa>800 && cache.pressureHpa<1100) {
+                            html += `<span class="snow-pill"><i class="fa-solid fa-gauge-high"></i> ${Math.round(cache.pressureHpa)} hPa</span>`;
+                        }
+                        // Pluie
+                        if (typeof cache.precipMm === 'number' && isFinite(cache.precipMm)) {
+                            if (cache.precipMm>0) html += `<span class="snow-pill"><i class="fa-solid fa-droplet"></i> ${cache.precipMm} mm</span>`;
+                            else if (cache.precipMm===0) html += `<span class="snow-pill"><i class="fa-solid fa-droplet-slash"></i> 0 mm</span>`;
+                        }
+                        // Humidité
+                        if (typeof cache.humidity === 'number' && isFinite(cache.humidity)) {
+                            html += `<span class="snow-pill"><i class="fa-solid fa-droplet"></i> ${Math.round(cache.humidity)}% HR</span>`;
+                        }
+                        // Min/Max
+                        if (typeof cache.minTemp === 'number' && isFinite(cache.minTemp) && typeof cache.maxTemp === 'number' && isFinite(cache.maxTemp)) {
+                            html += `<span class="snow-pill"><i class="fa-solid fa-temperature-arrow-down"></i> min ${Math.round(cache.minTemp*10)/10}° / <i class="fa-solid fa-temperature-arrow-up"></i> max ${Math.round(cache.maxTemp*10)/10}°</span>`;
+                        } else {
+                            if (typeof cache.minTemp === 'number' && isFinite(cache.minTemp)) html += `<span class="snow-pill"><i class="fa-solid fa-temperature-arrow-down"></i> min ${Math.round(cache.minTemp*10)/10}°</span>`;
+                            if (typeof cache.maxTemp === 'number' && isFinite(cache.maxTemp)) html += `<span class="snow-pill"><i class="fa-solid fa-temperature-arrow-up"></i> max ${Math.round(cache.maxTemp*10)/10}°</span>`;
+                        }
+                        // Visibilité (METAR)
+                        if (cache.visib) {
+                            html += `<span class="snow-pill"><i class="fa-solid fa-eye"></i> visib ${cache.visib}</span>`;
+                        }
+                    } catch(e) {}
+                    pillsEl.innerHTML=html;
                 }
                 if (updatedEl) {
                     updatedEl.innerText=`Source : ${cache.source||'METAR'} — ${cache.obsTime||''} — ${stationName} — distance ${distTxt} km`;
