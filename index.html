@@ -3367,7 +3367,7 @@
         <!-- Désaccord entre modèles météo (chantier 2, 12/09/2026) : visible seulement si, sur au
              moins un des 7 prochains jours, les modèles (prévision affichée / ICON / ECMWF /
              AROME / ARPEGE) divergent franchement. Voir loadModelDisagreement() / renderModelDisagreementCard(). -->
-        <div class="model-disagree-card" id="model-disagree-card" data-groups="general" style="display:none;">
+        <div class="model-disagree-card" id="model-disagree-card" data-groups="general" data-level="expert" style="display:none;">
             <div class="model-disagree-header">
                 <i class="fa-solid fa-scale-unbalanced"></i>
                 <div>
@@ -3857,7 +3857,7 @@
         <!-- TABLEAU : STATION DE SKI LA PLUS PROCHE (déplacé depuis l'ancien tableau combiné
              Loisir lors de la création de l'onglet Ski dédié, le 05/09/2026 — ids inchangés pour
              ne rien casser côté JS). -->
-        <div class="table-card" data-groups="ski" style="display:none;">
+        <div class="table-card" data-groups="ski" data-simple-keep="true" style="display:none;">
             <div class="section-header">
                 <div>
                     <div class="card-sage-title"><i class="fa-solid fa-compass" style="color: var(--accent-blue); margin-right: 6px;"></i> Station de ski la plus proche</div>
@@ -3994,7 +3994,7 @@
         </div>
 
         <!-- CARTE STATION DE SKI -->
-        <div class="snow-station-card" id="snow-station-card">
+        <div class="snow-station-card" id="snow-station-card" data-groups="ski" data-simple-keep="true">
             <div class="section-header">
                 <div>
                     <div class="card-sage-title">
@@ -4086,7 +4086,7 @@
              depuis l'onglet Loisir vers le nouvel onglet Ski dédié le 05/09/2026 (ids inchangés
              pour ne rien casser côté JS) ; scindée en deux cartes (ski / plage), voir
              loadWebcamsNearby(). -->
-        <div class="chart-card" data-groups="ski" id="webcam-card" style="display:none;">
+        <div class="chart-card" data-groups="ski" id="webcam-card" data-simple-keep="true" style="display:none;">
             <div class="chart-header">
                 <div>
                     <div class="card-sage-title">
@@ -5062,7 +5062,7 @@
             apiKey: deobfuscateKey('C1xNVgldRhhEVF1TXVYIVE1WCV1GGERUXVMKVghURVw='),
             lat: 45.311,
             lon: 5.961,
-            maxDistanceKm: 10
+            maxDistanceKm: 20
         };
         let nearbyStationInRange = false; // recalculé à chaque changement de lieu (voir fetchWeather)
         let nearbyStationLoaded = false;  // chargée une seule fois par lieu, à la première activation de l'onglet Nature (ex-Hobby)
@@ -6362,7 +6362,7 @@
             marineCard.style.display = (currentGroup === 'leisure' && marineCard.classList.contains('visible')) ? 'block' : 'none';
             // "Station de ski la plus proche" : masquée en mode Simple, même règle que les autres
             // encarts ski non essentiels (voir data-simple-keep dans setGroup).
-            const skiCardAllowed = !(displayMode === 'simple' && currentGroup === 'ski');
+            const skiCardAllowed = true; // modifié 16/09/2026 : visible aussi en mode Simple pour 'Station de ski'
             skiCard.style.display = (currentGroup === 'ski' && skiCardAllowed && skiCard.classList.contains('visible')) ? 'block' : 'none';
         }
 
@@ -12190,19 +12190,121 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
 
             let svg = NEW_OUTFITS[outfitId] || NEW_OUTFITS['doux'];
 
-            const phrases = [];
-            if (tier === 'freezing') phrases.push("🥶 Grand froid : doudoune puffy matelassée !");
-            else if (tier === 'cold') phrases.push("🧥 Froid, manteau chaud !");
-            else if (tier === 'mild') phrases.push("🍂 Doux, veste denim + sac à dos !");
-            else if (tier === 'warm') phrases.push("☀️ Beau, casquette Metehop + lunettes !");
-            else if (tier === 'hot') phrases.push("😎 Chaud, chapeau paille + glacière !");
-            else phrases.push("🥵 Canicule, coquillage nacré + éventail !");
+            // Phrases rigolotes Metehop - édition 16/09/2026
+            const funny = {
+                freezing: [
+                    "🥶 Grand froid : doudoune puffy matelassée !",
+                    "🥶 Il fait si froid que même mes mouches portent un bonnet !",
+                    "❄️ Polaire power : je sors mon slip en laine polaire !",
+                    "🧊 J'ai croassé et ça a fait 'glagla' au lieu de 'croa' !",
+                    "🐸 Mes pattes collent au nénuphar gelé, SOS !"
+                ],
+                cold: [
+                    "🧥 Froid, manteau chaud !",
+                    "🧣 J'ai mis 3 écharpes, je ressemble à une momie chic !",
+                    "☕ Chocolat chaud obligatoire, je trempe mes pattes dedans !",
+                    "🐸 Même ma grenouillère a une grenouillère !",
+                    "🥶 Mode hibernation désactivé, mode frisson activé !"
+                ],
+                mild: [
+                    "🍂 Doux, veste denim + sac à dos !",
+                    "😌 Température parfaite pour buler au soleil sans cuire !",
+                    "🌿 Ni trop chaud ni trop froid, juste grenouille-compatible !",
+                    "🎒 Journée idéale pour aller voir si l'herbe est plus verte ailleurs (spoiler : oui) !",
+                    "🐸 Météo validée par le comité des grenouilles frileuses !"
+                ],
+                warm: [
+                    "☀️ Beau, casquette Metehop + lunettes !",
+                    "😎 On sort les lunettes de soleil, même pour les têtards !",
+                    "🍦 Température à glace - 2 boules minimum, c'est la loi grenouille !",
+                    "🕶️ Bronzage des cuisses de grenouille en cours...",
+                    "🌞 Je sors mon transat nénuphar XXL !"
+                ],
+                hot: [
+                    "😎 Chaud, chapeau paille + glacière !",
+                    "🥵 J'ai mis mon nénuphar à l'ombre, il a pris un coup de soleil !",
+                    "🧊 Mode glaçon : je squatte le frigo, tu viens ?",
+                    "💦 Je transpire même des genoux, et j'ai pas de genoux !",
+                    "🍉 Pastèque party dans la mare, tenue légère exigée !"
+                ],
+                scorching: [
+                    "🥵 Canicule, coquillage nacré + éventail !",
+                    "🔥 Il fait si chaud que je fais cuire mes mouches au soleil !",
+                    "🐸 SOS mare en ébullition, je deviens grenouille bouillie !",
+                    "🌡️  J'ai vu un glaçon se jeter dans l'eau pour se rafraîchir !",
+                    "🏖️ Plan canicule : nénuphar climatisé + brumisateur à moucherons !"
+                ]
+            };
+            const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+            // petite graine basée sur l'heure pour éviter de changer à chaque rendu dans la même seconde
+            const seed = (typeof opts.temp === 'number' ? Math.floor(opts.temp) : 0) + (code || 0) + (new Date().getMinutes() % 5);
+            const rnd = (arr) => arr[seed % arr.length];
 
-            if (isStorm) phrases.push("⛈️ Orage : à l'abri sous le parapluie !");
-            else if (isRain) phrases.push("🌧️ Pluie : ciré jaune brillant !");
-            if (isSnow) phrases.push("❄️ Neige !");
-            if (isFog) phrases.push("🌫️ Brouillard, frontale allumée !");
-            if (isWindy) phrases.push("💨 Vent fort !");
+            const phrases = [];
+            if (tier === 'freezing') phrases.push(rnd(funny.freezing));
+            else if (tier === 'cold') phrases.push(rnd(funny.cold));
+            else if (tier === 'mild') phrases.push(rnd(funny.mild));
+            else if (tier === 'warm') phrases.push(rnd(funny.warm));
+            else if (tier === 'hot') phrases.push(rnd(funny.hot));
+            else phrases.push(rnd(funny.scorching));
+
+            // compléments météo rigolos
+            if (isStorm) {
+                const stormJokes = [
+                    "⛈️ Orage : à l'abri sous le parapluie !",
+                    "⛈️ Zeus fait son karaoké, je me cache sous le nénuphar !",
+                    "⚡ Parapluie en mode paratonnerre, pas fou la grenouille !",
+                    "🌩️ J'ai compté 3 éclairs, j'ai sauté 3 fois plus haut !"
+                ];
+                phrases.push(rnd(stormJokes));
+            } else if (isRain) {
+                const rainJokes = [
+                    "🌧️ Pluie : ciré jaune brillant !",
+                    "🌧️ Douche gratuite, je fais mon shampoing aux algues !",
+                    "☔ Ciré jaune + bottes rouges = grenouille stylée !",
+                    "💧 Enfin une météo où je n'ai pas besoin d'hydrater ma peau !",
+                    "🐸 Pluie = spa naturel, je bulle littéralement !"
+                ];
+                phrases.push(rnd(rainJokes));
+            }
+            if (isSnow) {
+                const snowJokes = [
+                    "❄️ Neige !",
+                    "❄️ Neige : j'ai essayé de faire un bonhomme de têtard, raté !",
+                    "⛄ Mes moufles sont trop petites pour mes palmes !",
+                    "🎿 Ski de grenouille : je glisse sur le ventre, c'est plus rapide !"
+                ];
+                phrases.push(rnd(snowJokes));
+            }
+            if (isFog) {
+                const fogJokes = [
+                    "🌫️ Brouillard, frontale allumée !",
+                    "🌫️ Je joue à cache-cache avec ma propre mare !",
+                    "👓 Même mes lunettes ont de la buée, c'est dire !",
+                    "🔦 Mode lampe torche activé, je cherche mes lunettes dans le brouillard !"
+                ];
+                phrases.push(rnd(fogJokes));
+            }
+            if (isWindy) {
+                const windJokes = [
+                    "💨 Vent fort !",
+                    "💨 Coiffure effet soufflé, même sans cheveux !",
+                    "🪁 J'ai failli m'envoler, accroché à mon nénuphar !",
+                    "🌬️ Brushing gratuit pour grenouille, merci Éole !"
+                ];
+                phrases.push(rnd(windJokes));
+            }
+            if (isSunny && strongUV) {
+                phrases.push("🧴 Crème solaire indice nénuphar 50, sinon je deviens grenouille rouge !");
+            }
+            if (isNight) {
+                const nightJokes = [
+                    "🌙 Team grenouille de nuit, concert de coassements à 22h !",
+                    "✨ Les étoiles brillent, ma mare aussi !"
+                ];
+                // 50% chance d'ajouter une blague de nuit
+                if (seed % 2 === 0) phrases.push(rnd(nightJokes));
+            }
 
             return { svg, message: phrases.join(' '), tier, isRain, isSnow, isStorm, isWindy, isFog };
         }
