@@ -360,6 +360,14 @@
             margin-top: -2px;
             white-space: nowrap;
         }
+        /* Temp live ITENCI3 en mode Expert (16/09/2026) : même taille que Ressenti, en vert */
+        .hero-live-temp {
+            font-size: 0.68rem;
+            font-weight: 700;
+            color: var(--accent-green);
+            margin-top: 2px;
+            white-space: nowrap;
+        }
         .hero-temp {
             font-size: 3.6rem;
             font-weight: 800;
@@ -2807,6 +2815,7 @@
                             <div class="hero-temp" id="hero-temp-val">--°C</div>
                             <span class="hero-microclimate-badge" id="hero-microclimate-badge" style="display:none;"></span>
                             <span class="hero-feels-like" id="hero-feels-val">Ressenti --°</span>
+                            <span class="hero-live-temp" id="hero-live-temp" style="display:none;"></span>
                         </div>
                         <div class="hero-condition">
                             <span class="hero-condition-title" id="hero-cond-title">--</span>
@@ -3170,7 +3179,7 @@
         <!-- Graphique Astronomie — déplacée ici le 09/09/2026 (réorganisation mode expert), juste sous
              Pollution & pollens ; auparavant dans l'onglet Hobby (astro+jardinage), désormais rétractable
              comme Pollution (voir toggleCardCollapse()). -->
-        <div class="chart-card" data-groups="general" id="astro-card">
+        <div class="chart-card" data-groups="general" data-level="expert" id="astro-card">
             <div class="chart-header-row">
                 <div class="chart-header" style="flex:1; margin-bottom:0;">
                     <div>
@@ -5062,9 +5071,14 @@
             apiKey: deobfuscateKey('C1xNVgldRhhEVF1TXVYIVE1WCV1GGERUXVMKVghURVw='),
             lat: 45.311,
             lon: 5.961,
-            maxDistanceKm: 20
+            alt: 232,
+            maxDistanceKm: 10,
+            maxAltDiffM: 100
         };
         let nearbyStationInRange = false; // recalculé à chaque changement de lieu (voir fetchWeather)
+        let nearbyStationLiveTemp = null; // température live ITENCI3 pour le Hero (mode Expert)
+        let nearbyStationLiveTime = null; // timestamp du relevé
+        let nearbyStationRefreshInterval = null; // interval de rafraîchissement auto
         let nearbyStationLoaded = false;  // chargée une seule fois par lieu, à la première activation de l'onglet Nature (ex-Hobby)
         let pioupiouStationLoaded = false;  // idem pour la balise Pioupiou la plus proche (même carte, même onglet)
         // idem pour la balise Pioupiou la plus proche (même carte, même onglet)
@@ -5522,7 +5536,46 @@
         // synchronise les quelques éléments qui ne passent pas par ce mécanisme (le libellé du
         // footer). L'encart "Effets locaux" (micro-climat) est géré par setGroup via son attribut
         // data-groups="general" : il reste visible en mode Simple depuis le 12/09/2026.
-        function applyDisplayMode() {
+        
+        // ---- Temp live ITENCI3 dans le Hero (mode Expert, <10km + <100m alt) - ajout 16/09/2026 ----
+        function updateHeroLiveTemp() {
+            const el = document.getElementById('hero-live-temp');
+            if (!el) return;
+            const isExpert = (typeof displayMode !== 'undefined' && displayMode === 'expert');
+            if (!isExpert || !nearbyStationInRange || typeof nearbyStationLiveTemp !== 'number' || !isFinite(nearbyStationLiveTemp)) {
+                el.style.display = 'none';
+                el.innerText = '';
+                return;
+            }
+            try {
+                const curAlt = (weatherData && typeof weatherData.elevation === 'number') ? weatherData.elevation : null;
+                const stationAlt = (typeof NEARBY_STATION.alt === 'number') ? NEARBY_STATION.alt : null;
+                if (curAlt !== null && stationAlt !== null && Math.abs(curAlt - stationAlt) > (NEARBY_STATION.maxAltDiffM || 100)) {
+                    el.style.display = 'none';
+                    el.innerText = '';
+                    return;
+                }
+            } catch(e) {}
+            el.innerText = `Temp. live : ${Math.round(nearbyStationLiveTemp)}°C`;
+            el.style.display = '';
+        }
+
+        function startNearbyStationAutoRefresh() {
+            if (nearbyStationRefreshInterval) { clearInterval(nearbyStationRefreshInterval); nearbyStationRefreshInterval = null; }
+            if (!nearbyStationInRange) return;
+            // refresh toutes les 2 min si à proximité
+            nearbyStationRefreshInterval = setInterval(() => {
+                if (nearbyStationInRange && (typeof displayMode === 'undefined' || displayMode === 'expert')) {
+                    loadNearbyStation({silent: true}).catch(()=>{});
+                }
+            }, 2 * 60 * 1000);
+        }
+
+        function stopNearbyStationAutoRefresh() {
+            if (nearbyStationRefreshInterval) { clearInterval(nearbyStationRefreshInterval); nearbyStationRefreshInterval = null; }
+        }
+
+function applyDisplayMode() {
             document.body.classList.toggle('simple-mode', displayMode === 'simple');
             document.querySelectorAll('.group-tab').forEach(tab => {
                 const hide = (displayMode === 'simple' && SIMPLE_MODE_HIDDEN_TABS.includes(tab.dataset.group));
@@ -5543,6 +5596,8 @@
             }
             const footerLabel = document.getElementById('display-mode-footer-label');
             if (footerLabel) footerLabel.innerText = (displayMode === 'simple') ? 'Mode : Simple' : 'Mode : Expert';
+            try { updateHeroLiveTemp(); } catch(e) {}
+            if (displayMode === 'expert' && nearbyStationInRange) { try { loadNearbyStation({silent: true}).catch(()=>{}); startNearbyStationAutoRefresh(); } catch(e){} } else { try { stopNearbyStationAutoRefresh(); } catch(e){} }
         }
 
         function chooseDisplayMode(mode) {
@@ -6415,7 +6470,8 @@
         // Underground n'autorise pas les appels cross-origin depuis un site tiers (CORS), la requête
         // échouera et le message d'indisponibilité honnête ci-dessous s'affichera — jamais de valeur
         // inventée en remplacement.
-        async function loadNearbyStation() {
+        async function loadNearbyStation(options = {}) {
+            const silent = !!options.silent; // silent = true pour refresh Hero sans toucher la carte Nature
             const mySeq = weatherRequestSeq;
             const loadingEl = document.getElementById('nearby-station-loading');
             const errorEl = document.getElementById('nearby-station-error');
@@ -6424,14 +6480,16 @@
             const pillsEl = document.getElementById('nearby-station-pills');
             const updatedEl = document.getElementById('nearby-station-updated');
 
-            loadingEl.style.display = '';
-            errorEl.style.display = 'none';
-            contentEl.style.display = 'none';
+            if (!silent) {
+                if (loadingEl) loadingEl.style.display = '';
+                if (errorEl) errorEl.style.display = 'none';
+                if (contentEl) contentEl.style.display = 'none';
+            }
 
             try {
                 const url = `https://api.weather.com/v2/pws/observations/current?stationId=${NEARBY_STATION.id}&format=json&units=m&apiKey=${NEARBY_STATION.apiKey}`;
-                const res = await fetchWithTimeout(url, { timeout: 7000 });
-                if (mySeq !== weatherRequestSeq) return; // lieu changé pendant le chargement
+                const res = await fetchWithTimeout(url, { timeout: 5000 });
+                if (mySeq !== weatherRequestSeq) return;
                 if (!res.ok) throw new Error('http ' + res.status);
                 const data = await res.json();
                 if (mySeq !== weatherRequestSeq) return;
@@ -6439,6 +6497,16 @@
                 if (!obs || !obs.metric) throw new Error('réponse vide');
 
                 const m = obs.metric;
+                // MAJ Hero live
+                if (typeof m.temp === 'number') {
+                    nearbyStationLiveTemp = m.temp;
+                    nearbyStationLiveTime = obs.obsTimeLocal || new Date().toISOString();
+                    try { updateHeroLiveTemp(); } catch(e) {}
+                    try { logItenci3Calibration(m.temp); } catch (e) {}
+                }
+
+                if (silent) return; // pas besoin de remplir la carte Nature
+
                 const pills = [];
                 if (typeof m.temp === 'number') pills.push(`<div class="station-pill"><i class="fa-solid fa-temperature-half"></i> ${Math.round(m.temp)}°C</div>`);
                 if (typeof obs.humidity === 'number') pills.push(`<div class="station-pill"><i class="fa-solid fa-droplet"></i> ${Math.round(obs.humidity)}%</div>`);
@@ -6452,19 +6520,21 @@
 
                 if (pills.length === 0) throw new Error('aucune mesure exploitable');
 
-                pillsEl.innerHTML = pills.join('');
-                updatedEl.innerText = obs.obsTimeLocal ? `Relevé du ${obs.obsTimeLocal}` : '';
+                if (pillsEl) pillsEl.innerHTML = pills.join('');
+                if (updatedEl) updatedEl.innerText = obs.obsTimeLocal ? `Relevé du ${obs.obsTimeLocal}` : '';
 
-                loadingEl.style.display = 'none';
-                contentEl.style.display = '';
-                if (typeof m.temp === 'number') { try { logItenci3Calibration(m.temp); } catch (e) {} }
+                if (loadingEl) loadingEl.style.display = 'none';
+                if (contentEl) contentEl.style.display = '';
             } catch (e) {
                 console.error('Erreur station météo à proximité (Tencin):', e);
-                loadingEl.style.display = 'none';
-                errorTextEl.innerText = "Relevés indisponibles pour le moment (station hors ligne, ou requête bloquée depuis le navigateur).";
-                errorEl.style.display = '';
+                if (!silent) {
+                    if (loadingEl) loadingEl.style.display = 'none';
+                    if (errorTextEl) errorTextEl.innerText = "Relevés indisponibles pour le moment (station hors ligne, ou requête bloquée depuis le navigateur).";
+                    if (errorEl) errorEl.style.display = '';
+                }
             }
         }
+
 
         // ---- Calibration micro-climat via ITENCI3 (13/09/2026) ----
         // Chaque relevé réussi de la station de Tencin est comparé à la température affichée
@@ -6808,14 +6878,37 @@ render16DayTable();
                 // moins de NEARBY_STATION.maxDistanceKm ; rechargée seulement si l'onglet Eau/Jardinage
                 // est déjà actif (même logique de chargement différé que Été/Hiver et Eau ci-dessus).
                 nearbyStationInRange = calculateDistance(lat, lon, NEARBY_STATION.lat, NEARBY_STATION.lon) <= NEARBY_STATION.maxDistanceKm;
+                // Condition altitude <100m (16/09/2026)
+                try {
+                    const curAlt = (weatherData && typeof weatherData.elevation === 'number') ? weatherData.elevation : null;
+                    const stationAlt = (typeof NEARBY_STATION.alt === 'number') ? NEARBY_STATION.alt : null;
+                    if (curAlt !== null && stationAlt !== null) {
+                        const altDiff = Math.abs(curAlt - stationAlt);
+                        if (altDiff > (NEARBY_STATION.maxAltDiffM || 100)) nearbyStationInRange = false;
+                    }
+                } catch(e) {}
+                if (!nearbyStationInRange) {
+                    nearbyStationLiveTemp = null;
+                    stopNearbyStationAutoRefresh();
+                }
                 document.getElementById('nearby-station-card').style.display = nearbyStationInRange ? '' : 'none';
                 if (nearbyStationInRange) {
-                    document.getElementById('nearby-station-loading').style.display = '';
-                    document.getElementById('nearby-station-error').style.display = 'none';
-                    document.getElementById('nearby-station-content').style.display = 'none';
+                    const loadingEl = document.getElementById('nearby-station-loading');
+                    const errEl = document.getElementById('nearby-station-error');
+                    const contEl = document.getElementById('nearby-station-content');
+                    if (loadingEl) loadingEl.style.display = '';
+                    if (errEl) errEl.style.display = 'none';
+                    if (contEl) contEl.style.display = 'none';
+                    // Chargement immédiat pour le Hero (même si onglet eau pas actif)
+                    loadNearbyStation({silent: currentGroup !== 'eau'}).catch(()=>{});
+                    startNearbyStationAutoRefresh();
                 }
                 nearbyStationLoaded = (currentGroup === 'eau' && nearbyStationInRange);
-                if (nearbyStationLoaded) loadNearbyStation();
+                if (nearbyStationLoaded) {
+                    // déjà chargé en mode silent ci-dessus, on recharge en mode complet pour remplir la carte
+                    if (currentGroup === 'eau') loadNearbyStation({silent: false}).catch(()=>{});
+                }
+                try { updateHeroLiveTemp(); } catch(e) {}
                 // Balise Pioupiou/OpenWindMap la plus proche : même carte/onglet que la station Tencin
                 // ci-dessus (fusionnées dans la même zone), toujours recherchée quel que soit le lieu
                 // (avertissement géré dans
@@ -12236,7 +12329,6 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 ]
             };
             const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-            // petite graine basée sur l'heure pour éviter de changer à chaque rendu dans la même seconde
             const seed = (typeof opts.temp === 'number' ? Math.floor(opts.temp) : 0) + (code || 0) + (new Date().getMinutes() % 5);
             const rnd = (arr) => arr[seed % arr.length];
 
@@ -12248,7 +12340,6 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
             else if (tier === 'hot') phrases.push(rnd(funny.hot));
             else phrases.push(rnd(funny.scorching));
 
-            // compléments météo rigolos
             if (isStorm) {
                 const stormJokes = [
                     "⛈️ Orage : à l'abri sous le parapluie !",
@@ -12302,7 +12393,6 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                     "🌙 Team grenouille de nuit, concert de coassements à 22h !",
                     "✨ Les étoiles brillent, ma mare aussi !"
                 ];
-                // 50% chance d'ajouter une blague de nuit
                 if (seed % 2 === 0) phrases.push(rnd(nightJokes));
             }
 
@@ -12563,6 +12653,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
             } else {
                 feelsEl.style.display = 'none';
             }
+            try { updateHeroLiveTemp(); } catch(e) {}
 
             // Point de rosée en sous-titre (donnée déjà chargée, jamais affichée ailleurs dans le bandeau).
             const dewVal = weatherData.hourly.dew_point_2m ? weatherData.hourly.dew_point_2m[currentHourIdx] : undefined;
