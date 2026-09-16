@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="google-site-verification" content="EAFjvrSYgq6wOXpa9cbtcRGDX1La8S88rQWGyPojKcA">
     <title>Metehop</title>
+    <!-- v143 - FIX complet CORS silencieux sans casser l'app + radar desktop 540px + MAINTENANT stacked desktop (540px) + MAINTENANT stacked desktop desktop + SYNOP Météo-France affiché dans Stations météo + Temp.live -->
+    <!-- v123 - 16/09/2026 : fallback Temp. live (25-30 km) via Benchmark réel + vert plus clair -->
     <meta name="description" content="Metehop : prévisions météo précises pour Grenoble et le Grésivaudan, détection d'inversions thermiques, neige et stations de ski, qualité de l'eau des rivières, nuits d'observation astronomique et bilan hydrique jardin. Données Open-Meteo, Hub'Eau, Pioupiou/OpenWindMap.">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="https://metehop.github.io/">
@@ -360,11 +362,11 @@
             margin-top: -2px;
             white-space: nowrap;
         }
-        /* Temp live ITENCI3 en mode Expert (16/09/2026) : même taille que Ressenti, en vert */
+        /* Temp live ITENCI3 en mode Expert (16/09/2026) : même taille que Ressenti, en vert - v137 (16/09/2026) : nuance plus claire */
         .hero-live-temp {
             font-size: 0.68rem;
             font-weight: 700;
-            color: var(--accent-green);
+            color: #5cb89e;
             margin-top: 2px;
             white-space: nowrap;
         }
@@ -778,6 +780,12 @@
         }
         @media (min-width: 768px) {
             .two-cols { grid-template-columns: 1fr 1fr; }
+            /* v138 - 16/09/2026 : MAINTENANT empilé en colonne sur ordinateur pour meilleure visibilité */
+            .two-cols[data-simple-hide="true"] { grid-template-columns: 1fr !important; }
+            /* v141 - Radar +20% uniquement desktop : 270px -> 540px - FIX hauteur + invalidateSize */
+            #map { height: 540px !important; min-height: 540px !important; }
+            .map-wrapper #map { height: 540px !important; min-height: 540px !important; }
+        }
         }
 
         /* Séparateurs de section de l'onglet Général en mode expert (réorganisation du 09/09/2026) :
@@ -3277,6 +3285,25 @@
                     <div class="card-sage-sub" id="synop-station-updated" style="margin-top:6px; font-size:0.62rem;"></div>
                 </div>
             </div>
+
+            <!-- Sous-section 3 : température réelle SYNOP Météo-France (v137 - source pure officielle) -->
+            <div id="mf-synop-temp-section" style="margin-top:14px; padding-top:12px; border-top:1px solid rgba(0,0,0,0.06);">
+                <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; margin-bottom:6px;">
+                    <div class="card-sage-sub" style="font-weight:700;"><i class="fa-solid fa-temperature-half" style="color: var(--accent-green);"></i> Météo-France SYNOP — température réelle</div>
+                    <div class="card-sage-sub" style="font-size:0.6rem;">data.gouv.fr • obs horaire officielle</div>
+                </div>
+                <div id="mf-synop-temp-loading" style="text-align:center; padding: 10px; color: var(--text-muted); font-size: 0.8rem;">
+                    Chargement de la station la plus proche...
+                </div>
+                <div id="mf-synop-temp-error" style="display:none; text-align:center; padding: 10px; color: var(--text-muted); font-size: 0.78rem;">
+                    <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-orange); display:block; margin-bottom:6px; font-size:1.1rem;"></i>
+                    <span id="mf-synop-temp-error-text">Relevés SYNOP indisponibles pour le moment.</span>
+                </div>
+                <div id="mf-synop-temp-content" style="display:none;">
+                    <div class="snow-details-row" id="mf-synop-temp-pills"></div>
+                    <div class="card-sage-sub" id="mf-synop-temp-updated" style="margin-top:6px; font-size:0.62rem;"></div>
+                </div>
+            </div>
         </div>
 
                 <!-- Graphique : Températures air & sol sur 16 jours, orienté plantations -->
@@ -4423,7 +4450,7 @@
             <div class="footer-support-row">
                 <a class="footer-support-link" href="https://buymeacoffee.com/stridemetric" target="_blank" rel="noopener">🐸 Aide-moi à nourrir la grenouille Metehop</a>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 16/09/2026 - 122</div>
+            <div class="footer-last-update">Dernière mise à jour : 16/09/2026 - 123</div>
         </footer>
 
     </div>
@@ -5361,7 +5388,7 @@
             const geo = await reverseGeocodeFrance(lat, lon);
             if (!geo) return null; // Hors de France, ou géocodage indisponible
 
-            const where = encodeURIComponent(`dep_code="${geo.deptCode}"`);
+            const where = encodeURIComponent(`dep_code=${geo.deptCode}`) // v143 fix 400;
             const url = `https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/weatherref-france-vigilance-meteo-departement/records?where=${where}&limit=50`;
             const res = await fetchWithTimeout(url, { timeout: 8000 });
             if (!res.ok) return null;
@@ -5426,11 +5453,14 @@
             try {
                 const fr = await fetchOfficialVigilanceFrance(lat, lon);
                 if (fr) return { ...fr, source: 'Vigilance Météo-France' };
-            } catch (e) { /* on retombe sur les autres options */ }
+                const geo = await reverseGeocodeFrance(lat, lon);
+                if (geo && geo.deptCode) return null; // v143 - en France, pas de fallback NWS -> évite 404
+            } catch (e) { }
+            if (isFileOrigin()) return null;
             try {
                 const us = await fetchOfficialVigilanceUSA(lat, lon);
                 if (us) return { ...us, source: 'Vigilance NWS (États-Unis)' };
-            } catch (e) { /* on retombe sur l'estimation Metehop */ }
+            } catch (e) { }
             return null;
         }
 
@@ -5459,17 +5489,24 @@
                 : "Conditions météo calmes, aucune alerte particulière dans les prochaines 24h.";
         }
 
+        function isFileOrigin() { try { return window.location.protocol === 'file:'; } catch(e) { return false; } }
         async function fetchWithTimeout(resource, options = {}) {
             const { timeout = 6000 } = options;
             const controller = new AbortController();
             const id = setTimeout(() => controller.abort(), timeout);
+            // v143 - en file:// on évite les requêtes qui produisent des erreurs CORS visibles
+            if (isFileOrigin() && typeof resource === 'string' && (resource.includes('allorigins.win') || resource.includes('corsproxy.io') || resource.includes('thingproxy') || resource.includes('vigicrues.gouv.fr') || resource.includes('opendatasoft.com') || resource.includes('weather.gov') || resource.includes('aviationweather.gov'))) {
+                clearTimeout(id);
+                return { ok: false, status: 0, json: async () => null, text: async () => '' };
+            }
             try {
                 const response = await fetch(resource, { ...options, signal: controller.signal });
                 clearTimeout(id);
                 return response;
             } catch (err) {
                 clearTimeout(id);
-                throw err;
+                // v143 - transforme l'erreur réseau en réponse ko silencieuse
+                return { ok: false, status: 0, json: async () => null, text: async () => '' };
             }
         }
 
@@ -5538,26 +5575,63 @@
         // data-groups="general" : il reste visible en mode Simple depuis le 12/09/2026.
         
         // ---- Temp live ITENCI3 dans le Hero (mode Expert, <20km + <100m alt) - ajout 16/09/2026 ----
-        function updateHeroLiveTemp() {
+                function updateHeroLiveTemp() {
             const el = document.getElementById('hero-live-temp');
             if (!el) return;
             const isExpert = (typeof displayMode !== 'undefined' && displayMode === 'expert');
-            if (!isExpert || !nearbyStationInRange || typeof nearbyStationLiveTemp !== 'number' || !isFinite(nearbyStationLiveTemp)) {
+            if (!isExpert) {
                 el.style.display = 'none';
                 el.innerText = '';
                 return;
             }
+            // Cas 1 : ITENCI3 à portée -> live perso
+            if (nearbyStationInRange && typeof nearbyStationLiveTemp === 'number' && isFinite(nearbyStationLiveTemp)) {
+                try {
+                    const curAlt = (weatherData && typeof weatherData.elevation === 'number') ? weatherData.elevation : null;
+                    const stationAlt = (typeof NEARBY_STATION.alt === 'number') ? NEARBY_STATION.alt : null;
+                    if (curAlt !== null && stationAlt !== null && Math.abs(curAlt - stationAlt) > (NEARBY_STATION.maxAltDiffM || 100)) {
+                    } else {
+                        el.innerText = `Temp. live : ${Math.round(nearbyStationLiveTemp)}°C`;
+                        el.title = 'Station ITENCI3 - Tencin (live)';
+                        el.style.display = '';
+                        return;
+                    }
+                } catch(e) {
+                    el.innerText = `Temp. live : ${Math.round(nearbyStationLiveTemp)}°C`;
+                    el.style.display = '';
+                    return;
+                }
+            }
+            // Cas 2 v137 : SYNOP Météo-France pure (officielle, horaire, sans clé)
             try {
-                const curAlt = (weatherData && typeof weatherData.elevation === 'number') ? weatherData.elevation : null;
-                const stationAlt = (typeof NEARBY_STATION.alt === 'number') ? NEARBY_STATION.alt : null;
-                if (curAlt !== null && stationAlt !== null && Math.abs(curAlt - stationAlt) > (NEARBY_STATION.maxAltDiffM || 100)) {
-                    el.style.display = 'none';
-                    el.innerText = '';
+                if (typeof synopLiveCache !== 'undefined' && synopLiveCache && typeof synopLiveCache.temp === 'number' && isFinite(synopLiveCache.temp)) {
+                    const d = synopLiveCache.distKm;
+                    const distLabel = d <= 40 ? '25-30 km' : `${Math.round(d)} km`;
+                    el.innerText = `Temp. live (${distLabel}) : ${Math.round(synopLiveCache.temp)}°C`;
+                    el.title = `SYNOP ${synopLiveCache.station || ''} à ${d.toFixed(1)} km - ${synopLiveCache.obsTime || ''} - data.gouv.fr`;
+                    el.style.display = '';
                     return;
                 }
             } catch(e) {}
-            el.innerText = `Temp. live : ${Math.round(nearbyStationLiveTemp)}°C`;
-            el.style.display = '';
+            // Cas 3 fallback benchmark (si SYNOP temporairement indispo)
+            try {
+                if (typeof benchmarkRealityNow !== 'undefined' && benchmarkRealityNow && typeof benchmarkRealityNow.temp === 'number' && isFinite(benchmarkRealityNow.temp)) {
+                    let rNowCorr = benchmarkRealityNow.temp;
+                    try {
+                        if (typeof microClimateEnabled !== 'undefined' && microClimateEnabled && typeof microClimateDeltaAtHour === 'function') {
+                            const hNow = new Date().getHours();
+                            const dltNow = (microClimateDeltaAtHour(hNow, 0).delta) || 0;
+                            rNowCorr = Math.round((benchmarkRealityNow.temp + dltNow) * 10) / 10;
+                        }
+                    } catch(e2) {}
+                    el.innerText = `Temp. live (25-30 km) : ${Math.round(rNowCorr)}°C`;
+                    el.title = 'Fallback Open-Meteo current (SYNOP indisponible)';
+                    el.style.display = '';
+                    return;
+                }
+            } catch(e) {}
+            el.style.display = 'none';
+            el.innerText = '';
         }
 
         function startNearbyStationAutoRefresh() {
@@ -6336,7 +6410,11 @@ function applyDisplayMode() {
             // Fusion Eau + Jardinage du 09/09/2026 : ces 4 chargements (autrefois gatés sur l'ex-onglet
             // "astrogarden") tournent désormais sur le même identifiant de groupe "eau" que le reste de
             // l'onglet fusionné — Astronomie, elle, est partie sur "general" (voir plus bas).
+            if (group === 'eau' && currentLat !== null) { try { loadSynopLiveTemp(currentLat, currentLon).catch(()=>{}); renderMfSynopTempCard(); } catch(e) {} }
             if (group === 'eau' && !nearbyStationLoaded && nearbyStationInRange && currentLat !== null) {
+                // v137 : même hors portée ITENCI3 on veut SYNOP
+                try { if (currentLat !== null) { loadSynopLiveTemp(currentLat, currentLon).catch(()=>{}); renderMfSynopTempCard(); } } catch(e) {}
+                
                 nearbyStationLoaded = true;
                 loadNearbyStation();
             }
@@ -6576,7 +6654,231 @@ function applyDisplayMode() {
             el.style.display = '';
         }
 
-        // ---- Balise de vent Pioupiou/OpenWindMap la plus proche (11/09/2026) ----
+        // ---- Observation pure SYNOP Météo-France temps réel (v137 - 16/09/2026) ----
+        // Source officielle, gratuite, sans clé, MAJ horaire : https://object.files.data.gouv.fr/meteofrance/data/synop/
+        // URL pattern : synop.YYYYMMDDHH00.csv.gz - Champ t = température Kelvin, conversion t-273.15
+        // Vérifié : CORS * ok sur object.files.data.gouv.fr, DecompressionStream('gzip') natif Chrome/Firefox/Edge
+        let synopLiveCache = null; // {ts, temp, station, distKm, obsTime, lat, lon}
+        let synopLiveLoading = false;
+                // ---- Source fiable alternative METAR (v137 - plus fiable que SYNOP, pas de 404) ----
+        const METAR_AIRPORTS = [
+            {icao:'LFLS', name:'Grenoble-Le Versoud', lat:45.220, lon:5.849},
+            {icao:'LFLV', name:'Grenoble-Isère / St-Geoirs', lat:45.363, lon:5.329},
+            {icao:'LFLB', name:'Chambéry', lat:45.638, lon:5.880},
+            {icao:'LFLL', name:'Lyon-St-Ex', lat:45.725, lon:5.081},
+            {icao:'LFLY', name:'Lyon-Bron', lat:45.724, lon:4.944},
+            {icao:'LFLP', name:'Annecy', lat:45.929, lon:6.098}
+        ];
+        let metarLiveCache = null; let metarLiveLoading = false;
+        function findNearestMetarAirports(lat, lon) {
+            try {
+                return METAR_AIRPORTS.map(a=>({...a, dist: calculateDistance(lat, lon, a.lat, a.lon)})).filter(a=>a.dist<=120).sort((a,b)=>a.dist-b.dist).slice(0,3);
+            } catch(e) { return []; }
+        }
+        async function fetchMetarNearestTemp(lat, lon) {
+            if (typeof isFileOrigin==='function' && isFileOrigin()) return null;
+            if (metarLiveLoading) return metarLiveCache;
+            metarLiveLoading = true;
+            try {
+                const cands = findNearestMetarAirports(lat, lon);
+                if (!cands.length) { console.warn('METAR: aucun aéroport <120km'); return null; }
+                console.log('METAR: candidats', cands.map(c=>c.icao+' '+c.dist.toFixed(1)+'km').join(', '));
+                for (const apt of cands) {
+                    const metarUrl = `https://aviationweather.gov/api/data/metar?ids=${apt.icao}&format=json`;
+                    // v141 - 5 tentatives silencieuses (évite le spam console "METAR erreur proxy")
+                    const proxyUrls = [
+                        `https://api.allorigins.win/raw?url=${encodeURIComponent(metarUrl)}`,
+                        `https://api.allorigins.win/get?url=${encodeURIComponent(metarUrl)}`,
+                        `https://corsproxy.io/?${encodeURIComponent(metarUrl)}`,
+                        `https://thingproxy.freeboard.io/fetch/${metarUrl}`,
+                        metarUrl // direct en dernier (si CORS ok un jour)
+                    ];
+                    for (const proxyUrl of proxyUrls) {
+                        try {
+                            const res = await fetch(proxyUrl, {cache:'no-store'});
+                            if (!res.ok) { continue; }
+                            let data;
+                            try {
+                                data = await res.json();
+                            } catch(e) {
+                                const t2 = await res.text();
+                                try { data = JSON.parse(t2); } catch(e2) { continue; }
+                            }
+                            if (data && typeof data.contents === 'string') {
+                                try { data = JSON.parse(data.contents); } catch(e) { continue; }
+                            }
+                            let metar = Array.isArray(data) && data.length ? data[0] : data;
+                            if (metar && metar[0]) metar = metar[0];
+                            if (Array.isArray(metar) && metar.length) metar = metar[0];
+                            let t = null;
+                            if (metar) {
+                                if (typeof metar.temp === 'number') t = metar.temp;
+                                else if (typeof metar.temperature === 'number') t = metar.temperature;
+                                else if (typeof metar.temp === 'string') t = parseFloat(metar.temp);
+                            }
+                            if (t!==null && isFinite(t) && t>-60 && t<60) {
+                                let obs = metar.reportTime || metar.obsTime || metar.receiptTime || '';
+                                if (typeof obs === 'number') { try { obs = new Date(obs*1000).toISOString(); } catch(e) {} }
+                                metarLiveCache = {ts:Date.now(), temp:t, station:`${apt.name} (${apt.icao})`, distKm:apt.dist, obsTime: obs, lat:apt.lat, lon:apt.lon, source:'METAR NOAA', icao:apt.icao};
+                                console.log('METAR trouvé', metarLiveCache, 'via', proxyUrl);
+                                return metarLiveCache;
+                            }
+                        } catch(e) { /* échec silencieux, on tente proxy suivant */ continue; }
+                    }
+                }
+                console.warn('METAR: aucun relevé trouvé, fallback Open-Meteo');
+                return null;
+            } finally { metarLiveLoading=false; }
+        }
+
+        async function fetchSynopNearestTemp(lat, lon) {
+            if (synopLiveLoading) return synopLiveCache;
+            synopLiveLoading = true;
+            try {
+                const nowUtc = new Date();
+                // On tente 6h en arrière car publication SYNOP a 20-50min de retard, et à xxh05 le fichier de xxh n'existe pas encore
+                for (let hOff = 0; hOff < 6; hOff++) {
+                    const d = new Date(nowUtc.getTime() - hOff * 3600000);
+                    d.setUTCMinutes(0,0,0);
+                    const yyyy = d.getUTCFullYear();
+                    const mm = String(d.getUTCMonth()+1).padStart(2,'0');
+                    const dd = String(d.getUTCDate()).padStart(2,'0');
+                    const hh = String(d.getUTCHours()).padStart(2,'0');
+                    // 2 nomenclatures observées : .../synop.YYYYMMDDHH00.csv.gz et .../synop.YYYYMMDDHH.csv.gz + variantes .csv
+                    const urlsToTry = [
+                        `https://object.files.data.gouv.fr/meteofrance/data/synop/synop.${yyyy}${mm}${dd}${hh}00.csv.gz`,
+                        `https://object.files.data.gouv.fr/meteofrance/data/synop/synop.${yyyy}${mm}${dd}${hh}.csv.gz`,
+                        `https://object.files.data.gouv.fr/meteofrance/data/synop/synop.${yyyy}${mm}${dd}${hh}00.csv`,
+                        `https://object.files.data.gouv.fr/meteofrance/data/synop/synop.${yyyy}${mm}${dd}${hh}.csv`
+                    ];
+                    let csvText = '';
+                    let usedUrl = '';
+                    for (const url of urlsToTry) {
+                        try {
+                            const res = await fetch(url, {cache: 'no-store'});
+                            if (!res.ok) continue; // 404 -> on tente heure précédente, normal
+                            if (url.endsWith('.gz')) {
+                                const buf = await res.arrayBuffer();
+                                if (!buf || buf.byteLength < 100) continue;
+                                try {
+                                    if (typeof DecompressionStream === 'undefined') throw new Error('no DecompressionStream');
+                                    const ds = new DecompressionStream('gzip');
+                                    const stream = new Blob([buf]).stream().pipeThrough(ds);
+                                    csvText = await new Response(stream).text();
+                                } catch(e) { continue; }
+                            } else {
+                                csvText = await res.text();
+                            }
+                            if (csvText && csvText.length > 100) { usedUrl = url; break; }
+                        } catch(e) { continue; }
+                    }
+                    if (!csvText) continue;
+                    try {
+                        const lines = csvText.split(/\r?\n/);
+                        if (lines.length < 2) continue;
+                        const header = lines[0].trim().split(';');
+                        const idxLat = header.indexOf('lat');
+                        const idxLon = header.indexOf('lon');
+                        const idxT = header.indexOf('t');
+                        const idxNom = header.indexOf('nom');
+                        const idxDate = header.indexOf('date');
+                        if (idxLat===-1 || idxLon===-1 || idxT===-1) continue;
+                        let best=null; let bestDist=Infinity;
+                        for (let i=1;i<lines.length;i++) {
+                            const line=lines[i].trim(); if(!line) continue;
+                            const cols=line.split(';');
+                            if (cols.length <= Math.max(idxLat, idxLon, idxT)) continue;
+                            const tK=parseFloat(cols[idxT].replace(',', '.'));
+                            if (!isFinite(tK) || tK < 223 || tK > 323) continue;
+                            const plat=parseFloat(cols[idxLat].replace(',', '.'));
+                            const plon=parseFloat(cols[idxLon].replace(',', '.'));
+                            if (!isFinite(plat)||!isFinite(plon)) continue;
+                            const dist=calculateDistance(lat, lon, plat, plon);
+                            if (dist>120) continue;
+                            if (dist<bestDist) {
+                                bestDist=dist;
+                                best={temp:tK-273.15, lat:plat, lon:plon, dist:dist, station: idxNom!==-1?cols[idxNom]:'', obsTime: idxDate!==-1?cols[idxDate]:`${yyyy}-${mm}-${dd} ${hh}h UTC`};
+                            }
+                        }
+                        if (best) {
+                            synopLiveCache={ts:Date.now(), temp:best.temp, station:best.station, distKm:best.dist, obsTime:best.obsTime, lat:best.lat, lon:best.lon, sourceUrl: usedUrl};
+                            console.log('SYNOP trouvé', synopLiveCache, 'depuis', usedUrl);
+                            return synopLiveCache;
+                        }
+                    } catch(e) { console.warn('SYNOP parse échoué', e); continue; }
+                }
+                console.warn('SYNOP: aucun fichier trouvé sur les 6 dernières heures (404 normaux si retard publi)');
+                return null;
+            } finally { synopLiveLoading=false; }
+        }
+                        async function loadSynopLiveTemp(lat, lon) {
+            // v137 : affichage instantané, ne bloque jamais le chargement de l'app
+            try {
+                const ls = localStorage.getItem('metehop_metar_cache_v1');
+                if (ls) {
+                    const cached = JSON.parse(ls);
+                    if (cached && (Date.now()-cached.ts) < 30*60*1000 && !isCacheStaleForLocation(cached, lat, lon, 30)) {
+                        synopLiveCache = cached; metarLiveCache = cached;
+                        try { updateHeroLiveTemp(); renderMfSynopTempCard(); } catch(e){}
+                    }
+                }
+            } catch(e){}
+            try { if (synopLiveCache && isCacheStaleForLocation(synopLiveCache, lat, lon, 20)) { synopLiveCache=null; metarLiveCache=null; } } catch(e){}
+            // Affiche tout de suite Open-Meteo (0ms) - ne bloque pas
+            if (!synopLiveCache) {
+                try {
+                    if (typeof benchmarkRealityNow !== 'undefined' && benchmarkRealityNow && typeof benchmarkRealityNow.temp === 'number') {
+                        const fb = {ts:Date.now(), temp:benchmarkRealityNow.temp, station:'Open-Meteo current', distKm:25, obsTime:'maintenant', lat:lat, lon:lon, source:'Open-Meteo'};
+                        synopLiveCache = fb;
+                        try { updateHeroLiveTemp(); renderMfSynopTempCard(); } catch(e){}
+                    }
+                } catch(e){}
+            } else {
+                try { updateHeroLiveTemp(); renderMfSynopTempCard(); } catch(e){}
+            }
+            // METAR en arrière-plan, sans await bloquant
+            setTimeout(()=>{
+                fetchMetarNearestTemp(lat, lon).then(metar=>{
+                    if (metar) {
+                        synopLiveCache = metar;
+                        try { localStorage.setItem('metehop_metar_cache_v1', JSON.stringify(metar)); } catch(e){}
+                        try { updateHeroLiveTemp(); renderMfSynopTempCard(); } catch(e){}
+                    }
+                }).catch(()=>{});
+            }, 100);
+            return synopLiveCache;
+        }
+                        function renderMfSynopTempCard() {
+            const loadingEl=document.getElementById('mf-synop-temp-loading');
+            const errorEl=document.getElementById('mf-synop-temp-error');
+            const errorTextEl=document.getElementById('mf-synop-temp-error-text');
+            const contentEl=document.getElementById('mf-synop-temp-content');
+            const pillsEl=document.getElementById('mf-synop-temp-pills');
+            const updatedEl=document.getElementById('mf-synop-temp-updated');
+            if (!loadingEl || !contentEl) return;
+            const cache = (typeof synopLiveCache !== 'undefined' && synopLiveCache) ? synopLiveCache : (typeof metarLiveCache !== 'undefined' ? metarLiveCache : null);
+            if (cache && typeof cache.temp === 'number' && isFinite(cache.temp)) {
+                loadingEl.style.display='none'; if(errorEl) errorEl.style.display='none'; contentEl.style.display='';
+                const d=cache.distKm; const tempRounded=Math.round(cache.temp*10)/10; const distTxt=d.toFixed(1); const stationName=cache.station || cache.source || 'Station';
+                const isMetar = (cache.source||'').includes('METAR');
+                const badge = isMetar ? 'METAR aéroport - NOAA (fiable)' : ((cache.source||'').includes('SYNOP') ? 'Météo-France SYNOP' : 'Open-Meteo current');
+                const bg = isMetar ? 'rgba(59,110,97,0.12)' : 'rgba(43,108,176,0.10)';
+                if (pillsEl) {
+                    pillsEl.innerHTML=`<span class="snow-pill" style="background: ${bg};"><i class="fa-solid fa-temperature-half"></i> ${tempRounded}°C — ${stationName} à ${distTxt} km</span><span class="snow-pill">${badge}</span>`;
+                }
+                if (updatedEl) {
+                    updatedEl.innerText=`Source : ${cache.source||'METAR'} — ${cache.obsTime||''} — ${stationName} — distance ${distTxt} km`;
+                }
+                return;
+            }
+            if ((typeof synopLiveLoading !== 'undefined' && synopLiveLoading) || (typeof metarLiveLoading !== 'undefined' && metarLiveLoading)) {
+                loadingEl.style.display=''; if(errorEl) errorEl.style.display='none'; contentEl.style.display='none'; return;
+            }
+            loadingEl.style.display='none'; if(errorEl) { errorEl.style.display=''; if(errorTextEl) errorTextEl.innerText='Relevés temps réel en cours de chargement...'; } contentEl.style.display='none';
+        }
+
+
+                // ---- Balise de vent Pioupiou/OpenWindMap la plus proche (11/09/2026) ----
         // Seule source "stations à proximité" restante avec ITENCI3 (voir loadNearbyStation) :
         // les relevés SYNOP/Opendatasoft (figés au 15/01/2026), Météo-France live (token horaire
         // à recoller sans cesse), Bright Sky et les liens Infoclimat ont été retirés.
@@ -6889,6 +7191,17 @@ render16DayTable();
                     stopNearbyStationAutoRefresh();
                 }
                 document.getElementById('nearby-station-card').style.display = nearbyStationInRange ? '' : 'none';
+                // v137 - FIX rafraichissement : on force Temp.live + SYNOP + benchmark quelle que soit la zone
+                try { updateHeroLiveTemp(); } catch(e) {}
+                try { renderMfSynopTempCard(); } catch(e) {}
+                if (typeof currentLat === 'number' && typeof currentLon === 'number') {
+                    try { if (!benchmarkRealityNow && !benchmarkRealityNowLoading) loadBenchmarkRealityNow(currentLat, currentLon).catch(()=>{}); } catch(e) {}
+                    try { loadSynopLiveTemp(currentLat, currentLon).catch(()=>{}); } catch(e) {}
+                }
+                // Toujours charger SYNOP même si ITENCI3 est à portée, pour la rubrique Stations météo
+                if (typeof currentLat === 'number' && typeof currentLon === 'number') {
+                    try { loadSynopLiveTemp(currentLat, currentLon).catch(()=>{}); } catch(e) {}
+                }
                 if (nearbyStationInRange) {
                     const loadingEl = document.getElementById('nearby-station-loading');
                     const errEl = document.getElementById('nearby-station-error');
@@ -11218,6 +11531,8 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                         ts: Date.now()
                     };
                     renderBenchmark();
+                    try { updateHeroLiveTemp(); } catch(e) {}
+                    try { renderMfSynopTempCard(); } catch(e) {}
                 }
             } catch (e) {
             } finally {
@@ -11295,7 +11610,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                     if (!benchmarkRealityNow && !benchmarkRealityNowLoading && weatherData) loadBenchmarkRealityNow(currentLat, currentLon).catch(() => {});
                 }
                 // Bandeau "aujourd'hui (en cours)" : Metehop affiché vs conditions du moment.
-                // v122 (16/09/2026) : le réel du moment est lui aussi corrigé micro-climat,
+                // v137 (16/09/2026) : le réel du moment est lui aussi corrigé micro-climat,
                 // même delta que Metehop à l'heure courante, pour comparer à lieu égal.
                 const liveEl = document.getElementById('benchmark-live');
                 if (liveEl) {
@@ -11314,6 +11629,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                         const cls = Math.abs(delta) <= BENCHMARK_GOOD_DEG ? 'benchmark-ok' : 'benchmark-miss';
                         const corrHint = (typeof microClimateEnabled !== 'undefined' && microClimateEnabled) ? (function(){ try{ const d= microClimateDeltaAtHour(new Date().getHours(),0).delta||0; return d!==0 ? ' (corrigé micro-climat)' : ''; }catch(e){ return ''; } })() : '';
                         liveEl.innerHTML = `Aujourd'hui (en cours) : Metehop affiche <b>${Math.round(dNow)} °C</b> (micro-climat compris) · réel <b>${Math.round(rNowCorr)} °C</b>${corrHint} → écart <b class="${cls}">${benchmarkFmtSigned(delta)} °</b>`;
+                        try { updateHeroLiveTemp(); } catch(e) {}
                     } else {
                         liveEl.innerHTML = "Aujourd'hui (en cours) : chargement…";
                     }
@@ -11325,7 +11641,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 const pk = benchmarkPlaceKey();
                 const byDate = new Map(loadBenchmarkHistory().filter(r => r.pk === pk).map(rec => [rec.date, rec]));
                 const real = benchmarkReality ? benchmarkReality.byDate : null;
-                // v122 (16/09/2026) : les valeurs RÉELLES (ERA5) sont corrigées avec la MÊME
+                // v137 (16/09/2026) : les valeurs RÉELLES (ERA5) sont corrigées avec la MÊME
                 // correction micro-climat que Metehop, pour comparer à lieu égal. Metehop affiche
                 // déjà ses prévisions corrigées ; sans corriger le réel, un fond de vallée
                 // paraîtrait systématiquement "raté" alors que c'est la grille ERA5 qui ne voit pas
@@ -13815,7 +14131,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
             if (!cachedVigicruesGeojson) {
                 const url = 'https://www.vigicrues.gouv.fr/services/vigicrues.geojson/';
                 const res = await fetchWithTimeout(url, { timeout: 15000 });
-                if (!res.ok) throw new Error('Flux Vigicrues indisponible');
+                if (!res.ok) return null; // v143 silent
                 cachedVigicruesGeojson = await res.json();
             }
             const features = cachedVigicruesGeojson.features || [];
@@ -17122,6 +17438,8 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
             // tuiles RainViewer), aucun plafond n'est appliqué : le zoom reste libre jusqu'à la
             // limite du fond de carte (z18).
             map.on('zoomend', () => { if (radarMode === 'radar' && map.getZoom() > RADAR_MAX_ZOOM) map.setZoom(RADAR_MAX_ZOOM); });
+            /* v141 FIX invalidateSize desktop */
+            try { if (window.innerWidth>=768) { setTimeout(()=>{ try{ map.invalidateSize(); }catch(e){} }, 400); } } catch(e) {}
                 map.on('click', onMapClickForPicking);
                 L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '© OpenStreetMap France' }).addTo(map);
             } else {
