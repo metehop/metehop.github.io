@@ -5161,23 +5161,57 @@
         function updateStormProximityBox(distanceKm, approach) {
             const box = document.getElementById('storm-proximity-box');
             const text = document.getElementById('storm-proximity-text');
-            const d = typeof distanceKm === 'number' ? distanceKm : null;
-            const eta = approach && typeof approach.etaMinutes === 'number' ? approach.etaMinutes : null;
+            if (!box || !text) return;
+            const d = typeof distanceKm === 'number' && isFinite(distanceKm) ? distanceKm : null;
+            const eta = approach && typeof approach.etaMinutes === 'number' && isFinite(approach.etaMinutes) ? approach.etaMinutes : null;
+            const aDist = approach && typeof approach.distanceKm === 'number' && isFinite(approach.distanceKm) ? approach.distanceKm : null;
+            const aSpeed = approach && typeof approach.speedKmh === 'number' && isFinite(approach.speedKmh) ? approach.speedKmh : null;
 
             let level = null, message = '';
             if (d !== null && d <= STORM_PROXIMITY_KM) {
                 level = 'danger';
                 message = d <= 0.5
                     ? "Orage actuellement sur votre position."
-                    : `Orage détecté à ~${d}km de votre position.`;
+                    : `Orage détecté à ~${Math.round(d*10)/10}km de votre position.`;
             } else if (d !== null && d <= STORM_WATCH_KM) {
                 level = 'watch';
-                message = `Orage à proximité, à ~${d}km de votre position.`;
-            } else if (eta !== null && eta <= STORM_WATCH_ETA_MIN) {
+                message = `Orage à proximité, à ~${Math.round(d*10)/10}km de votre position.`;
+            } else if (eta !== null && eta <= STORM_WATCH_ETA_MIN && eta >= 0) {
                 level = 'watch';
-                const dTxt = typeof approach.distanceKm === 'number' ? ` à ~${approach.distanceKm}km` : '';
-                const sTxt = approach.speedKmh ? ` (~${approach.speedKmh} km/h)` : '';
-                message = `Orage${dTxt}${sTxt} se dirigeant vers votre position, arrivée estimée dans ~${Math.round(eta)} min.`;
+                // v149 - vérification cohérence distance / vitesse / ETA
+                // Cas signalé : 250km / 15km/h / 7min => physiquement impossible.
+                // On calcule ETA attendu = distance / vitesse * 60
+                let showDist = true;
+                let showSpeed = true;
+                let dVal = aDist;
+                let sVal = aSpeed;
+                if (dVal !== null && sVal !== null && sVal > 1) {
+                    const expectedMin = (dVal / sVal) * 60;
+                    // Si l'écart est énorme (> factor 3) ou si distance>100km et ETA<15min => incohérent
+                    const isHugeDistShortEta = (dVal > 80 && eta < 20);
+                    const isFactorOff = expectedMin > 15 && (eta < expectedMin * 0.25 || eta > expectedMin * 4);
+                    const isNearlyStationaryButEtaSmall = (sVal < 5 && dVal > 20);
+                    if (isHugeDistShortEta || isFactorOff || isNearlyStationaryButEtaSmall) {
+                        // incohérence détectée : on masque distance/vitesse pour ne pas afficher de bêtise
+                        // et on ne garde que l'ETA qui reste la donnée projetée la plus utile
+                        showDist = false;
+                        showSpeed = false;
+                        // log pour debug
+                        try { console.warn('STORM coherence fail', {dVal, sVal, eta, expectedMin}); } catch(e) {}
+                    }
+                }
+                // Filtrage vitesse aberrante
+                if (sVal !== null && (sVal < 3 || sVal > 150)) showSpeed = false;
+
+                const dTxt = (showDist && typeof dVal === 'number') ? ` à ~${Math.round(dVal*10)/10}km` : '';
+                const sTxt = (showSpeed && typeof sVal === 'number') ? ` (~${Math.round(sVal)} km/h)` : '';
+                if (dTxt === '' && sTxt === '') {
+                    message = `Orage se dirigeant vers votre position, arrivée estimée dans ~${Math.max(1, Math.round(eta))} min.`;
+                } else {
+                    message = `Orage${dTxt}${sTxt} se dirigeant vers votre position, arrivée estimée dans ~${Math.max(1, Math.round(eta))} min.`;
+                }
+                // Si incohérence extrême (ex 250km/7min), on rétrograde en watch mais on garde l'alerte
+                // plutôt que de mentir sur la distance.
             }
 
             if (level) {
@@ -5189,9 +5223,6 @@
                 box.style.display = 'none';
             }
 
-            // Rafraîchissement accéléré : sur le danger immédiat comme avant, et désormais aussi
-            // quand un orage est projeté sur le lieu à courte échéance — c'est précisément le
-            // moment où une image radar de plus change quelque chose.
             const fast = level === 'danger' || (eta !== null && eta <= STORM_FAST_REFRESH_ETA_MIN);
             if (fast !== stormNearbyActive) {
                 stormNearbyActive = fast;
@@ -8866,7 +8897,7 @@ render16DayTable();
             });
         }
 
-        const ALPHA_THRESHOLD = 40;
+        const ALPHA_THRESHOLD = 70;
         const EVO_HORIZON_HOURS = EVO_BIN_COUNT * EVO_BIN_MINUTES / 60; // durée totale du graphique (3h actuellement)
         // Vitesse de déplacement maximale documentée pour un système pluvieux rapide en Europe :
         // les lignes de grains se déplacent le plus souvent à moins de 56 km/h (30 nœuds), mais les
@@ -8877,7 +8908,7 @@ render16DayTable();
         const MAX_STORM_SPEED_KMH = 100;
         const METEHOP_RADIUS_KM = Math.round(MAX_STORM_SPEED_KMH * EVO_HORIZON_HOURS);
         const HAIL_MIN_AREA_KM2 = 1; // une cellule doit couvrir au moins 1km² pour être classée "grêle"
-        const MIN_CELL_PIXELS = 12; // taille minimale (en pixels basse résolution zoom 6) pour qu'une cellule soit suivie
+        const MIN_CELL_PIXELS = 60; // taille minimale (en pixels basse résolution zoom 6) pour qu'une cellule soit suivie
 
         // ---- Centroïde pondéré par la réflectivité (au lieu du centroïde géométrique) ----
         // Le centroïde géométrique (moyenne non pondérée de TOUS les pixels pluvieux connectés)
@@ -9108,6 +9139,10 @@ render16DayTable();
                         }
                     }
                     if (count >= MIN_CELL_PIXELS) {
+                        const avgDbzTmp = sumDbz / count;
+                        // PATCH FAUX POSITIF nébulosité (09/2026) : ignore les cellules trop faibles
+                        // en moyenne (<7 dBZ = bruit / clutter / voile) même si alpha>seuil
+                        if (avgDbzTmp < 7) continue;
                         // Repli sur le centroïde géométrique si aucun pixel n'atteint le plancher
                         // de pondération (cellule entièrement composée d'échos très faibles) : la
                         // somme des poids serait nulle et le centroïde pondéré indéfini.
@@ -9118,7 +9153,7 @@ render16DayTable();
                             cellId,
                             cx: useWeighted ? sumWX / sumW : sumX / count,
                             cy: useWeighted ? sumWY / sumW : sumY / count,
-                            count, maxAlpha, peakR, peakG, peakB, peakAlpha, minPx, maxPx, minPy, maxPy, avgDbz: sumDbz / count
+                            count, maxAlpha, peakR, peakG, peakB, peakAlpha, minPx, maxPx, minPy, maxPy, avgDbz: avgDbzTmp
                         });
                     }
                 }
@@ -9207,7 +9242,7 @@ render16DayTable();
         // revenait à ignorer purement et simplement la cellule plutôt que d'afficher son incertitude
         // correctement. Le vrai correctif est dans projectTrackToBins (coneHalfWidthPx) : une
         // incertitude forfaitaire pour les trajectoires courtes, pas une exclusion.
-        const MULTI_CELL_MIN_PIXELS = 20;
+        const MULTI_CELL_MIN_PIXELS = 50;
         // Poids de gravité par type de précipitation, pour le score de menace ci-dessous. Une
         // cellule "hail_candidate" n'est pas encore confirmée à ce stade (la vérification de
         // surface coûte un appel réseau, faite plus tard dans projectTrackToBins) : on la traite
@@ -10049,6 +10084,28 @@ render16DayTable();
                 }
             }
 
+
+            // PATCH ANTI-FAUX-ORAGE (09/2026) : si la cellule a un pic isolé >=45 dBZ mais une moyenne faible (<30),
+            // ou si elle vient d'apparaître (track <2 images) sans historique, on ne peut pas annoncer orage
+            // — cas typique de la nébulosité du 09/2026 à Tencin : 1 pixel jaune sur fond très faible.
+            if (!isSnowMode && baseCls.type === 'storm' && lastCell.avgDbz < 32) {
+                // rétrograde en pluie forte, pas d'alerte orage
+                const fallbackRate = dbzToRainRateMmH(lastCell.avgDbz);
+                baseCls = { type: 'rain_heavy', color: '#0284c7', mmEquiv: Math.round(fallbackRate*10)/10 };
+            }
+            // Si track très court (<2 images) + pic orageux isolé, on exige au moins 1.5 km2 à haute rés. comme pour grêle
+            if (!isSnowMode && (baseCls.type === 'storm' || baseCls.type === 'hail_candidate') && track.length < 2) {
+                try {
+                    const { lat: scLat, lon: scLon } = stitchedPixelToLatLon(tileX, tileY, zoom, Math.round(lastCell.cx), Math.round(lastCell.cy));
+                    const areaHiRes = await verifyHailCellArea(scLat, scLon, lastFrame); // réutilise la vérif haute rés
+                    // si même pas 0.6 km2 de pixels intenses en zoom 9, c'est un artefact
+                    if (areaHiRes < 0.6 && lastCell.avgDbz < 38) {
+                        const fallbackRate2 = dbzToRainRateMmH(lastCell.avgDbz);
+                        baseCls = { type: lastCell.avgDbz >= 20 ? 'rain_heavy' : 'rain_light', color: lastCell.avgDbz >= 20 ? '#0284c7' : '#7dd3fc', mmEquiv: Math.round(fallbackRate2*10)/10 };
+                    }
+                } catch(e) { /* repli silencieux */ }
+            }
+
             const bins = [];
             const colors = [];
             const confidence = [];
@@ -10402,9 +10459,20 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 // projetées : le premier appel plus haut ne connaissait que la distance (il reste
                 // nécessaire, c'est le seul qui s'exécute quand aucune trajectoire n'est
                 // exploitable). On y ajoute ici l'orage en approche le plus précoce.
-                const stormApproach = results
-                    .filter(r => (r.hasStorm || r.hasHail) && r.etaMinutes !== null)
-                    .sort((a, b) => a.etaMinutes - b.etaMinutes)[0];
+                const stormApproachRaw = results
+                    .filter(r => (r.hasStorm || r.hasHail) && r.etaMinutes !== null && r.etaMinutes >= 0)
+                    .sort((a, b) => a.etaMinutes - b.etaMinutes);
+                // v149 - filtre cohérence : on élimine les approches physiquement impossibles (ex: 250km en 7min à 15km/h)
+                const stormApproachFiltered = stormApproachRaw.filter(r => {
+                    if (typeof r.distanceToStormKm === 'number' && typeof r.speedKmh === 'number' && r.speedKmh > 1) {
+                        const expected = (r.distanceToStormKm / r.speedKmh) * 60;
+                        if (r.distanceToStormKm > 80 && r.etaMinutes < 15) return false;
+                        if (expected > 20 && r.etaMinutes < expected * 0.15) return false;
+                        if (r.speedKmh < 3 && r.distanceToStormKm > 25) return false;
+                    }
+                    return true;
+                });
+                const stormApproach = (stormApproachFiltered[0] || stormApproachRaw[0]);
                 updateStormProximityBox(nearestStormKm, stormApproach ? {
                     etaMinutes: stormApproach.etaMinutes,
                     distanceKm: stormApproach.distanceToStormKm,
