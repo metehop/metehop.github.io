@@ -4423,7 +4423,7 @@
             <div class="footer-support-row">
                 <a class="footer-support-link" href="https://buymeacoffee.com/stridemetric" target="_blank" rel="noopener">🐸 Aide-moi à nourrir la grenouille Metehop</a>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 16/09/2026 - 121</div>
+            <div class="footer-last-update">Dernière mise à jour : 16/09/2026 - 122</div>
         </footer>
 
     </div>
@@ -11295,14 +11295,25 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                     if (!benchmarkRealityNow && !benchmarkRealityNowLoading && weatherData) loadBenchmarkRealityNow(currentLat, currentLon).catch(() => {});
                 }
                 // Bandeau "aujourd'hui (en cours)" : Metehop affiché vs conditions du moment.
+                // v122 (16/09/2026) : le réel du moment est lui aussi corrigé micro-climat,
+                // même delta que Metehop à l'heure courante, pour comparer à lieu égal.
                 const liveEl = document.getElementById('benchmark-live');
                 if (liveEl) {
                     const dNow = benchmarkDisplayedNow();
                     const rNow = benchmarkRealityNow;
                     if (dNow !== null && rNow && typeof rNow.temp === 'number') {
-                        const delta = Math.round((rNow.temp - dNow) * 10) / 10;
+                        let rNowCorr = rNow.temp;
+                        try {
+                            if (typeof microClimateEnabled !== 'undefined' && microClimateEnabled && typeof microClimateDeltaAtHour === 'function') {
+                                const hNow = new Date().getHours();
+                                const dltNow = (microClimateDeltaAtHour(hNow, 0).delta) || 0;
+                                rNowCorr = Math.round((rNow.temp + dltNow) * 10) / 10;
+                            }
+                        } catch (e) {}
+                        const delta = Math.round((rNowCorr - dNow) * 10) / 10;
                         const cls = Math.abs(delta) <= BENCHMARK_GOOD_DEG ? 'benchmark-ok' : 'benchmark-miss';
-                        liveEl.innerHTML = `Aujourd'hui (en cours) : Metehop affiche <b>${Math.round(dNow)} °C</b> (micro-climat compris) · réel <b>${Math.round(rNow.temp)} °C</b> → écart <b class="${cls}">${benchmarkFmtSigned(delta)} °</b>`;
+                        const corrHint = (typeof microClimateEnabled !== 'undefined' && microClimateEnabled) ? (function(){ try{ const d= microClimateDeltaAtHour(new Date().getHours(),0).delta||0; return d!==0 ? ' (corrigé micro-climat)' : ''; }catch(e){ return ''; } })() : '';
+                        liveEl.innerHTML = `Aujourd'hui (en cours) : Metehop affiche <b>${Math.round(dNow)} °C</b> (micro-climat compris) · réel <b>${Math.round(rNowCorr)} °C</b>${corrHint} → écart <b class="${cls}">${benchmarkFmtSigned(delta)} °</b>`;
                     } else {
                         liveEl.innerHTML = "Aujourd'hui (en cours) : chargement…";
                     }
@@ -11314,11 +11325,33 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 const pk = benchmarkPlaceKey();
                 const byDate = new Map(loadBenchmarkHistory().filter(r => r.pk === pk).map(rec => [rec.date, rec]));
                 const real = benchmarkReality ? benchmarkReality.byDate : null;
+                // v122 (16/09/2026) : les valeurs RÉELLES (ERA5) sont corrigées avec la MÊME
+                // correction micro-climat que Metehop, pour comparer à lieu égal. Metehop affiche
+                // déjà ses prévisions corrigées ; sans corriger le réel, un fond de vallée
+                // paraîtrait systématiquement "raté" alors que c'est la grille ERA5 qui ne voit pas
+                // l'inversion. Correction = delta à 6h pour Tmin, delta à 15h pour Tmax
+                // (fenêtres d'inversion / UHI), même logique que displayedDayMaxMin.
+                let corrTmin = 0, corrTmax = 0;
+                try {
+                    if (typeof microClimateEnabled !== 'undefined' && microClimateEnabled && typeof microClimateDeltaAtHour === 'function') {
+                        corrTmin = (microClimateDeltaAtHour(6, 0).delta) || 0;
+                        corrTmax = (microClimateDeltaAtHour(15, 0).delta) || 0;
+                    }
+                } catch (e) { corrTmin = 0; corrTmax = 0; }
+                const applyCorrToReal = (rObj) => {
+                    if (!rObj) return null;
+                    const out = Object.assign({}, rObj);
+                    if (typeof out.tmin === 'number' && isFinite(out.tmin)) out.tmin = Math.round((out.tmin + corrTmin) * 10) / 10;
+                    if (typeof out.tmax === 'number' && isFinite(out.tmax)) out.tmax = Math.round((out.tmax + corrTmax) * 10) / 10;
+                    return out;
+                };
                 const rows = [];
                 for (let d = BENCHMARK_DAYS; d >= 1; d--) {
                     const dt = new Date(); dt.setDate(dt.getDate() - d);
                     const date = benchmarkLocalDateStr(dt);
-                    rows.push({ date, r: real ? real[date] : null, rec: byDate.get(date) || null });
+                    const rawR = real ? real[date] : null;
+                    const rCorr = applyCorrToReal(rawR);
+                    rows.push({ date, r: rCorr, rawR: rawR, rec: byDate.get(date) || null });
                 }
                 // v116 (12/09/2026) : les 3 grandeurs sont comparées, pas seulement la T° max :
                 // une ligne (label + 1 chip par modèle) par grandeur. « Bon » = écart ≤ 1,5 °C
@@ -11335,9 +11368,9 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                     }
                     return `<span class="benchmark-chip"><b>${label}</b><span>${val}</span>${delta}</span>`;
                 };
-                rowsEl.innerHTML = rows.map(({ date, r, rec }) => {
+                rowsEl.innerHTML = rows.map(({ date, r, rawR, rec }) => {
                     const realTxt = r
-                        ? `Réel : max <b>${benchmarkRealCell(r.tmax, '°')}</b> · min <b>${benchmarkRealCell(r.tmin, '°')}</b> · pluie ${(typeof r.precip === 'number' && isFinite(r.precip)) ? benchmarkFmt1(r.precip) + ' mm' : '—'}`
+                        ? `Réel : max <b>${benchmarkRealCell(r.tmax, '°')}</b> · min <b>${benchmarkRealCell(r.tmin, '°')}</b> · pluie ${(typeof r.precip === 'number' && isFinite(r.precip)) ? benchmarkFmt1(r.precip) + ' mm' : '—'}${(typeof microClimateEnabled !== 'undefined' && microClimateEnabled && (corrTmin !== 0 || corrTmax !== 0)) ? ' <span style="opacity:0.7">(µ-climat)</span>' : ''}`
                         : 'Réel : —';
                     const realValOf = (key) => (r && typeof r[key] === 'number' && isFinite(r[key]) ? r[key] : null);
                     const metricRow = (label, mKey, iKey, eKey, realKey, unit, good) => `
