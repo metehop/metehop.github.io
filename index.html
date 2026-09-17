@@ -370,6 +370,22 @@
             margin-top: 2px;
             white-space: nowrap;
         }
+        /* MIN/MAX du jour, déplacés le 17/09/2026 sous Ressenti/Temp. live (auparavant dans la
+           rangée d'infos tout en bas de la carte) — même gabarit que Ressenti/Temp. live pour rester
+           cohérent visuellement à cet endroit. */
+        .hero-minmax-line {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.68rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-top: 2px;
+            white-space: nowrap;
+        }
+        .hero-minmax-line i { font-size: 0.85em; }
+        .hero-minmax-line strong { color: var(--primary-dark); font-weight: 800; }
+        .hero-minmax-sep { opacity: 0.6; }
         .hero-temp {
             font-size: 3.6rem;
             font-weight: 800;
@@ -405,6 +421,7 @@
         .hero-condition-sub {
             font-size: 0.75rem;
             color: var(--text-muted);
+            white-space: nowrap;
         }
         /* Rangée unique d'infos (MIN/MAX/PRESS/ALT/humidité/Iso 0°/lune/pluie/proba/UV) : sortie de
            la colonne de gauche pour occuper toute la largeur de la carte hero-banner (voir
@@ -513,6 +530,32 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.08);
         }
         .hero-trio-item.hero-trio-now .hero-trio-label { color: var(--primary-dark); }
+        /* Hero différent sur ordinateur (17/09/2026) : mobile inchangé (règles ci-dessus) ; à partir
+           de 768px, le trio Matin/Aprèm/Soir quitte le rond pâle en haut à droite pour se recentrer
+           sur toute la largeur du bandeau, façon petit carrousel, plus grand — le bandeau hero est
+           bien plus large que haut sur ordinateur, ce cluster resté compact en coin laissait donc
+           beaucoup de vide au centre. Centrage par grille (1fr auto 1fr) plutôt que par position
+           absolue : .hero-icon-col reste seul dans la 2e colonne, les deux colonnes 1fr égales de
+           part et d'autre le centrent mathématiquement sur la largeur totale, sans risque de
+           chevaucher le bloc température à gauche quelle que soit sa largeur réelle. */
+        @media (min-width: 768px) {
+            .hero-top-row {
+                display: grid;
+                grid-template-columns: 1fr auto 1fr;
+                align-items: center;
+            }
+            .hero-icon-col { grid-column: 2; }
+            .hero-trio-icons {
+                width: auto;
+                height: auto;
+                align-items: center;
+                gap: 32px;
+            }
+            .hero-trio-item:first-child, .hero-trio-item:last-child { margin-top: 0; }
+            .hero-trio-item i { width: 42px; height: 42px; font-size: 1.35rem; }
+            .hero-trio-item .hero-trio-label { font-size: 0.62rem; }
+            .hero-trio-item.hero-trio-now i { width: 70px; height: 70px; font-size: 2.3rem; }
+        }
         /* Badge "risque de foudre à cette heure" (voir updateHeroLightningBadge) : en haut à gauche du
            pictogramme météo du bandeau "Votre météo, maintenant", visible uniquement si l'algo LPI
            (systématique aujourd'hui/demain, voir loadStormRiskForLocation) détecte un risque à l'heure
@@ -535,38 +578,13 @@
             cursor: help;
             z-index: 2;
         }
-        /* Vent compact sous le trio d'icônes météo : flèche orientée + vitesse moyenne + rafales.
-           Fond blanc retiré le 17/09/2026 : il se pose directement sur le rond pâle décoratif
-           (.hero-banner::after) qui couvre déjà toute cette zone, donc une pastille blanche
-           par-dessus faisait doublon — texte/flèche assez contrastés sur ce fond clair pour rester
-           lisibles sans elle. */
-        .hero-wind-compact {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            width: 100px;
-            box-sizing: border-box;
-            justify-content: center;
-        }
+        /* Flèche de direction du vent (vitesse/rafales déplacées dans la rangée d'infos .hero-footer
+           le 17/09/2026, sous forme d'un item .hero-stat comme les autres — la taille de police vient
+           donc de .hero-stat i, plus d'override ici). */
         .hero-wind-arrow {
             color: var(--accent-blue);
-            font-size: 0.85rem;
-            flex-shrink: 0;
             transition: transform 0.3s ease;
         }
-        .hero-wind-figures {
-            display: flex;
-            flex-direction: column;
-            line-height: 1.15;
-            font-size: 0.62rem;
-            color: var(--text-muted);
-        }
-        .hero-wind-figures strong {
-            color: var(--primary-dark);
-            font-size: 0.68rem;
-            font-weight: 800;
-        }
-        .hero-wind-gust strong { color: var(--text-muted); font-weight: 700; }
 
         /* Bandeau vigilance météo */
         .vigilance-row {
@@ -2935,6 +2953,7 @@
                             <div class="hero-temp" id="hero-temp-val">--°C</div>
                             <span class="hero-microclimate-badge" id="hero-microclimate-badge" style="display:none;"></span>
                             <span class="hero-feels-like" id="hero-feels-val">Ressenti --°</span>
+                            <span class="hero-minmax-line"><i class="fa-solid fa-temperature-low"></i> <strong id="day-tmin">--</strong> <span class="hero-minmax-sep">·</span> <i class="fa-solid fa-temperature-high"></i> <strong id="day-tmax">--</strong></span>
                             <span class="hero-live-temp" id="hero-live-temp" style="display:none;"></span>
                         </div>
                         <div class="hero-condition">
@@ -2965,23 +2984,16 @@
                             <span class="hero-trio-label">Soir</span>
                         </div>
                     </div>
-                    <div class="hero-wind-compact" id="hero-wind-compact" title="Direction, vitesse moyenne et rafales du vent">
-                        <i class="fa-solid fa-arrow-up hero-wind-arrow" id="hero-wind-arrow" style="transform: rotate(0deg);"></i>
-                        <span class="hero-wind-figures">
-                            <strong id="hero-wind-speed">-- km/h</strong>
-                            <span class="hero-wind-gust">rafales <strong id="hero-wind-gust-val">--</strong></span>
-                        </span>
-                    </div>
                 </div>
             </div>
 
             <!-- Rangée unique d'infos, en pleine largeur de la carte (voir .hero-footer / .hero-top-row
-                 dans le CSS) : MIN/MAX/PRESS/ALT/humidité/Iso 0°/lune/pluie/proba pluie/UV. Chaque
-                 item suit le même gabarit .hero-stat (icône + valeur + petit libellé) pour une taille
-                 et une police cohérentes sur toute la rangée. -->
+                 dans le CSS) : PRESS/ALT/humidité/Iso 0°/lune/pluie/proba pluie/UV/vent. Chaque item
+                 suit le même gabarit .hero-stat (icône + valeur + petit libellé) pour une taille et
+                 une police cohérentes sur toute la rangée. Vent déplacé ici le 17/09/2026 (auparavant
+                 posé sur le rond pâle décoratif sous le trio d'icônes météo) — mêmes ids qu'avant
+                 (hero-wind-compact/-arrow/-speed/-gust-val), voir mise à jour dans updateDayView. -->
             <div class="hero-footer">
-                <span class="hero-stat"><i class="fa-solid fa-temperature-low"></i> <strong id="day-tmin">--</strong> <span class="hero-stat-label">min</span></span>
-                <span class="hero-stat"><i class="fa-solid fa-temperature-high"></i> <strong id="day-tmax">--</strong> <span class="hero-stat-label">max</span></span>
                 <span class="hero-stat hero-advanced-stat"><i class="fa-solid fa-gauge-high"></i> <strong id="hero-pressure-val">-- hPa</strong></span>
                 <span class="hero-stat hero-advanced-stat"><i class="fa-solid fa-mountain"></i> <strong id="hero-altitude-val">-- m</strong></span>
                 <span id="hero-humidity-container" class="hero-stat hero-advanced-stat"><i class="fa-solid fa-droplet" style="color: var(--accent-blue);"></i> <strong id="hero-humidity-val">--%</strong> <span class="hero-stat-label">humid.</span></span>
@@ -2991,6 +3003,7 @@
                 <span id="day-snow-container" class="hero-stat hero-advanced-stat" style="display: none;"><i class="fa-solid fa-snowflake" style="color: var(--accent-snow);"></i> <strong id="day-snow-sum">--</strong> <span class="hero-stat-label">neige</span></span>
                 <span id="hero-rain-prob-container" class="hero-stat hero-advanced-stat"><i class="fa-solid fa-umbrella" style="color: var(--accent-blue);"></i> <strong id="hero-rain-prob-val">--%</strong> <span class="hero-stat-label">proba</span></span>
                 <span id="hero-uv-container" class="hero-stat hero-advanced-stat"><i class="fa-solid fa-sun" style="color:#f59e0b;"></i> <span class="hero-stat-label">UV</span> <strong id="hero-uv-val">--</strong><span id="hero-uv-dot" class="hero-uv-dot"></span></span>
+                <span class="hero-stat" id="hero-wind-compact" title="Direction, vitesse moyenne et rafales du vent"><i class="fa-solid fa-arrow-up hero-wind-arrow" id="hero-wind-arrow" style="transform: rotate(0deg); color: var(--accent-blue);"></i> <strong id="hero-wind-speed">-- km/h</strong> <span class="hero-stat-label">rafales</span> <strong id="hero-wind-gust-val">--</strong></span>
             </div>
         </div>
 
@@ -4612,7 +4625,7 @@
             <div class="footer-support-row">
                 <a class="footer-support-link" href="https://buymeacoffee.com/stridemetric" target="_blank" rel="noopener">🐸 Aide-moi à nourrir la grenouille Metehop</a>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 16/09/2026 - 123</div>
+            <div class="footer-last-update">Dernière mise à jour : 17/09/2026 - 130</div>
         </footer>
 
     </div>
