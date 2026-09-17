@@ -408,22 +408,42 @@
         }
         /* Rangée unique d'infos (MIN/MAX/PRESS/ALT/humidité/Iso 0°/lune/pluie/proba/UV) : sortie de
            la colonne de gauche pour occuper toute la largeur de la carte hero-banner (voir
-           .hero-top-row), ce qui permet une police plus grande tout en tenant sur moins de lignes
-           sur téléphone. */
+           .hero-top-row). Chaque item suit désormais le même gabarit .hero-stat (icône + valeur en
+           gras + petit libellé), même taille et même police pour tous — cohérence demandée le
+           17/09/2026, en remplacement de l'ancien mélange MIN/MAX (0.85rem sans icône) / PRESS·ALT
+           (0.78rem, classe .hero-footer-small) / reste (0.85rem, classe .hero-advanced-stat) qui
+           donnait un rendu hétérogène. Gaps resserrés pour gagner en largeur malgré l'icône ajoutée
+           sur MIN/MAX/PRESS/ALT (qui n'en avaient pas avant). */
         .hero-footer {
             display: flex;
             flex-wrap: wrap;
-            column-gap: 16px;
-            row-gap: 6px;
-            font-size: 0.85rem;
-            color: var(--text-muted);
+            column-gap: 10px;
+            row-gap: 5px;
             margin-top: 12px;
-            font-weight: 600;
             width: 100%;
         }
-        .hero-footer i { font-size: 0.9em; }
-        /* Pression et altitude : légèrement moins prioritaires visuellement. */
-        .hero-footer-small { font-size: 0.78rem; }
+        .hero-stat {
+            display: inline-flex;
+            align-items: baseline;
+            gap: 3px;
+            font-size: 0.68rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+        .hero-stat i { font-size: 0.85em; align-self: center; }
+        .hero-stat strong { font-size: 0.78rem; font-weight: 800; color: var(--primary-dark); }
+        .hero-stat-label { font-size: 0.62rem; }
+        /* Pastille de risque UV (remplace le mot "Modéré"/"Élevé"... en toutes lettres, qui à lui
+           seul faisait déborder la rangée d'infos sur une 4e ligne — voir hero-uv-container) : même
+           code couleur qu'avant, le libellé complet reste accessible via le title du conteneur. */
+        .hero-uv-dot {
+            display: inline-block;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            margin-left: 2px;
+        }
         .hero-icon-col {
             display: flex;
             flex-direction: column;
@@ -443,6 +463,56 @@
             justify-content: center;
             font-size: 3rem;
         }
+        /* Trio Matin/Après-midi/Soir (remplace l'ancien gros picto unique, voir updateDayView) :
+           3 pastilles disposées en arc léger (marge haute différente par item) pour épouser la
+           courbe du rond pâle décoratif (.hero-banner::after) juste au-dessus. La période en cours
+           (.hero-trio-now, calculée sur les mêmes bornes horaires que les mascottes triples 6-12h/
+           12-18h/18-23h) ressort en plus grand et coloré ; les deux autres restent petites et
+           neutres pour ne pas alourdir le bandeau. Même largeur totale que l'ancien picto (100px),
+           pour ne rien bousculer sous (.hero-wind-compact). */
+        .hero-trio-icons {
+            position: relative;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            gap: 5px;
+            width: 100px;
+            height: 64px;
+        }
+        .hero-trio-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            opacity: 0.6;
+        }
+        .hero-trio-item:first-child, .hero-trio-item:last-child { margin-top: 14px; }
+        .hero-trio-item i {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #fcf6e6;
+            color: var(--accent-orange);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+        }
+        .hero-trio-item .hero-trio-label {
+            font-size: 0.5rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.2px;
+        }
+        .hero-trio-item.hero-trio-now { opacity: 1; }
+        .hero-trio-item.hero-trio-now i {
+            width: 46px;
+            height: 46px;
+            font-size: 1.55rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+        }
+        .hero-trio-item.hero-trio-now .hero-trio-label { color: var(--primary-dark); }
         /* Badge "risque de foudre à cette heure" (voir updateHeroLightningBadge) : en haut à gauche du
            pictogramme météo du bandeau "Votre météo, maintenant", visible uniquement si l'algo LPI
            (systématique aujourd'hui/demain, voir loadStormRiskForLocation) détecte un risque à l'heure
@@ -465,14 +535,15 @@
             cursor: help;
             z-index: 2;
         }
-        /* Vent compact sous l'icône météo : flèche orientée + vitesse moyenne + rafales. */
+        /* Vent compact sous le trio d'icônes météo : flèche orientée + vitesse moyenne + rafales.
+           Fond blanc retiré le 17/09/2026 : il se pose directement sur le rond pâle décoratif
+           (.hero-banner::after) qui couvre déjà toute cette zone, donc une pastille blanche
+           par-dessus faisait doublon — texte/flèche assez contrastés sur ce fond clair pour rester
+           lisibles sans elle. */
         .hero-wind-compact {
             display: flex;
             align-items: center;
             gap: 5px;
-            background: var(--card-inner-bg);
-            border-radius: 20px;
-            padding: 4px 10px;
             width: 100px;
             box-sizing: border-box;
             justify-content: center;
@@ -528,15 +599,27 @@
             border: none;
             border-radius: var(--radius-medium);
             background: var(--card-bg, rgba(0,0,0,0.04));
-            font-size: 1.15rem;
             cursor: pointer;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
+            gap: 1px;
             transition: transform 0.15s ease, background-color 0.15s ease;
         }
         .weather-news-btn:hover { background: rgba(43,108,176,0.12); transform: scale(1.05); }
         .weather-news-btn:active { transform: scale(0.95); }
+        /* Emoji + mot "actualités" empilés : même encombrement qu'avant (largeur inchangée, hauteur
+           toujours calée sur .vigilance-banner via align-items:stretch) — juste l'emoji légèrement
+           réduit et un libellé minuscule ajoutés dans le même espace, sans agrandir la case. */
+        .weather-news-btn .wn-emoji { font-size: 0.95rem; line-height: 1; }
+        .weather-news-btn .wn-label {
+            font-size: 0.42rem;
+            font-weight: 700;
+            line-height: 1;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
 
         .weather-error-banner {
             display: flex;
@@ -2841,9 +2924,6 @@
 
         <!-- Banner météo principale -->
         <div class="hero-banner" id="hero-banner">
-            <button type="button" class="btn-share-weather" onclick="shareWeatherImage()" title="Partager cette météo">
-                <i class="fa-solid fa-share-nodes"></i>
-            </button>
             <div class="hero-top-row">
                 <div>
                     <div class="hero-subtitle">VOTRE MÉTÉO, MAINTENANT</div>
@@ -2864,11 +2944,26 @@
                     </div>
                 </div>
                 <div class="hero-icon-col">
-                    <div class="hero-sun-icon">
+                    <div class="hero-trio-icons" id="hero-trio-icons">
                         <span class="hero-lightning-badge" id="hero-lightning-badge" style="display:none;" title="">
                             <i class="fa-solid fa-bolt"></i>
                         </span>
-                        <i class="fa-solid fa-sun" id="hero-main-icon"></i>
+                        <!-- hero-main-icon : gardé caché (n'affiche plus rien directement) car réutilisé
+                             tel quel par le partage d'image météo (shareWeatherImage) et par la bascule
+                             soleil/lune de "maintenant" — voir updateDayView, inchangé pour ce chantier. -->
+                        <i class="fa-solid fa-sun" id="hero-main-icon" style="display:none;"></i>
+                        <div class="hero-trio-item" id="hero-trio-morning" title="Matin">
+                            <i class="fa-solid fa-sun" id="hero-trio-morning-icon"></i>
+                            <span class="hero-trio-label">Matin</span>
+                        </div>
+                        <div class="hero-trio-item" id="hero-trio-afternoon" title="Après-midi">
+                            <i class="fa-solid fa-sun" id="hero-trio-afternoon-icon"></i>
+                            <span class="hero-trio-label">Aprèm</span>
+                        </div>
+                        <div class="hero-trio-item" id="hero-trio-evening" title="Soir">
+                            <i class="fa-solid fa-moon" id="hero-trio-evening-icon"></i>
+                            <span class="hero-trio-label">Soir</span>
+                        </div>
                     </div>
                     <div class="hero-wind-compact" id="hero-wind-compact" title="Direction, vitesse moyenne et rafales du vent">
                         <i class="fa-solid fa-arrow-up hero-wind-arrow" id="hero-wind-arrow" style="transform: rotate(0deg);"></i>
@@ -2881,19 +2976,21 @@
             </div>
 
             <!-- Rangée unique d'infos, en pleine largeur de la carte (voir .hero-footer / .hero-top-row
-                 dans le CSS) : MIN/MAX/PRESS/ALT/humidité/Iso 0°/lune/pluie/proba pluie/UV. -->
+                 dans le CSS) : MIN/MAX/PRESS/ALT/humidité/Iso 0°/lune/pluie/proba pluie/UV. Chaque
+                 item suit le même gabarit .hero-stat (icône + valeur + petit libellé) pour une taille
+                 et une police cohérentes sur toute la rangée. -->
             <div class="hero-footer">
-                <span>MIN <strong id="day-tmin">--</strong></span>
-                <span>MAX <strong id="day-tmax">--</strong></span>
-                <span class="hero-footer-small hero-advanced-stat">PRESS. <strong id="hero-pressure-val">-- hPa</strong></span>
-                <span class="hero-footer-small hero-advanced-stat">ALT. <strong id="hero-altitude-val">-- m</strong></span>
-                <span id="hero-humidity-container" class="hero-advanced-stat"><i class="fa-solid fa-droplet" style="color: var(--accent-blue);"></i> <strong id="hero-humidity-val">--%</strong> humid.</span>
-                <span id="hero-freezing-container" class="hero-advanced-stat"><i class="fa-solid fa-icicles" style="color: #00b4d8;"></i> Iso. 0° <strong id="hero-freezing-val">-- m</strong></span>
-                <span id="moon-phase-hero" class="hero-advanced-stat">🌙 <strong id="moon-phase-val">--</strong></span>
-                <span id="day-rain-container" class="hero-advanced-stat"><i class="fa-solid fa-droplet"></i> <strong id="day-precip-sum">--</strong> pluie</span>
-                <span id="day-snow-container" class="hero-advanced-stat" style="display: none;"><i class="fa-solid fa-snowflake" style="color: var(--accent-snow);"></i> <strong id="day-snow-sum">--</strong> neige</span>
-                <span id="hero-rain-prob-container" class="hero-advanced-stat"><i class="fa-solid fa-umbrella" style="color: var(--accent-blue);"></i> <strong id="hero-rain-prob-val">--%</strong> proba pluie</span>
-                <span id="hero-uv-container" class="hero-advanced-stat"><i class="fa-solid fa-sun" style="color:#f59e0b;"></i> UV <strong id="hero-uv-val">--</strong> <span id="hero-uv-label"></span></span>
+                <span class="hero-stat"><i class="fa-solid fa-temperature-low"></i> <strong id="day-tmin">--</strong> <span class="hero-stat-label">min</span></span>
+                <span class="hero-stat"><i class="fa-solid fa-temperature-high"></i> <strong id="day-tmax">--</strong> <span class="hero-stat-label">max</span></span>
+                <span class="hero-stat hero-advanced-stat"><i class="fa-solid fa-gauge-high"></i> <strong id="hero-pressure-val">-- hPa</strong></span>
+                <span class="hero-stat hero-advanced-stat"><i class="fa-solid fa-mountain"></i> <strong id="hero-altitude-val">-- m</strong></span>
+                <span id="hero-humidity-container" class="hero-stat hero-advanced-stat"><i class="fa-solid fa-droplet" style="color: var(--accent-blue);"></i> <strong id="hero-humidity-val">--%</strong> <span class="hero-stat-label">humid.</span></span>
+                <span id="hero-freezing-container" class="hero-stat hero-advanced-stat"><i class="fa-solid fa-icicles" style="color: #00b4d8;"></i> <span class="hero-stat-label">iso 0°</span> <strong id="hero-freezing-val">-- m</strong></span>
+                <span id="moon-phase-hero" class="hero-stat hero-advanced-stat">🌙 <strong id="moon-phase-val">--</strong></span>
+                <span id="day-rain-container" class="hero-stat hero-advanced-stat"><i class="fa-solid fa-droplet"></i> <strong id="day-precip-sum">--</strong> <span class="hero-stat-label">pluie</span></span>
+                <span id="day-snow-container" class="hero-stat hero-advanced-stat" style="display: none;"><i class="fa-solid fa-snowflake" style="color: var(--accent-snow);"></i> <strong id="day-snow-sum">--</strong> <span class="hero-stat-label">neige</span></span>
+                <span id="hero-rain-prob-container" class="hero-stat hero-advanced-stat"><i class="fa-solid fa-umbrella" style="color: var(--accent-blue);"></i> <strong id="hero-rain-prob-val">--%</strong> <span class="hero-stat-label">proba</span></span>
+                <span id="hero-uv-container" class="hero-stat hero-advanced-stat"><i class="fa-solid fa-sun" style="color:#f59e0b;"></i> <span class="hero-stat-label">UV</span> <strong id="hero-uv-val">--</strong><span id="hero-uv-dot" class="hero-uv-dot"></span></span>
             </div>
         </div>
 
@@ -2908,7 +3005,7 @@
                     <span class="vigilance-detail" id="vigilance-detail">Conditions météo calmes.</span>
                 </div>
             </div>
-            <button type="button" class="weather-news-btn" id="weather-news-btn" onclick="openWeatherNewsModal()" title="Actualités météo du jour">📝</button>
+            <button type="button" class="weather-news-btn" id="weather-news-btn" onclick="openWeatherNewsModal()" title="Actualités météo du jour"><span class="wn-emoji">📝</span><span class="wn-label">Actualités</span></button>
         </div>
 
         <!-- Bannière d'erreur réseau (12/09/2026) : voir showWeatherError()/retryWeatherLoad().
@@ -13198,6 +13295,32 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
             document.getElementById('hero-cond-title').innerText = condLabel;
             document.getElementById('hero-main-icon').className = `fa-solid ${condIcon}`;
 
+            // Trio Matin/Après-midi/Soir du bandeau hero (remplace l'ancien gros picto unique) :
+            // même principe que condMatin/condApres du tableau 16 jours (code météo représentatif à
+            // 9h/15h), complété par 20h pour le soir, avec la même bascule soleil→lune la nuit que
+            // ci-dessus si le créneau tombe hors jour.
+            const heroTrioAt = (h) => {
+                const idx = start + h;
+                const code = weatherData.hourly.weather_code ? (weatherData.hourly.weather_code[idx] || 0) : 0;
+                const isDayAt = weatherData.hourly.is_day ? weatherData.hourly.is_day[idx] : 1;
+                const c = wmoMap[code] || wmoMap[0];
+                return (isDayAt === 0 && code === 0) ? { icon: 'fa-moon', label: 'Nuit claire' } : c;
+            };
+            [['morning', 9], ['afternoon', 15], ['evening', 20]].forEach(([key, h]) => {
+                const cond = heroTrioAt(h);
+                const iconEl = document.getElementById(`hero-trio-${key}-icon`);
+                const wrapEl = document.getElementById(`hero-trio-${key}`);
+                if (iconEl) iconEl.className = `fa-solid ${cond.icon}`;
+                if (wrapEl) wrapEl.title = `${key === 'morning' ? 'Matin' : key === 'afternoon' ? 'Après-midi' : 'Soir'} : ${cond.label}`;
+            });
+            // Période en cours mise en avant : mêmes bornes que les mascottes triples (matin 6-12h,
+            // après-midi 12-18h, soir 18-23h — voir renderTripleBuddies / goToBuddySlide).
+            const heroTrioNowKey = currentHourOfDay < 12 ? 'morning' : (currentHourOfDay < 18 ? 'afternoon' : 'evening');
+            ['morning', 'afternoon', 'evening'].forEach(key => {
+                const wrapEl = document.getElementById(`hero-trio-${key}`);
+                if (wrapEl) wrapEl.classList.toggle('hero-trio-now', key === heroTrioNowKey);
+            });
+
             // Ressenti (température apparente Open-Meteo, combine refroidissement éolien, humidité
             // et rayonnement solaire) — jamais recalculé nous-mêmes, uniquement la vraie valeur API.
             const feelsVal = weatherData.hourly.apparent_temperature ? weatherData.hourly.apparent_temperature[currentHourIdx] : undefined;
@@ -13310,10 +13433,9 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 else if (uvMax >= 6) { uvLabel = 'Élevé'; uvColor = '#f97316'; }
                 else if (uvMax >= 3) { uvLabel = 'Modéré'; uvColor = '#eab308'; }
                 document.getElementById('hero-uv-val').innerText = uvRounded;
-                const uvLabelEl = document.getElementById('hero-uv-label');
-                uvLabelEl.innerText = uvLabel;
-                uvLabelEl.style.color = uvColor;
-                uvLabelEl.style.fontWeight = '700';
+                const uvDotEl = document.getElementById('hero-uv-dot');
+                uvDotEl.style.background = uvColor;
+                uvContainer.title = `UV ${uvRounded} — ${uvLabel}`;
                 uvContainer.style.display = 'inline-block';
             } else {
                 uvContainer.style.display = 'none';
