@@ -3439,51 +3439,6 @@
             </div>
         </div>
 
-        <!-- Désaccord entre modèles météo (chantier 2, 12/09/2026) : visible seulement si, sur au
-             moins un des 7 prochains jours, les modèles (prévision affichée / ICON / ECMWF /
-             AROME / ARPEGE) divergent franchement. Voir loadModelDisagreement() / renderModelDisagreementCard(). -->
-        <div class="model-disagree-card" id="model-disagree-card" data-groups="general" data-level="expert" style="display:none;">
-            <div class="model-disagree-header">
-                <i class="fa-solid fa-scale-unbalanced"></i>
-                <div>
-                    <span class="vigilance-level">Les modèles ne sont pas d'accord</span>
-                    <span class="model-disagree-summary" id="model-disagree-summary"></span>
-                </div>
-                <button type="button" class="model-disagree-toggle" id="model-disagree-toggle" onclick="toggleModelDisagreeDetails()">Détails</button>
-            </div>
-            <div class="model-disagree-details" id="model-disagree-details" style="display:none;">
-                <!-- Détails en cartes verticales (12/09/2026) : l'ancien tableau 4 colonnes
-                     devenait illisible sur smartphone vertical (en-têtes et cellules
-                     "ICON/EMCWF" se chevauchaient). Une carte par jour, chips par modèle. -->
-                <div class="model-disagree-days" id="model-disagree-days"></div>
-                <div class="card-sage-sub" style="margin-top:6px;">Référence « <b>Metehop</b> » = la prévision affichée par l'app : combinaison automatique du meilleur modèle Open-Meteo pour le lieu (pas un modèle unique), ajustée du micro-climat. Modèles comparés : <b>ICON</b> — Deutscher Wetterdienst (DWD), Allemagne ; <b>ECMWF IFS</b> — Centre européen pour les prévisions météorologiques à moyen terme (ECMWF), Europe ; <b>AROME</b> et <b>ARPEGE</b> — Météo-France, France (AROME : haute résolution 2,5 km, 2 jours ; ARPEGE : 4 jours). La ligne « <b>Choix de Metehop</b> » désigne celui dont les données brutes (avant micro-climat) sont les plus proches ce jour-là.</div>
-            </div>
-        </div>
-
-        <!-- Benchmark — modèle vs réalité (chantier 8, 12/09/2026, mode Expert) : compare les
-             prévisions affichées par Metehop (ainsi que DWD ICON et ECMWF) aux relèves réelles
-             des 7 jours passés. La réalité passée vient de l'archive ERA5 (Open-Meteo), la
-             "réalité du moment" des conditions en cours (blend d'observations). Metehop ne pouvant
-             pas reconstituer ses anciennes prévisions (les serveurs ne les re-mémorisent pas), il
-             enregistre désormais ce qu'il affiche à chaque chargement : ses prévisions se remplissent
-             au fil des jours. Un écart ≤ 1,5 °C sur la T° max = prévision "bonne". -->
-        <div class="chart-card" id="benchmark-card" data-groups="general" data-level="expert" style="display:none;">
-            <div class="chart-header">
-                <div>
-                    <div class="card-sage-title"><i class="fa-solid fa-bullseye"></i>&nbsp; Benchmark — modèle vs réalité</div>
-                    <div class="card-sage-sub">Metehop, ICON et ECMWF comparés aux relèves réelles (T° max, T° min, pluie) des 7 derniers jours pour ce lieu — une médaille 🥇 par jour au modèle le plus proche du réel.</div>
-                </div>
-                <button type="button" class="model-disagree-toggle" id="benchmark-toggle" onclick="toggleBenchmarkDetails()">Détails</button>
-            </div>
-            <!-- Replié par défaut (comme "Les modèles ne sont pas d'accord") : le détail se
-                 remplit au fil des jours de visite, inutile de l'imposer à chaque ouverture. -->
-            <div id="benchmark-details" style="display:none;">
-                <div id="benchmark-live" class="benchmark-live-row"></div>
-                <div class="benchmark-list" id="benchmark-rows"></div>
-                <div class="card-sage-sub benchmark-card-note" id="benchmark-note" style="margin-top:8px;"></div>
-            </div>
-        </div>
-
         <!-- Jardinage : quoi faire en ce moment ? — conseils de plantation / taille / récolte
              (puis floraison pour l'ornement), ajoutés juste avant la carte Chauffage le 12/09/2026.
              Basé sur l'historique climatologique RÉEL du lieu (normales locales partagées, voir
@@ -4278,6 +4233,77 @@
 
         </div>
 
+        <!-- "Metehop pour les geeks" (17/09/2026) : regroupe les encarts techniques/diagnostic qui
+             intéressent surtout les curieux du fonctionnement interne de l'app - déplacés ici depuis
+             leur emplacement d'origine plus haut dans l'onglet Général. Replié par défaut (voir
+             CARD_COLLAPSE_DEFAULTS['geek-card-body'] = true), même mécanisme que Pollution/Astronomie
+             (toggleCardCollapse). Les deux encarts enfants gardent chacun leur data-groups="general"
+             data-level="expert" d'origine : ce n'est PAS redondant avec l'encart englobant - c'est le
+             SEUL mécanisme qui fait passer benchmark-card de display:none à visible (renderBenchmark()
+             ne touche jamais lui-même à son display ; seule la boucle générique data-groups le fait).
+             Les retirer avait fait disparaître silencieusement le Benchmark (corrigé le 17/09/2026). -->
+        <div class="chart-card" id="geek-card" data-groups="general" data-level="expert">
+            <div class="chart-header-row">
+                <div class="chart-header" style="flex:1; margin-bottom:0;">
+                    <div>
+                        <div class="card-sage-title"><i class="fa-solid fa-flask" style="color: var(--accent-blue); margin-right: 6px;"></i> Metehop pour les geeks</div>
+                        <div class="card-sage-sub">Sous le capot : accord entre modèles météo et fiabilité réelle des prévisions de l'app.</div>
+                    </div>
+                </div>
+                <button type="button" class="card-collapse-btn" onclick="toggleCardCollapse('geek-card-body', this)" title="Réduire/développer cet encart">
+                    <i class="fa-solid fa-chevron-up"></i>
+                </button>
+            </div>
+            <div class="card-collapsible-body" id="geek-card-body">
+
+                <!-- Désaccord entre modèles météo (chantier 2, 12/09/2026) : visible seulement si, sur au
+                     moins un des 7 prochains jours, les modèles (prévision affichée / ICON / ECMWF /
+                     AROME / ARPEGE) divergent franchement. Voir loadModelDisagreement() / renderModelDisagreementCard(). -->
+                <div class="model-disagree-card" id="model-disagree-card" data-groups="general" data-level="expert" style="display:none;">
+                    <div class="model-disagree-header">
+                        <i class="fa-solid fa-scale-unbalanced"></i>
+                        <div>
+                            <span class="vigilance-level">Les modèles ne sont pas d'accord</span>
+                            <span class="model-disagree-summary" id="model-disagree-summary"></span>
+                        </div>
+                        <button type="button" class="model-disagree-toggle" id="model-disagree-toggle" onclick="toggleModelDisagreeDetails()">Détails</button>
+                    </div>
+                    <div class="model-disagree-details" id="model-disagree-details" style="display:none;">
+                        <!-- Détails en cartes verticales (12/09/2026) : l'ancien tableau 4 colonnes
+                             devenait illisible sur smartphone vertical (en-têtes et cellules
+                             "ICON/EMCWF" se chevauchaient). Une carte par jour, chips par modèle. -->
+                        <div class="model-disagree-days" id="model-disagree-days"></div>
+                        <div class="card-sage-sub" style="margin-top:6px;">Référence « <b>Metehop</b> » = la prévision affichée par l'app : combinaison automatique du meilleur modèle Open-Meteo pour le lieu (pas un modèle unique), ajustée du micro-climat. Modèles comparés : <b>ICON</b> — Deutscher Wetterdienst (DWD), Allemagne ; <b>ECMWF IFS</b> — Centre européen pour les prévisions météorologiques à moyen terme (ECMWF), Europe ; <b>AROME</b> et <b>ARPEGE</b> — Météo-France, France (AROME : haute résolution 2,5 km, 2 jours ; ARPEGE : 4 jours). La ligne « <b>Choix de Metehop</b> » désigne celui dont les données brutes (avant micro-climat) sont les plus proches ce jour-là.</div>
+                    </div>
+                </div>
+
+                <!-- Benchmark — modèle vs réalité (chantier 8, 12/09/2026, mode Expert) : compare les
+                     prévisions affichées par Metehop (ainsi que DWD ICON et ECMWF) aux relèves réelles
+                     des 7 jours passés. La réalité passée vient de l'archive ERA5 (Open-Meteo), la
+                     "réalité du moment" des conditions en cours (blend d'observations). Metehop ne pouvant
+                     pas reconstituer ses anciennes prévisions (les serveurs ne les re-mémorisent pas), il
+                     enregistre désormais ce qu'il affiche à chaque chargement : ses prévisions se remplissent
+                     au fil des jours. Un écart ≤ 1,5 °C sur la T° max = prévision "bonne". -->
+                <div class="chart-card" id="benchmark-card" data-groups="general" data-level="expert" style="display:none; margin-top:12px;">
+                    <div class="chart-header">
+                        <div>
+                            <div class="card-sage-title"><i class="fa-solid fa-bullseye"></i>&nbsp; Benchmark — modèle vs réalité</div>
+                            <div class="card-sage-sub">Metehop, ICON et ECMWF comparés aux relèves réelles (T° max, T° min, pluie) des 7 derniers jours pour ce lieu — une médaille 🥇 par jour au modèle le plus proche du réel.</div>
+                        </div>
+                        <button type="button" class="model-disagree-toggle" id="benchmark-toggle" onclick="toggleBenchmarkDetails()">Détails</button>
+                    </div>
+                    <!-- Replié par défaut (comme "Les modèles ne sont pas d'accord") : le détail se
+                         remplit au fil des jours de visite, inutile de l'imposer à chaque ouverture. -->
+                    <div id="benchmark-details" style="display:none;">
+                        <div id="benchmark-live" class="benchmark-live-row"></div>
+                        <div class="benchmark-list" id="benchmark-rows"></div>
+                        <div class="card-sage-sub benchmark-card-note" id="benchmark-note" style="margin-top:8px;"></div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
         <!-- STATION HYDROMÉTRIQUE LA PLUS PROCHE + VIGILANCE CRUES — sources officielles gratuites
              et sans clé : Hub'Eau (API Hydrométrie, opérée par le Service Central Vigicrues lui-même)
              pour la station/les mesures, et le flux GeoJSON public de Vigicrues (tronçons de
@@ -4905,7 +4931,7 @@
             'pollen-card-body': () => pollenChart,
             'astro-card-body': () => astroChart,
         };
-        const CARD_COLLAPSE_DEFAULTS = { 'pollen-card-body': true, 'astro-card-body': true };
+        const CARD_COLLAPSE_DEFAULTS = { 'pollen-card-body': true, 'astro-card-body': true, 'geek-card-body': true };
         const CARD_COLLAPSE_KEY = 'metehop_card_collapsed_v1';
 
         function loadCardCollapseState() {
@@ -6047,6 +6073,22 @@
         // data-groups="general" : il reste visible en mode Simple depuis le 12/09/2026.
         
         // ---- Temp live ITENCI3 dans le Hero (mode Expert, <20km + <100m alt) - ajout 16/09/2026 ----
+                // v149.6 - Formate l'heure d'un relevé (obsTime ITENCI3/SYNOP/METAR, formats variés
+                // selon la source) en "HHhMM" court pour affichage "en petit" à côté de la température.
+                // Retourne '' si rien d'exploitable (jamais bloquant, jamais d'exception visible).
+                function formatObsTimeShort(raw) {
+                    if (raw === null || raw === undefined || raw === '') return '';
+                    try {
+                        const d = new Date(raw);
+                        if (!isNaN(d.getTime())) return `${String(d.getHours()).padStart(2, '0')}h${String(d.getMinutes()).padStart(2, '0')}`;
+                        if (typeof raw === 'string') {
+                            const m = raw.match(/(\d{1,2})[:h](\d{2})/);
+                            if (m) return `${m[1].padStart(2, '0')}h${m[2]}`;
+                        }
+                    } catch (e) {}
+                    return '';
+                }
+
                 function updateHeroLiveTemp() {
             const el = document.getElementById('hero-live-temp');
             if (!el) return;
@@ -6063,7 +6105,8 @@
                     const stationAlt = (typeof NEARBY_STATION.alt === 'number') ? NEARBY_STATION.alt : null;
                     if (curAlt !== null && stationAlt !== null && Math.abs(curAlt - stationAlt) > (NEARBY_STATION.maxAltDiffM || 100)) {
                     } else {
-                        el.innerText = `Temp. live : ${Math.round(nearbyStationLiveTemp)}°C`;
+                        const t1 = formatObsTimeShort(nearbyStationLiveTime);
+                        el.innerHTML = `Temp. live : ${Math.round(nearbyStationLiveTemp)}°C${t1 ? ` <span style="opacity:0.72; font-weight:500;">· ${t1}</span>` : ''}`;
                         el.title = 'Station ITENCI3 - Tencin (live)';
                         el.style.display = '';
                         return;
@@ -6090,8 +6133,9 @@
                     } catch(e2) {}
                     if (!stationTooFarFromOM) {
                         const d = synopLiveCache.distKm;
-                        const distLabel = d <= 40 ? '25-30 km' : `${Math.round(d)} km`;
-                        el.innerText = `Temp. live (${distLabel}) : ${Math.round(synopLiveCache.temp)}°C`;
+                        const distLabel = d <= 40 ? '~25km' : `(${Math.round(d)} km)`;
+                        const t2 = formatObsTimeShort(synopLiveCache.obsTime);
+                        el.innerHTML = `Temp. live ${distLabel} : ${Math.round(synopLiveCache.temp)}°C${t2 ? ` <span style="opacity:0.72; font-weight:500;">· ${t2}</span>` : ''}`;
                         el.title = `SYNOP ${synopLiveCache.station || ''} à ${d.toFixed(1)} km - ${synopLiveCache.obsTime || ''} - data.gouv.fr`;
                         el.style.display = '';
                         return;
@@ -6109,7 +6153,8 @@
                             rNowCorr = Math.round((benchmarkRealityNow.temp + dltNow) * 10) / 10;
                         }
                     } catch(e2) {}
-                    el.innerText = `Temp. live (25-30 km) : ${Math.round(rNowCorr)}°C`;
+                    const t3 = formatObsTimeShort(benchmarkRealityNow.ts);
+                    el.innerHTML = `Temp. live ~25km : ${Math.round(rNowCorr)}°C${t3 ? ` <span style="opacity:0.72; font-weight:500;">· ${t3}</span>` : ''}`;
                     el.title = 'Fallback Open-Meteo current (SYNOP indisponible)';
                     el.style.display = '';
                     return;
