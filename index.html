@@ -5612,8 +5612,30 @@
         let lastForecastRemarkableDays = null;
         let lastSeasonalForecastMonths = null;
         let weatherNewsSentences = { alerts: null, forecast16: null, seasonal: null, nextMonth: null, feteDuJour: null };
-        let lastFeteDuJourNames = null; // v149.3 - noms du jour (API abalin.net), pour l'en-tête "Aujourd'hui nous fêtons..."
-        let weatherNewsFeteDuJourDate = null; // date (YYYY-MM-DD) pour laquelle lastFeteDuJourNames a été chargé, évite de rappeler l'API plusieurs fois le même jour
+        // v149.5 - FIX définitif : le proxy CORS pour la fête du jour restait très peu fiable en usage
+        // réel (comme pour METAR ensuite). Solution plus robuste : le calendrier traditionnel des
+        // prénoms est une donnée FIXE (même prénom(s) à la même date civile chaque année, ce n'est pas
+        // une fête mobile comme Pâques) - on l'embarque donc directement dans l'app. Zéro appel
+        // réseau, zéro dépendance à un proxy, disponible instantanément et hors-ligne. Source :
+        // calendrier civil français traditionnel (GitHub archidote/api_fetes_prenoms_france, données
+        // factuelles domaine public). FETE_DU_JOUR_EXCLUDE liste les dates où l'entrée est une fête/un
+        // événement plutôt qu'un prénom (Jour de l'an, Assomption, Toussaint, etc.) - l'en-tête reste
+        // alors masqué ce jour-là plutôt que d'afficher un texte incohérent ("nous fêtons les Noël").
+        const FETE_DU_JOUR_MONTHS = [
+          "Jour de l'an|Basile|Geneviève|Odilon|Edouard|Mélaine|Raymond|Lucien|Alix|Guillaume|Pauline|Tatiana|Yvette|Nina|Rémi|Marcel|Roseline|Prisca|Marius|Sébastien|Agnès|Vincent|Banard|François de Sales|Conversion de Paul|Paule|Angèle|Thomas d'Aquin|Gildas|Martine|Marcelle",
+          "Ella|Présentation|Blaise|Véronique|Agathe|Gaston|Eugènie|Jacqueline|Apolline|Arnaud|Notre Dame de Lourdes|Félix|Béatrice|Valentin|Claude|Julienne|Alexis|Bernadette|Gabin|Aimée|Pierre-Damien|Isabelle|Lazare|Modeste|Roméo|Nestor|Honorine|Romain|Auguste",
+          "Aubin|Charles le Bon|Guénolé|Casimir|Olive|Colette|Félicité|Jean de Dieu|Françoise|Vivien|Rosine|Justine|Rodrigue|Mathilde|Louise|Bénédicte|Patrice|Cyrille|Joseph|Printemps/Rameaux|Clémence|Léa|Victorien|Catherine|Annonciation|Larissa|Habib|Gontran|Gwladys|Amédée|Benjamin",
+          "Hugues|Sandrine|Richard|Isidore|Irène|Marcellin|Jean-Baptiste de la Salle|Julie|Gautier|Fulbert|Stanislas|Jules|Ida|Maxime|Paterne|Benoît-Joseph|Anicet|Parfait|Emma|Odette|Anselme|Alexandre|Georges|Fidèle|Marc|Alida|Zita|Valérie|Catherine de Sienne|Robert",
+          "Fête du travail|Boris|Philippe, Jacques|Sylvain|Judith|Prudence|Gisèle|Armistice 1945|Pacôme|Solange|Estelle|Achille|Rolande|Matthias|Denise|Honoré|Pascal|Eric|Yves|Bernardin|Constantin|Emile|Didier|Donatien|Sophie|Bérenger|Augustin|Germain|Aymar|Ferdinand|Visitation de la Sainte Vierge",
+          "Justin|Blandine|Kévin|Clotilde|Igor|Norbert|Gilbert|Médard|Diane|Landry|Barnabé|Guy|Antoine de Padoue|Elisée|Germaine|Jean-François Régis|Hervé|Léonce|Romuald|Silvère|Eté|Alban|Audrey|Jean-Baptiste|Prosper|Anthelme|Fernand|Irénée|Pierre, Paul|Martial",
+          "Thierry|Martinien|Thomas|Florent|Antoine|Mariette|Raoul|Thibault|Amandine|Ulrich|Benoît|Olivier|Henri, Joël|Fête Nationale|Donald|Notre Dame du Mont Carmel|Charlotte|Frédéric|Arsène|Marina|Victor|Marie-Madeleine|Brigitte|Christine|Jacques|Anne, Joachin|Nathalie|Samson|Marthe|Juliette|Ignace de Loyola",
+          "Alphonse|Julien Eymard|Lydie|Jean-Marie Vianney|Abel|Transfiguration|Gaétan|Dominique|Amour|Laurent|Claire|Clarisse|Hippolyte|Evrard|Assomption|Armel|Hyacinthe|Hélène|Jean-Eudes|Bernard|Christophe|Fabrice|Rose de Lima|Barthélémy|Louis|Natacha|Monique|Augustin|Sabine|Fiacre|Aristide",
+          "Gilles|Ingrid|Grégoire|Rosalie|Raïssa|Bertrand|Reine|Nativité|Alain|Inès|Adelphe|Apollinaire|Aimé|Croix Glorieuse|Roland|Edith|Renaud|Nadège|Emilie|Davy|Matthieu|Maurice|Automne|Thècle|Hermann|Côme, Damien|Vincent de Paul|Venceslas|Michel, Gabriel, Raphaël|Jérôme",
+          "Thérèse de l'Enfant Jésus|Léger|Gérard|François d'Assise|Fleur|Bruno|Serge|Pélagie|Denis|Ghislain|Firmin|Wilfried|Géraud|Juste|Thérèse d'Avila|Edwige|Baudoin|Luc|René|Adeline|Céline|Elodie|Jean de Capistran|Florentin|Crépin|Dimitri|Emeline|Jude|Narcisse|Bienvenu|Quentin",
+          "Toussaint|Défunts|Hubert|Charles|Sylvie|Bertille|Carine|Geoffroy|Théodore|Léon|Armistice 1918|Christian|Brice|Sidoine|Albert|Marguerite|Elisabeth|Aude|Tanguy|Edmond|Présence de Marie|Cécile|Clément|Flora|Catherine|Delphine|Sévrin|Jacques de la Marche|Saturnin|André",
+          "Florence|Viviane|François-Xavier|Barbara|Gérald|Nicolas|Ambroise|Immaculée Conception|Pierre Fourier|Romaric|Daniel|Jeanne-Françoise de Chantal|Lucie|Odile|Ninon|Alice|Gaël|Gatien|Urbain|Théophile|Hiver|Françoise-Xavière|Armand|Adèle|Noël|Etienne|Jean|Innocents|David|Roger|Sylvestre"
+        ];
+        const FETE_DU_JOUR_EXCLUDE = new Set(["1-1","1-25","2-2","2-11","3-20","3-25","5-1","5-8","5-31","6-21","7-14","7-16","8-6","8-15","9-8","9-14","9-23","11-1","11-2","11-11","11-21","12-8","12-21","12-25","12-28"]);
         let weatherNewsGeneratedAt = null; // Date de génération (pour l'affichage "actualisé le...")
         let weatherNewsHydroRequestedForLoc = null; // évite de relancer flood+sécheresse en boucle pour le même lieu
         const WEATHER_NEWS_CACHE_KEY = 'metehop_weather_news_v1';
@@ -5636,12 +5658,20 @@
 
         function vigilanceRank(key) { return { vert: 0, jaune: 1, orange: 2, rouge: 3 }[key] ?? 0; }
 
-        // v149.3 - En-tête "Aujourd'hui nous fêtons..." : à partir de lastFeteDuJourNames (un ou
-        // plusieurs prénoms, voir loadFeteDuJour). Toujours "les X" par prénom, comme demandé,
-        // y compris pour un seul prénom.
+        // v149.5 - En-tête "Aujourd'hui nous fêtons..." : calculé directement depuis
+        // FETE_DU_JOUR_MONTHS (donnée locale, voir plus haut), plus aucun appel réseau. Toujours
+        // "les X" par prénom, comme demandé, y compris pour un seul prénom. Masqué (retourne null) si
+        // le jour correspond à une fête/un événement plutôt qu'à un prénom (FETE_DU_JOUR_EXCLUDE).
         function sentenceFeteDuJour() {
-            if (!lastFeteDuJourNames || !lastFeteDuJourNames.length) return null;
-            const parts = lastFeteDuJourNames.map(n => `les ${n}`);
+            const now = new Date();
+            const month = now.getMonth() + 1, day = now.getDate();
+            if (FETE_DU_JOUR_EXCLUDE.has(`${month}-${day}`)) return null;
+            const monthEntries = FETE_DU_JOUR_MONTHS[month - 1];
+            if (!monthEntries) return null;
+            const raw = monthEntries.split('|')[day - 1];
+            if (!raw) return null;
+            const names = raw.split(',').map(s => s.trim()).filter(Boolean);
+            const parts = names.map(n => `les ${n}`);
             const joined = parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} et ${parts[parts.length - 1]}`;
             return `Aujourd'hui, nous fêtons ${joined} !`;
         }
@@ -5863,25 +5893,6 @@
             } catch (e) { /* on ne casse jamais le reste de l'app pour un encart optionnel */ }
         }
 
-        // v149.3 - Fête du jour (API abalin.net, calendrier français, sans clé). Indépendante du
-        // lieu : une seule fois par jour civil (voir weatherNewsFeteDuJourDate), pas à chaque
-        // changement de lieu.
-        async function loadFeteDuJour() {
-            const todayStr = new Date().toISOString().slice(0, 10);
-            if (weatherNewsFeteDuJourDate === todayStr) return; // déjà chargée pour aujourd'hui
-            try {
-                const res = await fetchWithTimeout('https://nameday.abalin.net/api/V2/today/Europe/Paris', { timeout: 8000 });
-                if (!res.ok) return;
-                const data = await res.json();
-                const fr = data && data.data && data.data.fr;
-                if (typeof fr === 'string' && fr.trim()) {
-                    lastFeteDuJourNames = fr.split(',').map(s => s.trim()).filter(Boolean);
-                    weatherNewsFeteDuJourDate = todayStr;
-                    recomputeWeatherNews();
-                }
-            } catch (e) { /* pas de fête du jour cette fois, l'en-tête reste simplement masqué */ }
-        }
-
         // Déclenche les deux seules sources non chargées automatiquement au lancement (crues +
         // sécheresse, normalement réservées à l'onglet Nature) ; les 3 autres sources (vigilance
         // météo, tableau 16 jours, tendances saisonnières/mois prochain) sont déjà déclenchées par le
@@ -5901,8 +5912,7 @@
                 seasonalTrendsLoaded = true;
                 loadSeasonalTrends(lat, lon).catch(() => {});
             }
-            loadFeteDuJour().catch(() => {});
-            recomputeWeatherNews(); // affichage immédiat avec ce qui est déjà disponible
+            recomputeWeatherNews(); // affichage immédiat avec ce qui est déjà disponible ; sentenceFeteDuJour() est locale et toujours prête
         }
 
         function renderWeatherNews() {
@@ -7167,20 +7177,27 @@ function applyDisplayMode() {
                 // v148 - lancement en parallèle des 3 aéroports, et pour chaque aéroport course parallèle des proxies (rapide)
                 const tryOneAirport = async (apt) => {
                     const metarUrl = `https://aviationweather.gov/api/data/metar?ids=${apt.icao}&format=json`;
+                    // v149.5 - FIX : le format corsproxy.io avait changé (paramètre "url=" désormais
+                    // obligatoire : https://corsproxy.io/?url=<cible>, l'ancien format
+                    // "https://corsproxy.io/?<cible>" sans "url=" ne fonctionne plus et échouait
+                    // silencieusement à chaque fois). Proxies réordonnés par fiabilité constatée
+                    // (thingproxy.freeboard.io, service démo historiquement le moins stable, en tout
+                    // dernier recours) ; direct en premier au cas où aviationweather.gov autoriserait
+                    // un jour le CORS.
                     const proxyUrls = [
+                        metarUrl,
                         `https://api.allorigins.win/raw?url=${encodeURIComponent(metarUrl)}`,
-                        `https://api.allorigins.win/get?url=${encodeURIComponent(metarUrl)}`,
-                        `https://corsproxy.io/?${encodeURIComponent(metarUrl)}`,
-                        `https://thingproxy.freeboard.io/fetch/${metarUrl}`,
                         `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(metarUrl)}`,
-                        metarUrl
+                        `https://corsproxy.io/?url=${encodeURIComponent(metarUrl)}`,
+                        `https://api.allorigins.win/get?url=${encodeURIComponent(metarUrl)}`,
+                        `https://thingproxy.freeboard.io/fetch/${metarUrl}`
                     ];
-                    // v149 - timeout remonté à 6s (3.5s coupait trop tôt des proxies gratuits
-                    // parfois lents mais qui auraient fini par répondre) ; toujours en course
-                    // parallèle (Promise.any), donc ça ne ralentit pas le cas nominal, ça évite
-                    // juste de déclarer l'échec trop vite.
+                    // v149.5 - timeout remonté à 8s (aligné sur les autres appels proxy-dépendants de
+                    // l'app, ex loadSecheresseVigilance) ; toujours en course parallèle (Promise.any),
+                    // donc ça ne ralentit pas le cas nominal, ça évite juste de déclarer l'échec trop
+                    // vite pour des proxies gratuits parfois lents sous charge.
                     const tryProxy = async (proxyUrl) => {
-                        const res = await fetchWithTimeout(proxyUrl, {timeout: 6000, cache:'no-store'});
+                        const res = await fetchWithTimeout(proxyUrl, {timeout: 8000, cache:'no-store'});
                         if (!res || !res.ok) throw new Error('proxy fail');
                         let data;
                         try { data = await res.json(); } catch(e) {
