@@ -498,6 +498,11 @@
         .hero-wind-gust strong { color: var(--text-muted); font-weight: 700; }
 
         /* Bandeau vigilance météo */
+        .vigilance-row {
+            display: flex;
+            align-items: stretch;
+            gap: 8px;
+        }
         .vigilance-banner {
             border-radius: var(--radius-medium);
             padding: 7px 12px;
@@ -512,6 +517,26 @@
         .vigilance-text { display: flex; flex-direction: column; gap: 0px; min-width: 0; }
         .vigilance-level { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px; }
         .vigilance-detail { font-size: 0.66rem; font-weight: 500; opacity: 0.95; }
+        /* Bouton "Actualités météo" (17/09/2026) : occupe ~12-15% de la largeur de la ligne, ce qui
+           réduit d'autant le bandeau vigilance juste à côté (flex:1 sur .vigilance-banner). Toujours
+           visible, alerte ou non - les actualités du jour existent indépendamment d'une vigilance. */
+        .weather-news-btn {
+            flex: 0 0 auto;
+            width: 15%;
+            min-width: 40px;
+            max-width: 56px;
+            border: none;
+            border-radius: var(--radius-medium);
+            background: var(--card-bg, rgba(0,0,0,0.04));
+            font-size: 1.15rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.15s ease, background-color 0.15s ease;
+        }
+        .weather-news-btn:hover { background: rgba(43,108,176,0.12); transform: scale(1.05); }
+        .weather-news-btn:active { transform: scale(0.95); }
 
         .weather-error-banner {
             display: flex;
@@ -2672,6 +2697,7 @@
         html.dark .ski-station-select,
         html.dark .ski-compare-select,
         html.dark .tide-time-card,
+        html.dark .weather-news-btn,
         html.dark .group-selector {
             background-color: #141519;
             color: var(--text-dark);
@@ -2871,13 +2897,18 @@
             </div>
         </div>
 
-        <!-- Bandeau vigilance météo -->
-        <div class="vigilance-banner" id="vigilance-banner">
-            <i class="fa-solid fa-circle-check" id="vigilance-icon"></i>
-            <div class="vigilance-text">
-                <span class="vigilance-level" id="vigilance-level">Vigilance Vert</span>
-                <span class="vigilance-detail" id="vigilance-detail">Conditions météo calmes.</span>
+        <!-- Bandeau vigilance météo + bouton Actualités météo (17/09/2026) : le bandeau perd ~12%
+             de largeur pour laisser la place au bouton 📝, qui ouvre le popup #weather-news-modal-overlay
+             (voir loadWeatherNews / openWeatherNewsModal). -->
+        <div class="vigilance-row" id="vigilance-row">
+            <div class="vigilance-banner" id="vigilance-banner" style="flex:1 1 auto; min-width:0;">
+                <i class="fa-solid fa-circle-check" id="vigilance-icon"></i>
+                <div class="vigilance-text">
+                    <span class="vigilance-level" id="vigilance-level">Vigilance Vert</span>
+                    <span class="vigilance-detail" id="vigilance-detail">Conditions météo calmes.</span>
+                </div>
             </div>
+            <button type="button" class="weather-news-btn" id="weather-news-btn" onclick="openWeatherNewsModal()" title="Actualités météo du jour">📝</button>
         </div>
 
         <!-- Bannière d'erreur réseau (12/09/2026) : voir showWeatherError()/retryWeatherLoad().
@@ -4506,6 +4537,24 @@
         </div>
     </div>
 
+    <!-- Popup "Actualités météo du jour" (17/09/2026) : ouvert via le bouton 📝 à droite du bandeau
+         vigilance (#weather-news-btn). Contenu généré par renderWeatherNews() à partir de
+         computeWeatherNewsSentences() - voir ces fonctions. Mis à jour au lancement (et une fois par
+         jour/changement de lieu), avec repli sur la dernière version connue si hors-ligne (localStorage,
+         voir WEATHER_NEWS_CACHE_KEY). -->
+    <div class="install-modal-overlay" id="weather-news-modal-overlay" onclick="if(event.target===this) closeWeatherNewsModal()">
+        <div class="install-modal">
+            <h3>
+                <span class="install-modal-title">📝 Actualités météo du jour</span>
+                <button type="button" class="install-close" onclick="closeWeatherNewsModal()">✕</button>
+            </h3>
+            <div id="weather-news-body" style="display:flex; flex-direction:column; gap:12px; font-size:0.82rem; line-height:1.55; color:var(--text-muted);">
+                <p id="weather-news-loading" style="text-align:center; padding:10px 0;">Préparation des actualités du jour...</p>
+            </div>
+            <div class="install-note" id="weather-news-updated"></div>
+        </div>
+    </div>
+
     <div class="sources-modal-overlay" id="sources-modal-overlay" onclick="if(event.target===this) closeSourcesModal()">
         <div class="sources-modal">
             <h3>Sources & modèles utilisés <button type="button" class="sources-close" onclick="closeSourcesModal()">✕</button></h3>
@@ -5525,6 +5574,7 @@
             if (mySeq !== weatherRequestSeq) return; // lieu changé pendant la consultation officielle
 
             const vig = official || localVig;
+            lastVigilanceResult = vig; // v149 - capturé pour l'encart "Actualités météo" (voir computeWeatherNewsSentences)
             const sourceLabel = official ? official.source : 'Vigilance Metehop';
 
             VIGILANCE_LEVELS.forEach(k => bannerEl.classList.remove(`vigilance-${k}`));
@@ -5536,9 +5586,372 @@
             document.getElementById('vigilance-detail').innerText = vig.reasons.length
                 ? vig.reasons.join(' · ')
                 : "Conditions météo calmes, aucune alerte particulière dans les prochaines 24h.";
+            recomputeWeatherNews(); // v149 - la vigilance vient d'être (re)calculée, on en informe l'encart Actualités météo
         }
 
         function isFileOrigin() { try { return window.location.protocol === 'file:'; } catch(e) { return false; } }
+
+        // ============================================================================
+        // ACTUALITÉS MÉTÉO DU JOUR (17/09/2026)
+        // ============================================================================
+        // Encart déclenché par le bouton 📝 à droite du bandeau vigilance. 4 phrases générées à
+        // partir de données déjà calculées ailleurs dans l'app (aucune nouvelle source, aucun appel
+        // à un modèle de langage externe) :
+        //   1. Alertes météo/hydriques  <- lastVigilanceResult + lastFloodVigilanceResult + lastSecheresseVigilanceResult
+        //   2. 16 jours à venir         <- lastForecastRemarkableDays (les "cases entourées" du tableau, voir render16DayTable)
+        //   3. Écart saisonnier actuel  <- lastSeasonalTrendsResults[0] (bucket "aujourd'hui", voir loadSeasonalTrends)
+        //   4. Tendance du mois prochain<- lastSeasonalForecastMonths (API Seasonal Forecast ECMWF, voir loadSeasonalForecastAPI)
+        // Chaque phrase est tirée aléatoirement parmi plusieurs formulations adaptées à la situation,
+        // pour un rendu plus naturel qu'un texte figé. recomputeWeatherNews() est appelée par chacune
+        // des 4 sources dès qu'elle se met à jour (voir les points d'appel ci-dessus) : l'encart se
+        // complète donc progressivement, sans bloquer sur la plus lente. Mise en cache localStorage
+        // (date + lieu) pour un affichage immédiat hors-ligne ou avant que les données du jour arrivent.
+        let lastVigilanceResult = null;
+        let lastFloodVigilanceResult = null;
+        let lastSecheresseVigilanceResult = null;
+        let lastForecastRemarkableDays = null;
+        let lastSeasonalForecastMonths = null;
+        let weatherNewsSentences = { alerts: null, forecast16: null, seasonal: null, nextMonth: null, feteDuJour: null };
+        let lastFeteDuJourNames = null; // v149.3 - noms du jour (API abalin.net), pour l'en-tête "Aujourd'hui nous fêtons..."
+        let weatherNewsFeteDuJourDate = null; // date (YYYY-MM-DD) pour laquelle lastFeteDuJourNames a été chargé, évite de rappeler l'API plusieurs fois le même jour
+        let weatherNewsGeneratedAt = null; // Date de génération (pour l'affichage "actualisé le...")
+        let weatherNewsHydroRequestedForLoc = null; // évite de relancer flood+sécheresse en boucle pour le même lieu
+        const WEATHER_NEWS_CACHE_KEY = 'metehop_weather_news_v1';
+        // v149.1 - FIX : le cache doit être chargé dès le lancement (pas seulement à l'ouverture du
+        // popup), sinon recomputeWeatherNews() tourne dès le premier renderVigilanceBanner() avec des
+        // sources pas encore prêtes et écrase weatherNewsSentences par des messages d'attente avant
+        // même que l'utilisateur ait eu une chance de voir la version en cache.
+        (function initWeatherNewsFromCache() {
+            try {
+                const raw = localStorage.getItem(WEATHER_NEWS_CACHE_KEY);
+                if (!raw) return;
+                const cached = JSON.parse(raw);
+                if (cached && cached.sentences) {
+                    weatherNewsSentences = cached.sentences;
+                    weatherNewsGeneratedAt = cached.ts;
+                }
+            } catch (e) { /* pas de cache exploitable, on repart de zéro */ }
+        })();
+        const pick = arr => arr[Math.floor(Math.random() * arr.length)]; // choix aléatoire pour varier les formulations
+
+        function vigilanceRank(key) { return { vert: 0, jaune: 1, orange: 2, rouge: 3 }[key] ?? 0; }
+
+        // v149.3 - En-tête "Aujourd'hui nous fêtons..." : à partir de lastFeteDuJourNames (un ou
+        // plusieurs prénoms, voir loadFeteDuJour). Toujours "les X" par prénom, comme demandé,
+        // y compris pour un seul prénom.
+        function sentenceFeteDuJour() {
+            if (!lastFeteDuJourNames || !lastFeteDuJourNames.length) return null;
+            const parts = lastFeteDuJourNames.map(n => `les ${n}`);
+            const joined = parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} et ${parts[parts.length - 1]}`;
+            return `Aujourd'hui, nous fêtons ${joined} !`;
+        }
+
+        function sentenceAlerts() {
+            const meteo = lastVigilanceResult || computeVigilance();
+            const flood = lastFloodVigilanceResult;
+            const secheresse = lastSecheresseVigilanceResult;
+            const ranks = [
+                meteo ? vigilanceRank(meteo.key) : 0,
+                flood ? vigilanceRank(flood.key) : 0,
+                secheresse ? vigilanceRank(secheresse.key) : 0
+            ];
+            const worst = Math.max(...ranks);
+
+            if (worst === 0) {
+                return pick([
+                    "Rien à signaler aujourd'hui : aucune vigilance météo, crue ou restriction sécheresse n'est active pour votre secteur, une journée bien calme de ce côté-là.",
+                    "Le ciel comme les rivières sont sages en ce moment : ni la météo ni la situation hydrique ne déclenchent d'alerte pour ce lieu.",
+                    "Aucune alerte particulière à noter aujourd'hui, que ce soit côté météo ou côté eau — profitez-en pour souffler un peu."
+                ]);
+            }
+
+            const details = [];
+            if (meteo && vigilanceRank(meteo.key) > 0) {
+                details.push(`vigilance ${meteo.key}${meteo.reasons && meteo.reasons.length ? ` (${meteo.reasons.join(', ')})` : ''}`);
+            }
+            if (flood && vigilanceRank(flood.key) > 0) {
+                details.push(`crue en vigilance ${flood.key} sur le tronçon "${flood.troncon}"`);
+            }
+            if (secheresse && vigilanceRank(secheresse.key) > 0) {
+                details.push(`restrictions sécheresse en ${secheresse.label.toLowerCase()}${secheresse.zone ? ` (${secheresse.zone})` : ''}`);
+            }
+            const detailStr = details.join(' ainsi qu\'une ');
+
+            if (worst >= 3) {
+                return pick([
+                    `Soyez prudent aujourd'hui : ${detailStr} — mieux vaut suivre l'évolution de près.`,
+                    `Attention, la situation est sérieuse par ici : ${detailStr}. Restez informé au fil de la journée.`
+                ]);
+            }
+            if (worst === 2) {
+                return pick([
+                    `Un peu de vigilance est de mise : ${detailStr}. Rien de dramatique, mais gardez un œil dessus.`,
+                    `À surveiller aujourd'hui : ${detailStr} — sans être alarmant, ça mérite qu'on y prête attention.`
+                ]);
+            }
+            return pick([
+                `Petite prudence conseillée : ${detailStr}, mais rien qui ne justifie de s'inquiéter outre mesure.`,
+                `On note ${detailStr} — une vigilance modérée, à garder en tête sans plus.`
+            ]);
+        }
+
+        // v149.2 - Libellés courts par type de case remarquable, réutilisés pour la phrase de série.
+        const REMARK_TYPE_LABELS = { storm: 'orage', snow: 'neige', cold: 'froid/gel', hot: 'forte chaleur', rain: 'pluie', wind: 'vent soutenu' };
+
+        // Repère la plus longue série de jours CONSÉCUTIFS (indices day qui se suivent) partageant le
+        // même type de case remarquable (ex : 4 jours de suite de forte chaleur). `days` est trié par
+        // jour croissant (ordre de construction dans render16DayTable), donc un simple passage suffit.
+        function findWeatherStreak(days) {
+            if (!days || days.length < 4) return null;
+            let best = null, i = 0;
+            while (i < days.length) {
+                let j = i;
+                while (j + 1 < days.length && days[j + 1].type === days[i].type && days[j + 1].day === days[j].day + 1) j++;
+                const runLen = j - i + 1;
+                if (runLen > 3 && (!best || runLen > best.count)) best = { type: days[i].type, count: runLen, start: days[i], end: days[j] };
+                i = j + 1;
+            }
+            return best;
+        }
+
+        function streakSentence(streak) {
+            const label = REMARK_TYPE_LABELS[streak.type] || streak.type;
+            const startWhen = streak.start.day === 0 ? "dès aujourd'hui" : `à partir de ${streak.start.dayStr} ${streak.start.dateNum}`;
+            const endWhen = `jusqu'au ${streak.end.dayStr} ${streak.end.dateNum}`;
+            // v149.2 - dateNum se termine parfois déjà par un point (ex: "22 sept.") : on évite le
+            // "..", plus lisible en toute fin de phrase.
+            const trimEnd = s => s.endsWith('.') ? s : s + '.';
+            return trimEnd(pick([
+                `Autre chose à surveiller : une série de ${streak.count} jours consécutifs de ${label} est annoncée, ${startWhen} ${endWhen}`,
+                `À noter aussi : ${streak.count} jours d'affilée placés sous le signe de ${label}, ${startWhen} ${endWhen}`
+            ]));
+        }
+
+        function sentence16Days() {
+            const days = lastForecastRemarkableDays;
+            if (!days) return null; // v149.1 - pas encore chargé cette session : on laisse recomputeWeatherNews garder la valeur précédente (cache ou calcul antérieur)
+            if (!days.length) {
+                return pick([
+                    "Les 16 prochains jours s'annoncent sans excès notable : aucune case ne ressort particulièrement dans le tableau détaillé, une météo plutôt classique pour la saison.",
+                    "Rien de marquant à l'horizon des deux prochaines semaines : le tableau 16 jours ne met aucune journée en évidence."
+                ]);
+            }
+            const d = days[0];
+            const when = d.day === 0 ? "aujourd'hui" : (d.day === 1 ? 'demain' : `${d.dayStr} ${d.dateNum}`);
+            const rest = days.length > 1 ? ` (et ${days.length - 1} autre${days.length - 1 > 1 ? 's' : ''} jour${days.length - 1 > 1 ? 's' : ''} à repérer dans le tableau)` : '';
+            const byType = {
+                storm: () => `Un risque d'orage se dessine ${when} ${d.stormMatin ? 'en matinée' : 'en après-midi'} — c'est la case orange à repérer dans le tableau 16 jours${rest}.`,
+                snow: () => `Un épisode neigeux est annoncé ${when} — visible via la case violette du tableau 16 jours${rest}.`,
+                cold: () => `Ça va piquer ${when} : jusqu'à ${d.minT}°C annoncés, gel possible — la case bleu foncé du tableau le signale${rest}.`,
+                hot: () => `Un pic de chaleur se profile ${when}, avec ${d.maxT}°C au programme — repérable par la case rouge du tableau${rest}.`,
+                rain: () => `${when.charAt(0).toUpperCase() + when.slice(1)}, un cumul de pluie notable est attendu (environ ${d.rain.toFixed(0)} mm) — la case bleu clair du tableau le met en avant${rest}.`,
+                wind: () => `Des rafales soutenues sont prévues ${when}, jusqu'à ${d.gustMax} km/h — c'est la case verte du tableau 16 jours${rest}.`
+            };
+            let result = (byType[d.type] || (() => `Une journée à surveiller ${when} dans le tableau 16 jours${rest}.`))();
+            const streak = findWeatherStreak(days);
+            if (streak) result += ' ' + streakSentence(streak);
+            return result;
+        }
+
+        function sentenceSeasonalGap() {
+            const results = lastSeasonalTrendsResults;
+            if (!results || !results.length) return null; // v149.1 - pas encore chargé cette session
+            const r = results[0]; // bucket "aujourd'hui"
+            if (!r.forecastDays || r.forecastTempMax === null || r.tempMax === null) {
+                return "Pas encore assez de données pour comparer précisément à la normale de saison sur cette période.";
+            }
+            const delta = Math.round((r.forecastTempMax - r.tempMax) * 10) / 10;
+            const hydric = classifyHydricAnomaly(r);
+            let hydricPart = '';
+            if (hydric && hydric.label === 'Excédent pluviométrique') hydricPart = ", avec des précipitations plutôt excédentaires";
+            else if (hydric && hydric.label === 'Déficit pluviométrique') hydricPart = ", sur fond de déficit de précipitations";
+
+            if (Math.abs(delta) < 1) {
+                return pick([
+                    `Côté températures, on est pile dans les clous des normales de saison en ce moment${hydricPart}.`,
+                    `Rien d'anormal : les températures actuelles collent d'assez près à la moyenne des 20 dernières années pour cette période${hydricPart}.`
+                ]);
+            }
+            if (delta > 0) {
+                return pick([
+                    `Il fait actuellement environ ${Math.abs(delta).toFixed(1)}°C de plus que la normale de saison (moyenne des 20 dernières années) pour cette période${hydricPart}.`,
+                    `On tourne autour de ${Math.abs(delta).toFixed(1)}°C au-dessus des normales de saison en ce moment${hydricPart}.`
+                ]);
+            }
+            return pick([
+                `Il fait actuellement environ ${Math.abs(delta).toFixed(1)}°C de moins que la normale de saison (moyenne des 20 dernières années) pour cette période${hydricPart}.`,
+                `On est plutôt ${Math.abs(delta).toFixed(1)}°C sous les normales de saison en ce moment${hydricPart}.`
+            ]);
+        }
+
+        function sentenceNextMonth() {
+            const m = lastSeasonalForecastMonths;
+            if (!m || !m.months || m.months.length < 2) return null; // v149.1 - pas encore chargé cette session
+            const idx = 1; // mois suivant le mois en cours
+            const [y, mo] = m.months[idx].split('-').map(Number);
+            const monthName = new Date(y, mo - 1, 1).toLocaleDateString('fr-FR', { month: 'long' });
+            const tAnom = m.tempAnomaly[idx];
+            const pAnom = m.precipAnomaly[idx];
+            const daysInMonth = new Date(y, mo, 0).getDate();
+            const thermal = classifyMonthlyThermalAnomaly(tAnom);
+            const hydric = classifyMonthlyHydricAnomaly(pAnom, daysInMonth);
+
+            let thermalPart;
+            if (typeof tAnom !== 'number') thermalPart = "une tendance encore incertaine côté températures";
+            else if (Math.abs(tAnom) < 0.5) thermalPart = "des températures proches des normales";
+            else if (tAnom >= 2) thermalPart = `un mois nettement plus chaud que d'habitude (+${tAnom.toFixed(1)}°C d'écart)`;
+            else if (tAnom > 0) thermalPart = `un mois plutôt plus chaud que la moyenne (+${tAnom.toFixed(1)}°C)`;
+            else if (tAnom <= -2) thermalPart = `un mois nettement plus frais que d'habitude (${tAnom.toFixed(1)}°C d'écart)`;
+            else thermalPart = `un mois plutôt plus frais que la moyenne (${tAnom.toFixed(1)}°C)`;
+
+            let hydricPart;
+            if (!hydric || typeof pAnom !== 'number') hydricPart = '';
+            else if (hydric.label === 'Excédent pluviométrique') hydricPart = ", avec des précipitations tendanciellement excédentaires";
+            else hydricPart = ", avec des précipitations tendanciellement déficitaires";
+
+            return pick([
+                `Pour ${monthName}, les modèles saisonniers (ECMWF) penchent vers ${thermalPart}${hydricPart} — à prendre comme une tendance, pas une prévision précise.`,
+                `En regardant plus loin, ${monthName} s'orienterait vers ${thermalPart}${hydricPart}, selon les modèles saisonniers actuels.`
+            ]);
+        }
+
+        function saveWeatherNewsCache() {
+            try {
+                localStorage.setItem(WEATHER_NEWS_CACHE_KEY, JSON.stringify({
+                    sentences: weatherNewsSentences,
+                    ts: Date.now(),
+                    lat: currentLat, lon: currentLon,
+                    locationName: (typeof locationName !== 'undefined') ? locationName : ''
+                }));
+            } catch (e) { /* tant pis, pas de cache hors-ligne cette fois */ }
+        }
+
+        function loadWeatherNewsCache() {
+            // Conservée pour usage éventuel (ex : diagnostic) ; le chargement effectif au lancement
+            // passe désormais par initWeatherNewsFromCache() ci-dessus.
+            try {
+                const raw = localStorage.getItem(WEATHER_NEWS_CACHE_KEY);
+                if (!raw) return null;
+                return JSON.parse(raw);
+            } catch (e) { return null; }
+        }
+
+        // Recalcule les 4 phrases à partir de ce qui est disponible à l'instant. Une source pas
+        // encore chargée cette session renvoie null (voir sentence16Days/sentenceSeasonalGap/
+        // sentenceNextMonth) : on garde alors la valeur précédente (cache localStorage au lancement,
+        // ou calcul antérieur dans la session) plutôt que de l'écraser par un texte d'attente - v149.1,
+        // corrige l'ancien comportement qui perdait le cache hors-ligne dès le premier appel. Un texte
+        // d'attente n'apparaît que si RIEN n'a jamais été calculé pour cette phrase (ni session, ni
+        // cache). Appelée par chacune des 4 sources dès qu'elle se met à jour - voir les points
+        // d'appel dans renderVigilanceBanner / render16DayTable / loadSeasonalTrends /
+        // loadSeasonalForecastAPI, ainsi que par loadWeatherNews() ci-dessous.
+        function recomputeWeatherNews() {
+            try {
+                const prev = weatherNewsSentences || {};
+                const merge = (fresh, prevVal, fallback) => (fresh !== null && fresh !== undefined) ? fresh : (prevVal || fallback);
+                weatherNewsSentences = {
+                    alerts: merge(sentenceAlerts(), prev.alerts, "Préparation des alertes du jour..."),
+                    forecast16: merge(sentence16Days(), prev.forecast16, "Le tableau des 16 prochains jours se prépare encore, un instant..."),
+                    seasonal: merge(sentenceSeasonalGap(), prev.seasonal, "L'écart avec les normales de saison est en cours de calcul..."),
+                    nextMonth: merge(sentenceNextMonth(), prev.nextMonth, "La tendance du mois prochain est en cours de calcul..."),
+                    feteDuJour: merge(sentenceFeteDuJour(), prev.feteDuJour, null) // v149.3 - pas de texte d'attente : masqué tant qu'inconnue
+                };
+                weatherNewsGeneratedAt = Date.now();
+                saveWeatherNewsCache();
+                const overlay = document.getElementById('weather-news-modal-overlay');
+                if (overlay && overlay.classList.contains('visible')) renderWeatherNews();
+            } catch (e) { /* on ne casse jamais le reste de l'app pour un encart optionnel */ }
+        }
+
+        // v149.3 - Fête du jour (API abalin.net, calendrier français, sans clé). Indépendante du
+        // lieu : une seule fois par jour civil (voir weatherNewsFeteDuJourDate), pas à chaque
+        // changement de lieu.
+        async function loadFeteDuJour() {
+            const todayStr = new Date().toISOString().slice(0, 10);
+            if (weatherNewsFeteDuJourDate === todayStr) return; // déjà chargée pour aujourd'hui
+            try {
+                const res = await fetchWithTimeout('https://nameday.abalin.net/api/V2/today/Europe/Paris', { timeout: 8000 });
+                if (!res.ok) return;
+                const data = await res.json();
+                const fr = data && data.data && data.data.fr;
+                if (typeof fr === 'string' && fr.trim()) {
+                    lastFeteDuJourNames = fr.split(',').map(s => s.trim()).filter(Boolean);
+                    weatherNewsFeteDuJourDate = todayStr;
+                    recomputeWeatherNews();
+                }
+            } catch (e) { /* pas de fête du jour cette fois, l'en-tête reste simplement masqué */ }
+        }
+
+        // Déclenche les deux seules sources non chargées automatiquement au lancement (crues +
+        // sécheresse, normalement réservées à l'onglet Nature) ; les 3 autres sources (vigilance
+        // météo, tableau 16 jours, tendances saisonnières/mois prochain) sont déjà déclenchées par le
+        // chargement météo principal et alimentent l'encart via recomputeWeatherNews() dès qu'elles
+        // aboutissent - voir leurs points d'appel respectifs.
+        async function loadWeatherNews(lat, lon) {
+            const locKey = `${lat.toFixed(2)},${lon.toFixed(2)}`;
+            if (weatherNewsHydroRequestedForLoc !== locKey) {
+                weatherNewsHydroRequestedForLoc = locKey;
+                loadFloodVigilance(lat, lon).then(r => { lastFloodVigilanceResult = r; recomputeWeatherNews(); }).catch(() => {});
+                loadSecheresseVigilance(lat, lon).catch(() => {}); // capture déjà lastSecheresseVigilanceResult + recompute en interne
+            }
+            // Si les tendances saisonnières n'ont pas été déclenchées par le chargement principal
+            // (ex : onglet actif différent de "Général" au moment du changement de lieu), on les
+            // lance ici pour que l'écart saisonnier de l'encart ne reste pas indéfiniment vide.
+            if (!seasonalTrendsLoaded) {
+                seasonalTrendsLoaded = true;
+                loadSeasonalTrends(lat, lon).catch(() => {});
+            }
+            loadFeteDuJour().catch(() => {});
+            recomputeWeatherNews(); // affichage immédiat avec ce qui est déjà disponible
+        }
+
+        function renderWeatherNews() {
+            const body = document.getElementById('weather-news-body');
+            const updatedEl = document.getElementById('weather-news-updated');
+            if (!body) return;
+            const s = weatherNewsSentences || {};
+            // v149.3 - en-tête "fête du jour" (masqué si inconnue - jamais de texte d'attente ici) + les
+            // 4 phrases habituelles + signature finale de l'article, façon petit journal du matin.
+            const headerHtml = s.feteDuJour
+                ? `<p style="margin:0 0 2px 0; padding-bottom:10px; border-bottom:1px solid rgba(0,0,0,0.08); font-weight:700;">🎉 ${s.feteDuJour}</p>`
+                : '';
+            const itemsHtml = [
+                { icon: '🚨', text: s.alerts },
+                { icon: '📅', text: s.forecast16 },
+                { icon: '🌡️', text: s.seasonal },
+                { icon: '📈', text: s.nextMonth }
+            ].map(item => item.text ? `<p style="margin:0; display:flex; gap:8px; align-items:flex-start;"><span style="flex-shrink:0;">${item.icon}</span><span>${item.text}</span></p>` : '').join('');
+            const footerHtml = `<p style="margin:6px 0 0 0; padding-top:10px; border-top:1px solid rgba(0,0,0,0.08); text-align:right; font-style:italic; font-size:0.72rem; opacity:0.75;">Belle journée à vous — l'équipe Metehop 🐸</p>`;
+            body.innerHTML = headerHtml + itemsHtml + footerHtml;
+            if (updatedEl) {
+                if (weatherNewsGeneratedAt) {
+                    const d = new Date(weatherNewsGeneratedAt);
+                    const today = new Date();
+                    const isToday = d.toDateString() === today.toDateString();
+                    updatedEl.innerText = isToday
+                        ? `Actualisé aujourd'hui à ${d.getHours()}h${String(d.getMinutes()).padStart(2, '0')}`
+                        : `Dernière actualisation le ${d.toLocaleDateString('fr-FR')} — reconnexion nécessaire pour une mise à jour`;
+                } else {
+                    updatedEl.innerText = '';
+                }
+            }
+        }
+
+        function openWeatherNewsModal() {
+            // v149.1 - le cache est désormais chargé dès le lancement (voir initWeatherNewsFromCache) et
+            // fusionné en continu par recomputeWeatherNews : weatherNewsSentences reflète toujours la
+            // meilleure donnée connue (cache ou fraîche), il suffit de l'afficher telle quelle.
+            renderWeatherNews();
+            document.getElementById('weather-news-modal-overlay').classList.add('visible');
+            // Complète/rafraîchit avec les données du lieu courant si ce n'est pas déjà fait pour lui.
+            if (typeof currentLat === 'number' && typeof currentLon === 'number') {
+                loadWeatherNews(currentLat, currentLon).catch(() => {});
+            }
+        }
+        function closeWeatherNewsModal() {
+            document.getElementById('weather-news-modal-overlay').classList.remove('visible');
+        }
+
         async function fetchWithTimeout(resource, options = {}) {
             const { timeout = 6000 } = options;
             const controller = new AbortController();
@@ -7379,6 +7792,7 @@ render16DayTable();
                     document.getElementById('seasonal-trends-note').innerText = 'Chargement des moyennes historiques...';
                     loadSeasonalTrends(lat, lon).catch(() => {});
                 }
+                loadWeatherNews(lat, lon).catch(() => {}); // v149 - actualités météo du jour (encart 📝)
                 // Station météo à proximité (Tencin) : visible seulement si le lieu consulté est à
                 // moins de NEARBY_STATION.maxDistanceKm ; rechargée seulement si l'onglet Eau/Jardinage
                 // est déjà actif (même logique de chargement différé que Été/Hiver et Eau ci-dessus).
@@ -13738,6 +14152,8 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 });
 
                 noteEl.innerHTML = `Via l'API dédiée <a href="https://open-meteo.com/en/docs/seasonal-forecast-api" target="_blank" rel="noopener" style="color:var(--accent-blue);">Seasonal Forecast</a> (ECMWF SEAS5, 51 membres)`;
+                lastSeasonalForecastMonths = { months, tempAnomaly, precipAnomaly }; // v149 - pour l'encart Actualités météo (tendance du mois prochain)
+                recomputeWeatherNews();
 
                 if (typeof Chart === 'undefined') return;
                 const ctx = document.getElementById('seasonalApiChart').getContext('2d');
@@ -14272,6 +14688,8 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                     document.getElementById('secheresse-vigilance-icon').className = 'fa-solid fa-circle-check';
                     document.getElementById('secheresse-vigilance-level').innerText = 'Aucune restriction sécheresse';
                     document.getElementById('secheresse-vigilance-detail').innerText = 'Aucun arrêté de restriction en vigueur pour ce lieu.';
+                    lastSecheresseVigilanceResult = { key: 'vert', label: 'Aucune restriction sécheresse' }; // v149 - actualités météo
+                    recomputeWeatherNews();
                     return;
                 }
                 if (!res.ok) throw new Error(`VigiEau indisponible — HTTP ${res.status}`);
@@ -14293,6 +14711,8 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 document.getElementById('secheresse-vigilance-icon').className = 'fa-solid fa-droplet-slash';
                 document.getElementById('secheresse-vigilance-level').innerText = `Restrictions sécheresse : ${SEVERITY_LABEL[worst.niveauGravite]}`;
                 document.getElementById('secheresse-vigilance-detail').innerText = worst.nom || 'Zone de restriction';
+                lastSecheresseVigilanceResult = { key: colorKey, label: SEVERITY_LABEL[worst.niveauGravite], zone: worst.nom || null }; // v149 - actualités météo
+                recomputeWeatherNews();
             } catch (e) {
                 banner.style.display = 'none';
             }
@@ -14726,6 +15146,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 noteEl.innerText = `Pointillé = normale de saison (moyenne des ${YEARS_BACK} dernières années). Plein = prévision réelle Open-Meteo, disponible sur les prochains jours seulement.`;
                 tableNoteEl.innerText = `Basé sur jusqu'à ${YEARS_BACK} années de données passées par période. "--" = donnée non disponible. Anomalies = écart entre la prévision réelle à 16j et la normale (indicatif, voir max pour le chaud, min pour le froid).`;
                 lastSeasonalTrendsResults = results;
+                recomputeWeatherNews(); // v149 - écart saisonnier disponible pour l'encart Actualités météo
 
                 // Tableau
                 tbody.innerHTML = results.map(r => {
@@ -16966,6 +17387,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
             // Passe 2 : construit le tableau, en comparant chaque jour à son prédécesseur pour
             // détecter les changements brusques (jour 0 = "Aujourd'hui" n'a pas de veille connue).
             let html = '';
+            const remarkableDays = []; // v149 - "cases entourées" capturées pour l'encart Actualités météo
             dayMetrics.forEach((m, idx) => {
                 const prev = idx > 0 ? dayMetrics[idx - 1] : null;
 
@@ -16988,6 +17410,21 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 const matinClass = m.stormMatin ? 'cell-remarkable-storm' : (isSnowyDay && m.snowMatin ? 'cell-remarkable-snow' : '');
                 const apresClass = m.stormApres ? 'cell-remarkable-storm' : (isSnowyDay && m.snowApres ? 'cell-remarkable-snow' : '');
 
+                // v149 - une case "entourée" par jour, priorité au phénomène le plus immédiatement
+                // notable (même ordre que le choix matin/après-midi ci-dessus, étendu à tout type) :
+                // orage > neige > froid/gel > chaleur > pluie > vent.
+                const hasStorm = m.stormMatin || m.stormApres;
+                let remarkType = null;
+                if (hasStorm) remarkType = 'storm';
+                else if (isSnowyDay) remarkType = 'snow';
+                else if (isCold) remarkType = 'cold';
+                else if (isHot) remarkType = 'hot';
+                else if (isHeavyRain) remarkType = 'rain';
+                else if (isWindy) remarkType = 'wind';
+                if (remarkType) {
+                    remarkableDays.push({ day: m.day, dayStr: m.dayStr, dateNum: m.dateNum, type: remarkType, minT: m.minT, maxT: m.maxT, rain: m.rain, gustMax: m.gustMax, snowSum: m.snowSum, stormMatin: m.stormMatin, stormApres: m.stormApres });
+                }
+
                 let dots = '';
                 for (let i = 1; i <= 4; i++) dots += `<span class="confidence-dot ${i <= m.conf ? 'active' : ''}"></span>`;
 
@@ -17006,6 +17443,8 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 `;
             });
             tbody.innerHTML = html;
+            lastForecastRemarkableDays = remarkableDays; // v149 - pour l'encart Actualités météo
+            recomputeWeatherNews();
         }
 
         // Recentre la carte radar/prévisions sur le lieu de prévision actuellement affiché
