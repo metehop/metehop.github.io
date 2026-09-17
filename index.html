@@ -2757,18 +2757,6 @@
         }
         html.dark .leaflet-control-attribution a { color: #a9b4d8 !important; }
 
-
-        /* v157 - FIX DEFINITIF - sans APIs bloquées, sans fake OM */
-        #multi-stations-20km-section{width:100%;box-sizing:border-box;overflow:hidden;display:block;clear:both;margin-top:14px;padding-top:12px;border-top:1px solid rgba(0,0,0,0.06);}
-        #multi-stations-20km-list{width:100%;box-sizing:border-box;display:flex;flex-direction:column;gap:8px;}
-        .multi-row157{width:100%;box-sizing:border-box;background:var(--card-inner-bg);border-radius:14px;padding:10px 12px;border-left:4px solid var(--accent-green);display:block;}
-        .multi-top157{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;width:100%;}
-        .multi-name157{font-weight:700;font-size:0.78rem;line-height:1.2;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-        .multi-meta157{font-size:0.66rem;color:var(--text-muted);line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-        .multi-dist157{font-size:0.70rem;color:var(--text-muted);background:rgba(0,0,0,0.06);padding:3px 8px;border-radius:20px;flex-shrink:0;}
-        html.dark .multi-dist157{background:rgba(255,255,255,0.08);}
-        .multi-pills157{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;width:100%;}
-
 </style>
 </head>
 <body>
@@ -3314,24 +3302,6 @@
                 <div id="mf-synop-temp-content" style="display:none;">
                     <div class="snow-details-row" id="mf-synop-temp-pills"></div>
                     <div class="card-sage-sub" id="mf-synop-temp-updated" style="margin-top:6px; font-size:0.62rem;"></div>
-                </div>
-            </div>
-        </div>
-
-                
-            <!-- v157 - FIX DEFINITIF - Toutes stations 20km sans APIs bloquées -->
-            <div id="multi-stations-20km-section">
-                <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px;">
-                    <div class="card-sage-sub" style="font-weight:700;"><i class="fa-solid fa-tower-broadcast" style="color: var(--accent-blue);"></i> Toutes stations à 20km — tri par proximité</div>
-                    <div class="card-sage-sub" style="font-size:0.6rem;" id="multi-stations-20km-count">—</div>
-                </div>
-                <div id="multi-stations-20km-loading" style="text-align:center; padding: 10px; color: var(--text-muted); font-size: 0.8rem; display:none;">Recherche stations réelles...</div>
-                <div id="multi-stations-20km-error" style="display:none; text-align:center; padding: 10px; color: var(--text-muted); font-size: 0.78rem;">
-                    <span id="multi-stations-20km-error-text"></span>
-                </div>
-                <div id="multi-stations-20km-list"></div>
-                <div class="card-sage-sub" style="margin-top:8px; font-size:0.60rem; opacity:0.7; line-height:1.3;">
-                    Sources fiables CORS: METAR NOAA (aéroports), SYNOP Météo-France (data.gouv.fr), OpenSenseMap, WU PWS. Pioupiou exclu ici.
                 </div>
             </div>
         </div>
@@ -5676,12 +5646,25 @@
             // Cas 2 v137 : SYNOP Météo-France pure (officielle, horaire, sans clé)
             try {
                 if (typeof synopLiveCache !== 'undefined' && synopLiveCache && typeof synopLiveCache.temp === 'number' && isFinite(synopLiveCache.temp)) {
-                    const d = synopLiveCache.distKm;
-                    const distLabel = d <= 40 ? '25-30 km' : `${Math.round(d)} km`;
-                    el.innerText = `Temp. live (${distLabel}) : ${Math.round(synopLiveCache.temp)}°C`;
-                    el.title = `SYNOP ${synopLiveCache.station || ''} à ${d.toFixed(1)} km - ${synopLiveCache.obsTime || ''} - data.gouv.fr`;
-                    el.style.display = '';
-                    return;
+                    // v149 - Garde-fou : si la station la plus proche (SYNOP ou METAR, ce cas 2)
+                    // s'écarte de plus de 3°C d'Open-Meteo current, elle est jugée peu fiable pour
+                    // ce lieu (mauvaise station, mesure aberrante...) et on préfère Open-Meteo
+                    // current - on laisse alors tomber jusqu'au Cas 3 ci-dessous. Ne s'applique
+                    // jamais au Cas 1 (ITENCI3), déjà retourné plus haut le cas échéant.
+                    let stationTooFarFromOM = false;
+                    try {
+                        if (typeof benchmarkRealityNow !== 'undefined' && benchmarkRealityNow && typeof benchmarkRealityNow.temp === 'number' && isFinite(benchmarkRealityNow.temp)) {
+                            if (Math.abs(synopLiveCache.temp - benchmarkRealityNow.temp) > 3) stationTooFarFromOM = true;
+                        }
+                    } catch(e2) {}
+                    if (!stationTooFarFromOM) {
+                        const d = synopLiveCache.distKm;
+                        const distLabel = d <= 40 ? '25-30 km' : `${Math.round(d)} km`;
+                        el.innerText = `Temp. live (${distLabel}) : ${Math.round(synopLiveCache.temp)}°C`;
+                        el.title = `SYNOP ${synopLiveCache.station || ''} à ${d.toFixed(1)} km - ${synopLiveCache.obsTime || ''} - data.gouv.fr`;
+                        el.style.display = '';
+                        return;
+                    }
                 }
             } catch(e) {}
             // Cas 3 fallback benchmark (si SYNOP temporairement indispo)
@@ -6768,10 +6751,15 @@ function applyDisplayMode() {
                         `https://api.allorigins.win/get?url=${encodeURIComponent(metarUrl)}`,
                         `https://corsproxy.io/?${encodeURIComponent(metarUrl)}`,
                         `https://thingproxy.freeboard.io/fetch/${metarUrl}`,
+                        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(metarUrl)}`,
                         metarUrl
                     ];
+                    // v149 - timeout remonté à 6s (3.5s coupait trop tôt des proxies gratuits
+                    // parfois lents mais qui auraient fini par répondre) ; toujours en course
+                    // parallèle (Promise.any), donc ça ne ralentit pas le cas nominal, ça évite
+                    // juste de déclarer l'échec trop vite.
                     const tryProxy = async (proxyUrl) => {
-                        const res = await fetchWithTimeout(proxyUrl, {timeout: 3500, cache:'no-store'});
+                        const res = await fetchWithTimeout(proxyUrl, {timeout: 6000, cache:'no-store'});
                         if (!res || !res.ok) throw new Error('proxy fail');
                         let data;
                         try { data = await res.json(); } catch(e) {
@@ -6824,6 +6812,10 @@ function applyDisplayMode() {
                     metarLiveCache = result;
                     return result;
                 }
+                // v149 - échec total de la course (proxies indisponibles au même moment) : on
+                // retombe sur le dernier relevé METAR connu (même daté) plutôt que de laisser
+                // la carte vide - le rendu (renderMfSynopTempCard) reste basé sur cache.temp.
+                if (metarLiveCache) return metarLiveCache;
                 return null;
             } catch(e) { return null; }
             finally { metarLiveLoading=false; }
@@ -7083,251 +7075,7 @@ function applyDisplayMode() {
         }
 
 
-                
-        // ==== v157 - HUB 20KM FIX DEFINITIF - SOURCES CORS FIABLES UNIQUEMENT ====
-        let multiCache157=null;
-        const RADIUS_KM=20;
-        const TTL_MS=3*60*1000;
-
-        function haversine157(a,b,c,d){const R=6371,toRad=x=>x*Math.PI/180;const dLat=toRad(c-a),dLon=toRad(d-b);const q=Math.sin(dLat/2)**2+Math.cos(toRad(a))*Math.cos(toRad(c))*Math.sin(dLon/2)**2;return R*2*Math.atan2(Math.sqrt(q),Math.sqrt(1-q));}
-        async function fetchJSON157(url, ms=4000){
-            const ctrl=new AbortController();
-            const t=setTimeout(()=>ctrl.abort(), ms);
-            try{
-                const r=await fetch(url,{signal:ctrl.signal, cache:'no-store'});
-                if(!r.ok) throw new Error('HTTP '+r.status);
-                const ct=r.headers.get('content-type')||'';
-                if(ct.includes('json')) return await r.json();
-                return await r.text();
-            }finally{ clearTimeout(t); }
-        }
-        async function fetchText157(url, ms=6000){
-            const ctrl=new AbortController();
-            const t=setTimeout(()=>ctrl.abort(), ms);
-            try{
-                const r=await fetch(url,{signal:ctrl.signal, cache:'no-store'});
-                if(!r.ok) throw new Error('HTTP '+r.status);
-                return await r.text();
-            }finally{ clearTimeout(t); }
-        }
-
-        function render157(stations){
-            const list=document.getElementById('multi-stations-20km-list');
-            const count=document.getElementById('multi-stations-20km-count');
-            const loading=document.getElementById('multi-stations-20km-loading');
-            const error=document.getElementById('multi-stations-20km-error');
-            if(!list) return;
-            if(loading) loading.style.display='none';
-            if(!stations || !stations.length){
-                if(error){ error.style.display=''; document.getElementById('multi-stations-20km-error-text').textContent='Aucune station avec relevé réel dans 20km. Les sources externes (comptoir.net, WU) sont bloquées en CORS depuis GitHub Pages. Affichage METAR/SYNOP uniquement.'; }
-                if(count) count.textContent='0 station';
-                list.innerHTML='';
-                return;
-            }
-            if(error) error.style.display='none';
-            if(count) count.textContent=`${stations.length} stations`;
-            list.innerHTML = stations.map(s=>{
-                const dist = s.distance<1 ? `${Math.round(s.distance*1000)}m` : `${s.distance.toFixed(1)}km`;
-                const temp = (s.temp!=null && isFinite(s.temp)) ? `${Number(s.temp).toFixed(1)}°C` : '—';
-                const pills=[];
-                pills.push(`<div class="station-pill"><i class="fa-solid fa-temperature-half"></i> ${temp}</div>`);
-                if(s.humidity!=null) pills.push(`<div class="station-pill"><i class="fa-solid fa-droplet"></i> ${Math.round(s.humidity)}%</div>`);
-                if(s.wind!=null) pills.push(`<div class="station-pill"><i class="fa-solid fa-wind"></i> ${Math.round(s.wind*3.6)} km/h</div>`);
-                if(s.pressure!=null) pills.push(`<div class="station-pill"><i class="fa-solid fa-gauge"></i> ${Math.round(s.pressure)} hPa</div>`);
-                return `
-                <div class="multi-row157" style="border-left-color:${s.color||'#3b6e61'}">
-                    <div class="multi-top157">
-                        <div style="flex:1;min-width:0;">
-                            <div class="multi-name157">${s.icon||''} ${escapeHtml(s.name)}</div>
-                            <div class="multi-meta157">${escapeHtml(s.source)}${s.alt?' • '+Math.round(s.alt)+'m':''}</div>
-                        </div>
-                        <span class="multi-dist157">${dist}</span>
-                    </div>
-                    <div class="multi-pills157">${pills.join('')}</div>
-                </div>`;
-            }).join('');
-        }
-
-        // Récupère les METAR réels dans la bbox 20km via aviationweather.gov (CORS OK, sans clé, ultra fiable)
-        async function fetchMetarNearby157(lat, lon){
-            const delta = 0.18; // ~20km
-            const bbox = `${lat-delta},${lon-delta},${lat+delta},${lon+delta}`;
-            // API v2 aviationweather: https://aviationweather.gov/api/data/metar?bbox=minLat,minLon,maxLat,maxLon&format=json
-            const url = `https://aviationweather.gov/api/data/metar?bbox=${lat-delta},${lon-delta},${lat+delta},${lon+delta}&format=json`;
-            try{
-                const data = await fetchJSON157(url, 5000);
-                const arr = Array.isArray(data) ? data : [];
-                return arr.map(m=>{
-                    // m: {icaoId, name, lat, lon, temp, dewp, wgst, wdir, wspd, altim, ...}
-                    const t = m.temp!=null ? parseFloat(m.temp) : null;
-                    if(t==null) return null;
-                    return {
-                        id:'metar-'+(m.icaoId||Math.random()),
-                        name: `${m.icaoId||'METAR'} ${m.name||''}`.trim(),
-                        lat: parseFloat(m.lat),
-                        lon: parseFloat(m.lon),
-                        temp: t,
-                        humidity: null,
-                        wind: m.wspd!=null ? parseFloat(m.wspd)*0.51444 : null, // knots to m/s
-                        pressure: m.altim!=null ? parseFloat(m.altim)*33.8639 : null, // inHg to hPa
-                        source:'METAR NOAA',
-                        icon:'✈️',
-                        color:'#d97736',
-                        alt: null
-                    };
-                }).filter(Boolean);
-            }catch(e){
-                console.log('[v157] METAR bbox fail', e.message);
-                return [];
-            }
-        }
-
-        // Récupère SYNOP réel le plus proche via data.gouv.fr CSV (comme dans ton code d'origine mais en plus robuste)
-        async function fetchSynopReal157(lat, lon){
-            const list=[];
-            try{
-                // Réutilise synopLiveCache et metarLiveCache déjà chargés par ton code d'origine s'ils sont vrais SYNOP/METAR
-                if(typeof synopLiveCache!=='undefined' && synopLiveCache?.lat && synopLiveCache?.source?.includes('SYNOP')){
-                    list.push({id:'synop-cache', name:synopLiveCache.station||'SYNOP', lat:synopLiveCache.lat, lon:synopLiveCache.lon, temp:synopLiveCache.temp, source:synopLiveCache.source, icon:'🇫🇷', color:'#1c3832'});
-                }
-                if(typeof metarLiveCache!=='undefined' && metarLiveCache?.lat){
-                    list.push({id:'metar-cache', name:metarLiveCache.station||'METAR', lat:metarLiveCache.lat, lon:metarLiveCache.lon, temp:metarLiveCache.temp, source:'METAR', icon:'✈️', color:'#d97736'});
-                }
-            }catch(e){}
-            return list;
-        }
-
-        async function loadMulti157(lat, lon, force=false){
-            if(lat==null||lon==null) return;
-            const loading=document.getElementById('multi-stations-20km-loading');
-            const list=document.getElementById('multi-stations-20km-list');
-            if(loading){ loading.style.display=''; loading.textContent=`Recherche stations réelles autour de ${lat.toFixed(2)}, ${lon.toFixed(2)}...`; }
-            if(force && list) list.innerHTML='';
-
-            if(!force && multiCache157 && Math.abs(multiCache157.lat-lat)<0.002 && Math.abs(multiCache157.lon-lon)<0.002 && (Date.now()-multiCache157.ts)<TTL_MS){
-                render157(multiCache157.stations);
-                return;
-            }
-
-            const all=[];
-
-            // 1) Sources fiables en parallèle
-            const tasks=[];
-
-            // METAR bbox - ultra fiable
-            tasks.push((async()=>{
-                const metars = await fetchMetarNearby157(lat, lon);
-                all.push(...metars);
-            })());
-
-            // SYNOP cache réel
-            tasks.push((async()=>{
-                const synops = await fetchSynopReal157(lat, lon);
-                all.push(...synops);
-            })());
-
-            // OpenSenseMap - fiable CORS
-            tasks.push((async()=>{
-                try{
-                    const bbox=`${lon-0.35},${lat-0.35},${lon+0.35},${lat+0.35}`;
-                    const boxes=await fetchJSON157(`https://api.opensensemap.org/boxes?bbox=${bbox}&format=json`, 4000);
-                    if(Array.isArray(boxes)){
-                        boxes.forEach(b=>{
-                            const c=b.currentLocation?.coordinates;
-                            if(!c) return;
-                            const t=b.sensors?.find(s=>/temperatur/i.test(s.title));
-                            const tv=t?.lastMeasurement?.value?parseFloat(t.lastMeasurement.value):null;
-                            if(tv==null) return;
-                            all.push({id:'osm-'+b._id, name:b.name||'SenseBox', lat:c[1], lon:c[0], temp:tv, source:'OpenSenseMap', icon:'🧪', color:'#7048e8'});
-                        });
-                    }
-                }catch(e){}
-            })());
-
-            // WU PWS nearby - peut être bloqué CORS, on tente quand même
-            tasks.push((async()=>{
-                try{
-                    const key=(typeof NEARBY_STATION!=='undefined'?NEARBY_STATION.apiKey:null);
-                    if(!key) return;
-                    const j=await fetchJSON157(`https://api.weather.com/v2/pws/nearby?lat=${lat}&lon=${lon}&format=json&units=m&apiKey=${key}&num=12`, 4000);
-                    const lst=j?.stations||[];
-                    lst.forEach(st=>{
-                        if(!st.lat||!st.lon||st.temp==null) return;
-                        if(st.id==='ITENCI3') return;
-                        all.push({id:'wu-'+st.id, name:st.neighborhood||st.id, lat:parseFloat(st.lat), lon:parseFloat(st.lon), temp:st.temp, source:'WU PWS', icon:'🌡️', color:'#d97736'});
-                    });
-                }catch(e){}
-            })());
-
-            // StatIC comptoir - on tente mais sans bloquer, et on ignore si pas de temp
-            tasks.push((async()=>{
-                try{
-                    const d=await fetchJSON157(`https://meteo.comptoir.net/api/stations?lat=${lat}&lon=${lon}&distance=20`, 4000);
-                    const arr=Array.isArray(d)?d:(d.stations||d.data||[]);
-                    for(const s of arr.slice(0,15)){
-                        const slat=s.lat??s.latitude, slon=s.lon??s.longitude;
-                        if(!slat||!slon) continue;
-                        if((s.type||'').toLowerCase().includes('pioupiou')) continue;
-                        const t=s.temperature??s.temp??null;
-                        if(t==null) continue;
-                        all.push({id:'static-'+s.id, name:s.name||'StatIC', lat:parseFloat(slat), lon:parseFloat(slon), alt:s.altitude||null, temp:parseFloat(t), source:'StatIC/Infoclimat', icon:'🏔️', color:'#3b6e61'});
-                    }
-                }catch(e){}
-            })());
-
-            await Promise.allSettled(tasks);
-
-            // Tri par distance + dedup
-            let withDist=all.map(s=>({...s, distance:haversine157(lat,lon,s.lat,s.lon)})).filter(s=>s.distance<=RADIUS_KM && isFinite(s.lat));
-            withDist.sort((a,b)=>a.distance-b.distance);
-            const dedup=[];
-            for(const s of withDist){
-                if(dedup.find(d=>haversine157(d.lat,d.lon,s.lat,s.lon)<0.25)) continue;
-                dedup.push(s);
-            }
-
-            multiCache157={ts:Date.now(), lat, lon, stations:dedup};
-            try{ localStorage.setItem('metehop_157', JSON.stringify(multiCache157)); }catch(e){}
-            render157(dedup);
-        }
-
-        let lastLat157=null, lastLon157=null;
-        async function autoRefresh157(lat, lon){
-            if(lat==null||lon==null) return;
-            const moved = lastLat157==null || Math.abs(lastLat157-lat)>0.001 || Math.abs(lastLon157-lon)>0.001;
-            if(moved){
-                const list=document.getElementById('multi-stations-20km-list');
-                const count=document.getElementById('multi-stations-20km-count');
-                if(list) list.innerHTML='';
-                if(count) count.textContent='recherche...';
-                multiCache157=null;
-                try{ localStorage.removeItem('metehop_157'); }catch(e){}
-            }
-            lastLat157=lat; lastLon157=lon;
-            await loadMulti157(lat, lon, true);
-        }
-
-        // Patch fetchWeather - vide cache immédiatement
-        try{
-            if(typeof fetchWeather==='function' && !fetchWeather._v157){
-                const orig=fetchWeather;
-                fetchWeather=async function(...args){
-                    multiCache157=null;
-                    const list=document.getElementById('multi-stations-20km-list');
-                    if(list) list.innerHTML='';
-                    const r=await orig.apply(this, args);
-                    try{
-                        const nl=currentLat ?? weatherData?.latitude;
-                        const no=currentLon ?? weatherData?.longitude;
-                        if(nl!=null) autoRefresh157(nl, no);
-                    }catch(e){}
-                    return r;
-                };
-                fetchWeather._v157=true;
-            }
-        }catch(e){}
-
-        // ---- Balise de vent Pioupiou/OpenWindMap la plus proche (11/09/2026) ----
+                // ---- Balise de vent Pioupiou/OpenWindMap la plus proche (11/09/2026) ----
         // Seule source "stations à proximité" restante avec ITENCI3 (voir loadNearbyStation) :
         // les relevés SYNOP/Opendatasoft (figés au 15/01/2026), Météo-France live (token horaire
         // à recoller sans cesse), Bright Sky et les liens Infoclimat ont été retirés.
@@ -7671,7 +7419,6 @@ render16DayTable();
                 // (avertissement géré dans
                 // loadPioupiouStation() elle-même).
                 pioupiouStationLoaded = (currentGroup === 'eau');
-                try{ if(currentLat!==null) autoRefresh157(currentLat, currentLon); }catch(e){}
                 if (pioupiouStationLoaded) loadPioupiouStation(lat, lon).catch(() => {});
                 // Classement des meilleures nuits : purement calculé (pas d'appel réseau), donc
                 // recalculé immédiatement si l'onglet Général (qui héberge désormais Astronomie, voir
