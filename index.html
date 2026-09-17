@@ -3190,79 +3190,6 @@
             </div>
         </div>
 
-        <!-- Graphique : Pollution & pollens sur 5 jours -->
-        <div class="chart-card" data-groups="general">
-            <div class="chart-header-row">
-                <div class="chart-header" style="flex:1; margin-bottom:0;">
-                    <div>
-                        <div class="card-sage-title">
-                            <i class="fa-solid fa-wind" style="color: var(--accent-green); margin-right: 6px;"></i>
-                            Pollution & pollens · 5 jours
-                        </div>
-                        <div class="card-sage-sub" id="pollen-chart-note">Chargement...</div>
-                    </div>
-                </div>
-                <button type="button" class="card-collapse-btn" onclick="toggleCardCollapse('pollen-card-body', this)" title="Réduire/développer cet encart">
-                    <i class="fa-solid fa-chevron-up"></i>
-                </button>
-            </div>
-            <div class="card-collapsible-body" id="pollen-card-body">
-                <div class="astro-legend" id="pollen-legend" style="margin-bottom: 6px;">
-                    <span class="astro-legend-item"><span class="legend-dot" style="background:#6b7280;"></span> Qualité de l'air (axe gauche)</span>
-                    <span class="astro-legend-item"><span class="legend-dot" style="background:#4caf50;"></span> Bouleau</span>
-                    <span class="astro-legend-item"><span class="legend-dot" style="background:#795548;"></span> Aulne</span>
-                    <span class="astro-legend-item"><span class="legend-dot" style="background:#8bc34a;"></span> Olivier</span>
-                    <span class="astro-legend-item"><span class="legend-dot" style="background:#cddc39;"></span> Graminées</span>
-                    <span class="astro-legend-item"><span class="legend-dot" style="background:#9c27b0;"></span> Armoise</span>
-                    <span class="astro-legend-item"><span class="legend-dot" style="background:#f44336;"></span> Ambroisie</span>
-                </div>
-                <div class="chart-container" id="pollen-chart-container">
-                    <canvas id="pollenChart"></canvas>
-                </div>
-                <div class="card-sage-sub" id="pollen-scale-note" style="margin-top: 6px; font-size: 0.65rem;"></div>
-            </div>
-        </div>
-
-        <!-- Graphique Astronomie — déplacée ici le 09/09/2026 (réorganisation mode expert), juste sous
-             Pollution & pollens ; auparavant dans l'onglet Hobby (astro+jardinage), désormais rétractable
-             comme Pollution (voir toggleCardCollapse()). -->
-        <div class="chart-card" data-groups="general" data-level="expert" id="astro-card">
-            <div class="chart-header-row">
-                <div class="chart-header" style="flex:1; margin-bottom:0;">
-                    <div>
-                        <div class="card-sage-title"><i class="fa-solid fa-star-and-crescent" style="color: var(--accent-purple); margin-right: 6px;"></i> Astronomie & conditions nocturnes</div>
-                        <div class="card-sage-sub" id="astro-chart-sub">Du coucher du soleil au lever du jour</div>
-                        <div class="card-sage-sub" style="margin-top:2px; font-size:0.65rem;">Seeing : estimation en secondes d'arc à partir du vent réel en altitude (200hPa) — indicatif, pas une prévision de précision scientifique.</div>
-                    </div>
-                    <div class="astro-legend">
-                        <span class="astro-legend-item"><span class="legend-dot" style="background: #d97736;"></span> Temp.</span>
-                        <span class="astro-legend-item"><span class="legend-dot" style="background: #7048e8;"></span> Seeing estimé</span>
-                        <span class="astro-legend-item"><span class="legend-dot" style="background: #3b6e61;"></span> Nuages</span>
-                        <span class="astro-legend-item"><span class="legend-dot" style="background: #f4d03f;"></span> Éclairage lunaire</span>
-                    </div>
-                </div>
-                <button type="button" class="card-collapse-btn" onclick="toggleCardCollapse('astro-card-body', this)" title="Réduire/développer cet encart">
-                    <i class="fa-solid fa-chevron-up"></i>
-                </button>
-            </div>
-            <div class="card-collapsible-body" id="astro-card-body">
-                <div class="chart-container">
-                    <canvas id="astroChart"></canvas>
-                </div>
-
-                <div class="dew-icons-row" id="dew-icons-row"></div>
-                <div class="card-sage-sub" id="dew-row-note" style="margin-top: 4px; font-size: 0.65rem; display: none;">
-                    <i class="fa-solid fa-droplet" style="color: #4fa8d8; font-size: 0.7rem;"></i> Point de rosée atteint (air proche de la saturation — brouillard/rosée possible)
-                </div>
-
-                <!-- Classement des meilleures nuits d'observation à venir : recalculé à partir des
-                     données déjà chargées (nébulosité, seeing estimé, lune) — aucun appel réseau
-                     supplémentaire, contrairement aux cartes "Charger les données" ci-dessus/dessous. -->
-                <div class="card-sage-sub" id="astro-ranking-title" style="margin-top: 12px; font-weight: 700; color: var(--primary-dark); font-size: 0.75rem;">Meilleures nuits à venir</div>
-                <div class="astro-nights-strip" id="astro-nights-strip"></div>
-                <div class="card-sage-sub" id="astro-ranking-note" style="margin-top: 4px; font-size: 0.62rem; font-style: italic;">Score indicatif sur 100 (nébulosité, seeing estimé, éclairage lunaire) — pas une prévision de qualité garantie. Touchez une nuit pour l'afficher dans le graphique ci-dessus.</div>
-            </div>
-        </div>
 
         <!-- Stations météo à proximité (relevés réels, pas des prévisions), 2 sources
               indépendantes — placée en premier dans l'onglet Nature sur demande :
@@ -3436,6 +3363,79 @@
                         <tr><td colspan="7">Chargement...</td></tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+        <!-- Graphique : Pollution & pollens sur 5 jours -->
+        <div class="chart-card" data-groups="general">
+            <div class="chart-header-row">
+                <div class="chart-header" style="flex:1; margin-bottom:0;">
+                    <div>
+                        <div class="card-sage-title">
+                            <i class="fa-solid fa-wind" style="color: var(--accent-green); margin-right: 6px;"></i>
+                            Pollution & pollens · 5 jours
+                        </div>
+                        <div class="card-sage-sub" id="pollen-chart-note">Chargement...</div>
+                    </div>
+                </div>
+                <button type="button" class="card-collapse-btn" onclick="toggleCardCollapse('pollen-card-body', this)" title="Réduire/développer cet encart">
+                    <i class="fa-solid fa-chevron-up"></i>
+                </button>
+            </div>
+            <div class="card-collapsible-body" id="pollen-card-body">
+                <div class="astro-legend" id="pollen-legend" style="margin-bottom: 6px;">
+                    <span class="astro-legend-item"><span class="legend-dot" style="background:#6b7280;"></span> Qualité de l'air (axe gauche)</span>
+                    <span class="astro-legend-item"><span class="legend-dot" style="background:#4caf50;"></span> Bouleau</span>
+                    <span class="astro-legend-item"><span class="legend-dot" style="background:#795548;"></span> Aulne</span>
+                    <span class="astro-legend-item"><span class="legend-dot" style="background:#8bc34a;"></span> Olivier</span>
+                    <span class="astro-legend-item"><span class="legend-dot" style="background:#cddc39;"></span> Graminées</span>
+                    <span class="astro-legend-item"><span class="legend-dot" style="background:#9c27b0;"></span> Armoise</span>
+                    <span class="astro-legend-item"><span class="legend-dot" style="background:#f44336;"></span> Ambroisie</span>
+                </div>
+                <div class="chart-container" id="pollen-chart-container">
+                    <canvas id="pollenChart"></canvas>
+                </div>
+                <div class="card-sage-sub" id="pollen-scale-note" style="margin-top: 6px; font-size: 0.65rem;"></div>
+            </div>
+        </div>
+
+        <!-- Graphique Astronomie — déplacée ici le 09/09/2026 (réorganisation mode expert), juste sous
+             Pollution & pollens ; auparavant dans l'onglet Hobby (astro+jardinage), désormais rétractable
+             comme Pollution (voir toggleCardCollapse()). -->
+        <div class="chart-card" data-groups="general" data-level="expert" id="astro-card">
+            <div class="chart-header-row">
+                <div class="chart-header" style="flex:1; margin-bottom:0;">
+                    <div>
+                        <div class="card-sage-title"><i class="fa-solid fa-star-and-crescent" style="color: var(--accent-purple); margin-right: 6px;"></i> Astronomie & conditions nocturnes</div>
+                        <div class="card-sage-sub" id="astro-chart-sub">Du coucher du soleil au lever du jour</div>
+                        <div class="card-sage-sub" style="margin-top:2px; font-size:0.65rem;">Seeing : estimation en secondes d'arc à partir du vent réel en altitude (200hPa) — indicatif, pas une prévision de précision scientifique.</div>
+                    </div>
+                    <div class="astro-legend">
+                        <span class="astro-legend-item"><span class="legend-dot" style="background: #d97736;"></span> Temp.</span>
+                        <span class="astro-legend-item"><span class="legend-dot" style="background: #7048e8;"></span> Seeing estimé</span>
+                        <span class="astro-legend-item"><span class="legend-dot" style="background: #3b6e61;"></span> Nuages</span>
+                        <span class="astro-legend-item"><span class="legend-dot" style="background: #f4d03f;"></span> Éclairage lunaire</span>
+                    </div>
+                </div>
+                <button type="button" class="card-collapse-btn" onclick="toggleCardCollapse('astro-card-body', this)" title="Réduire/développer cet encart">
+                    <i class="fa-solid fa-chevron-up"></i>
+                </button>
+            </div>
+            <div class="card-collapsible-body" id="astro-card-body">
+                <div class="chart-container">
+                    <canvas id="astroChart"></canvas>
+                </div>
+
+                <div class="dew-icons-row" id="dew-icons-row"></div>
+                <div class="card-sage-sub" id="dew-row-note" style="margin-top: 4px; font-size: 0.65rem; display: none;">
+                    <i class="fa-solid fa-droplet" style="color: #4fa8d8; font-size: 0.7rem;"></i> Point de rosée atteint (air proche de la saturation — brouillard/rosée possible)
+                </div>
+
+                <!-- Classement des meilleures nuits d'observation à venir : recalculé à partir des
+                     données déjà chargées (nébulosité, seeing estimé, lune) — aucun appel réseau
+                     supplémentaire, contrairement aux cartes "Charger les données" ci-dessus/dessous. -->
+                <div class="card-sage-sub" id="astro-ranking-title" style="margin-top: 12px; font-weight: 700; color: var(--primary-dark); font-size: 0.75rem;">Meilleures nuits à venir</div>
+                <div class="astro-nights-strip" id="astro-nights-strip"></div>
+                <div class="card-sage-sub" id="astro-ranking-note" style="margin-top: 4px; font-size: 0.62rem; font-style: italic;">Score indicatif sur 100 (nébulosité, seeing estimé, éclairage lunaire) — pas une prévision de qualité garantie. Touchez une nuit pour l'afficher dans le graphique ci-dessus.</div>
             </div>
         </div>
 
@@ -17682,6 +17682,20 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
             try { if (window.innerWidth>=768) { setTimeout(()=>{ try{ map.invalidateSize(); }catch(e){} }, 400); } } catch(e) {}
                 map.on('click', onMapClickForPicking);
                 L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '© OpenStreetMap France' }).addTo(map);
+                // FIX chargement radar incomplet : la carte est souvent initialisée pendant que son
+                // conteneur est encore caché (display:none — mode Simple par défaut, onglet non actif),
+                // donc Leaflet calcule sa grille de tuiles sur une taille nulle et une partie du radar
+                // reste manquante tant qu'on ne force pas un recalcul — ce que ni le changement d'onglet
+                // (setGroup) ni le passage en mode Expert (chooseDisplayMode) ne déclenchaient jusqu'ici.
+                // Un ResizeObserver sur le conteneur couvre tous ces cas d'un coup (tab, mode, plein
+                // écran, rotation d'écran) sans avoir à instrumenter chaque endroit qui change sa taille.
+                if (typeof ResizeObserver !== 'undefined') {
+                    let invalidateTimer = null;
+                    new ResizeObserver(() => {
+                        clearTimeout(invalidateTimer);
+                        invalidateTimer = setTimeout(() => { try { map.invalidateSize(); } catch (e) {} }, 150);
+                    }).observe(document.getElementById('map-wrapper'));
+                }
             } else {
                 map.setView([lat, lon], 7);
             }
@@ -17886,13 +17900,31 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
 
             if (!radarTileLayers[frame.time]) {
                 const emptyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORTH5CYII=';
-                radarTileLayers[frame.time] = L.tileLayer(`${radarHost}${frame.path}/256/{z}/{x}/{y}/2/1_1.png`, {
+                const layer = L.tileLayer(`${radarHost}${frame.path}/256/{z}/{x}/{y}/2/1_1.png`, {
                     opacity: 0.6,
                     tileSize: 256,
                     maxNativeZoom: RADAR_TILE_NATIVE_MAX_ZOOM,
                     maxZoom: RADAR_MAX_ZOOM,
                     errorTileUrl: emptyPng
                 });
+                // FIX tuiles radar manquantes : par défaut Leaflet remplace définitivement une tuile
+                // en échec (timeout, hoquet réseau RainViewer) par une image vide, sans jamais
+                // réessayer — d'où un radar visuellement "troué" jusqu'au rechargement complet de la
+                // page. On mémorise l'URL d'origine au lancement du chargement (avant que Leaflet ne
+                // la remplace par errorTileUrl) pour pouvoir la retenter une fois, avec un paramètre
+                // anti-cache, avant d'abandonner cette tuile.
+                layer.on('tileloadstart', (e) => { e.tile.dataset.origSrc = e.tile.src; });
+                layer.on('tileerror', (e) => {
+                    const el = e.tile;
+                    if (!el || el.dataset.retried) return;
+                    el.dataset.retried = '1';
+                    const orig = el.dataset.origSrc || '';
+                    if (!orig) return;
+                    setTimeout(() => {
+                        el.src = orig + (orig.includes('?') ? '&' : '?') + '_retry=1';
+                    }, 1500);
+                });
+                radarTileLayers[frame.time] = layer;
             }
             radarTileLayers[frame.time].addTo(map);
 
