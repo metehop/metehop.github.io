@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="google-site-verification" content="EAFjvrSYgq6wOXpa9cbtcRGDX1La8S88rQWGyPojKcA">
     <title>Metehop</title>
-    <!-- v147 - MODEL 2 pondéré nuages bas/moy/haut pour inversion + switch Modèle 1/2 + seuil réglable + équations dans encart geek - NEW FROGS PNG ultra lisibles (parapluie, moufles, etc) - FIX complet CORS silencieux sans casser l'app + radar desktop 540px + MAINTENANT stacked desktop (540px) + MAINTENANT stacked desktop desktop + SYNOP Météo-France affiché dans Stations météo + Temp.live -->
+    <!-- v148 - FIX data loading + MODEL 2 pondéré nuages bas/moy/haut pour inversion + switch Modèle 1/2 + seuil réglable + équations dans encart geek - NEW FROGS PNG ultra lisibles (parapluie, moufles, etc) - FIX complet CORS silencieux sans casser l'app + radar desktop 540px + MAINTENANT stacked desktop (540px) + MAINTENANT stacked desktop desktop + SYNOP Météo-France affiché dans Stations météo + Temp.live -->
     <!-- v123 - 16/09/2026 : fallback Temp. live (25-30 km) via Benchmark réel + vert plus clair -->
     <meta name="description" content="Metehop : prévisions météo précises pour Grenoble et le Grésivaudan, détection d'inversions thermiques, neige et stations de ski, qualité de l'eau des rivières, nuits d'observation astronomique et bilan hydrique jardin. Données Open-Meteo, Hub'Eau, Pioupiou/OpenWindMap.">
     <meta name="robots" content="index, follow">
@@ -4467,6 +4467,40 @@
                     </div>
                 </div>
 
+                <!-- LOG CALIBRATION INVERSION - v148 - 18/09/2026 : log écarts observés vs prédits pour calibrer 0.7/0.25/0.05 -->
+                <div id="inversion-calibration-card" data-groups="general" data-level="expert" style="margin-top:12px; background: var(--card-bg); border-radius: var(--radius-medium); padding:12px; width:100%; box-sizing:border-box; border:1px solid rgba(0,0,0,0.06);">
+                    <div style="font-weight:800; font-size:0.95rem; color:var(--primary-dark);"><i class="fa-solid fa-flask" style="margin-right:6px;"></i> Calibration inversion - logs terrain</div>
+                    <div style="font-size:0.70rem; color:var(--text-muted); margin-top:3px; margin-bottom:10px;">
+                        Saisis ta T° observée le matin à Tencin. Le système enregistre automatiquement : nébulosité bas/mid/high 0-4h, vent 5-9h, relief, T modèle brut, T prédite M1/M2, écart. Permet d'optimiser les poids 0.7/0.25/0.05.
+                    </div>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:end; background:var(--card-inner-bg); padding:10px; border-radius:10px; margin-bottom:10px;">
+                        <div style="display:flex; flex-direction:column; gap:3px;">
+                            <label style="font-size:0.70rem; font-weight:700;">T° observée (°C) à ~6h</label>
+                            <input type="number" id="calib-obs-temp" step="0.1" placeholder="ex: 10.2" style="width:90px; padding:5px 7px; border-radius:6px; border:1px solid rgba(0,0,0,0.15); font-size:0.85rem;">
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:3px;">
+                            <label style="font-size:0.70rem; font-weight:700;">Heure</label>
+                            <input type="number" id="calib-obs-hour" min="0" max="23" step="1" value="6" style="width:55px; padding:5px 7px; border-radius:6px; border:1px solid rgba(0,0,0,0.15); font-size:0.85rem;">
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:3px; flex:1; min-width:140px;">
+                            <label style="font-size:0.70rem; font-weight:700;">Commentaire</label>
+                            <input type="text" id="calib-comment" placeholder="ex: ciel clair, rosée" style="padding:5px 7px; border-radius:6px; border:1px solid rgba(0,0,0,0.15); font-size:0.80rem;">
+                        </div>
+                        <button onclick="saveInversionLog()" style="background:var(--accent-green); color:white; border:none; padding:6px 12px; border-radius:8px; font-weight:700; font-size:0.8rem; cursor:pointer;">Enregistrer</button>
+                    </div>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
+                        <button onclick="calculateOptimalWeights()" style="background:#1c3832; color:white; border:none; padding:6px 10px; border-radius:8px; font-size:0.75rem; cursor:pointer;">Calculer meilleurs poids</button>
+                        <button onclick="exportCalibCSV()" style="background:rgba(0,0,0,0.06); border:1px solid rgba(0,0,0,0.1); padding:6px 10px; border-radius:8px; font-size:0.75rem; cursor:pointer;">Export CSV</button>
+                        <button onclick="clearCalibLogs()" style="background:rgba(220,38,38,0.1); border:1px solid rgba(220,38,38,0.2); color:#991b1b; padding:6px 10px; border-radius:8px; font-size:0.75rem; cursor:pointer;">Vider</button>
+                        <span id="calib-stats" style="font-size:0.70rem; color:var(--text-muted); align-self:center;"></span>
+                    </div>
+                    <div id="calib-optimal-result" style="display:none; background:rgba(59,110,97,0.10); border:1px solid rgba(59,110,97,0.2); padding:8px; border-radius:8px; font-size:0.75rem; margin-bottom:10px; line-height:1.4;"></div>
+                    <div id="calib-logs-grid" style="overflow-x:auto; max-height:420px; overflow-y:auto; border:1px solid rgba(0,0,0,0.06); border-radius:8px;"></div>
+                    <div style="margin-top:8px; font-size:0.68rem; color:var(--text-muted); line-height:1.35;">
+                        Chaque log stocke low/mid/high 0-4h, vent 5-9h, relief, T brute, T M1/M2, T obs. Optimisation grille pas 0.05 minimise RMSE.
+                    </div>
+                </div>
+
             </div>
         </div>
 
@@ -4684,7 +4718,7 @@
             <div class="footer-support-row">
                 <a class="footer-support-link" href="https://buymeacoffee.com/stridemetric" target="_blank" rel="noopener">🐸 Aide-moi à nourrir la grenouille Metehop</a>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 17/09/2026 - 132</div>
+            <div class="footer-last-update">Dernière mise à jour : 18/09/2026 - 132</div>
         </footer>
 
     </div>
@@ -8778,30 +8812,29 @@ render16DayTable();
                 if (!weatherData || !weatherData.hourly) return null;
                 const dayStart = dayIdx * 24;
                 let cloudSum = 0, windSum = 0, n = 0;
-                let cloudLowSum = 0, cloudMidSum = 0, cloudHighSum = 0, nCloudAlt = 0;
                 for (let h = startH; h <= endH; h++) {
                     const idx = dayStart + h;
                     const cloud = weatherData.hourly.cloud_cover ? weatherData.hourly.cloud_cover[idx] : undefined;
                     const wind = weatherData.hourly.wind_speed_10m ? weatherData.hourly.wind_speed_10m[idx] : undefined;
-                    const low = weatherData.hourly.cloud_cover_low ? weatherData.hourly.cloud_cover_low[idx] : undefined;
-                    const mid = weatherData.hourly.cloud_cover_mid ? weatherData.hourly.cloud_cover_mid[idx] : undefined;
-                    const high = weatherData.hourly.cloud_cover_high ? weatherData.hourly.cloud_cover_high[idx] : undefined;
                     if (typeof cloud === 'number' && typeof wind === 'number') { cloudSum += cloud; windSum += wind; n++; }
-                    if (typeof low === 'number' && typeof mid === 'number' && typeof high === 'number') {
-                        cloudLowSum += low; cloudMidSum += mid; cloudHighSum += high; nCloudAlt++;
-                    }
+                }
+                return n ? { cloudAvg: cloudSum / n, windAvg: windSum / n } : null;
+            }
+            function hoursEffectiveCloud(startH, endH) {
+                if (!weatherData || !weatherData.hourly) return null;
+                const dayStart = dayIdx * 24;
+                let lowSum=0, midSum=0, highSum=0, n=0;
+                for (let h=startH; h<=endH; h++) {
+                    const idx=dayStart+h;
+                    const low=weatherData.hourly.cloud_cover_low ? weatherData.hourly.cloud_cover_low[idx] : undefined;
+                    const mid=weatherData.hourly.cloud_cover_mid ? weatherData.hourly.cloud_cover_mid[idx] : undefined;
+                    const high=weatherData.hourly.cloud_cover_high ? weatherData.hourly.cloud_cover_high[idx] : undefined;
+                    if (typeof low==='number' && typeof mid==='number' && typeof high==='number') { lowSum+=low; midSum+=mid; highSum+=high; n++; }
                 }
                 if (!n) return null;
-                // modèle pondéré : 70% bas, 25% moyen, 5% haut (littérature LW downwelling)
-                const effectiveCloud = nCloudAlt ? (0.7*cloudLowSum + 0.25*cloudMidSum + 0.05*cloudHighSum)/nCloudAlt : null;
-                return { 
-                    cloudAvg: cloudSum / n, 
-                    windAvg: windSum / n,
-                    cloudLowAvg: nCloudAlt ? cloudLowSum / nCloudAlt : null,
-                    cloudMidAvg: nCloudAlt ? cloudMidSum / nCloudAlt : null,
-                    cloudHighAvg: nCloudAlt ? cloudHighSum / nCloudAlt : null,
-                    effectiveCloud: effectiveCloud
-                };
+                const lowAvg=lowSum/n, midAvg=midSum/n, highAvg=highSum/n;
+                const eff=0.7*lowAvg+0.25*midAvg+0.05*highAvg;
+                return { lowAvg, midAvg, highAvg, eff };
             }
 
             // Calcul des ajustements (coefficients, favorabilité du jour...) — méthodologie complète,
@@ -8838,20 +8871,15 @@ render16DayTable();
                 // tout ou rien. Repères retenus : confiance nulle à partir de 50% de nuage nocturne
                 // ou 20 km/h de vent matinal moyen ; à affiner avec d'autres observations de terrain.
                 let favorabilityFactor = 0;
-                let usedCloudForCalc = null;
-                let cloudFactorDebug = 0;
                 if (night && morning) {
                     const thresh = (typeof microClimateCloudThreshold === 'number' ? microClimateCloudThreshold : 50);
                     const model = (typeof microClimateModel !== 'undefined' ? microClimateModel : '1');
-                    let cloudVal;
-                    if (model === '2' && night.effectiveCloud !== null) {
-                        cloudVal = night.effectiveCloud; // pondéré
-                    } else {
-                        cloudVal = night.cloudAvg; // legacy global
+                    let cloudVal = night.cloudAvg;
+                    if (model === '2') {
+                        const effObj = hoursEffectiveCloud(0,4);
+                        if (effObj && typeof effObj.eff === 'number') cloudVal = effObj.eff;
                     }
-                    usedCloudForCalc = cloudVal;
                     const cloudFactor = Math.max(0, Math.min(1, 1 - cloudVal / thresh));
-                    cloudFactorDebug = cloudFactor;
                     const windFactor = Math.max(0, Math.min(1, 1 - morning.windAvg / 20));
                     favorabilityFactor = Math.round(cloudFactor * windFactor * 100) / 100;
                 }
@@ -14224,6 +14252,178 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
             try{ renderCloudNightDebug(); }catch(e){}
         }
 
+        // ==================== CALIBRATION INVERSION - LOGS v148 ====================
+        const CALIB_LOGS_KEY='metehop_inversion_logs_v1';
+        function getCalibLogs(){ try{ return JSON.parse(localStorage.getItem(CALIB_LOGS_KEY)||'[]'); }catch(e){ return []; } }
+        function setCalibLogs(arr){ try{ localStorage.setItem(CALIB_LOGS_KEY, JSON.stringify(arr)); }catch(e){} }
+        function computeMorningTemps(dayIdx){
+            if(!weatherData||!weatherData.hourly||!weatherData.hourly.temperature_2m) return null;
+            const base=dayIdx*24;
+            const temps=[];
+            for(let h=5; h<=9; h++){
+                const idx=base+h;
+                const t=weatherData.hourly.temperature_2m[idx];
+                if(typeof t==='number') temps.push({h, t});
+            }
+            return temps;
+        }
+        function saveInversionLog(){
+            try{
+                const obsEl=document.getElementById('calib-obs-temp');
+                const hourEl=document.getElementById('calib-obs-hour');
+                const comEl=document.getElementById('calib-comment');
+                const obsT=parseFloat(obsEl.value);
+                if(isNaN(obsT)){ alert('Entre une T° observée'); return; }
+                const obsH=parseInt(hourEl.value)||6;
+                const comment=(comEl.value||'').trim();
+                if(!weatherData||!weatherData.hourly){ alert('Pas de weatherData'); return; }
+                const dayIdx=0;
+                const base=dayIdx*24;
+                const nightAvg=(arr)=>{ if(!arr) return null; let s=0,n=0; for(let h=0;h<=4;h++){ const v=arr[base+h]; if(typeof v==='number'){ s+=v; n++; } } return n?s/n:null; };
+                const low=nightAvg(weatherData.hourly.cloud_cover_low);
+                const mid=nightAvg(weatherData.hourly.cloud_cover_mid);
+                const high=nightAvg(weatherData.hourly.cloud_cover_high);
+                const global=nightAvg(weatherData.hourly.cloud_cover);
+                const windAvg=(()=>{ let s=0,n=0; for(let h=5;h<=9;h++){ const v=weatherData.hourly.wind_speed_10m[base+h]; if(typeof v==='number'){ s+=v; n++; } } return n?s/n:null; })();
+                const morningTemps=computeMorningTemps(dayIdx);
+                const rawMorningAvg = morningTemps && morningTemps.length ? morningTemps.reduce((a,b)=>a+b.t,0)/morningTemps.length : null;
+                const rawMinMorning = morningTemps && morningTemps.length ? Math.min(...morningTemps.map(x=>x.t)) : null;
+                const locationName=document.getElementById('title')?document.getElementById('title').innerText:'?';
+                const relief = (typeof microClimateGeoSignals!=='undefined' && microClimateGeoSignals && typeof microClimateGeoSignals.reliefIndex==='number') ? microClimateGeoSignals.reliefIndex : null;
+                const thresh = microClimateCloudThreshold;
+                const eff = (low!=null&&mid!=null&&high!=null) ? (0.7*low+0.25*mid+0.05*high) : null;
+                const cloudFactorM1 = global!=null ? Math.max(0,Math.min(1,1-global/50)) : null;
+                const cloudFactorM2 = eff!=null ? Math.max(0,Math.min(1,1-eff/thresh)) : null;
+                const windFactor = windAvg!=null ? Math.max(0,Math.min(1,1-windAvg/20)) : null;
+                const favM1 = (cloudFactorM1!=null&&windFactor!=null) ? cloudFactorM1*windFactor : null;
+                const favM2 = (cloudFactorM2!=null&&windFactor!=null) ? cloudFactorM2*windFactor : null;
+                const coeffPer100m=0.9, maxDelta=6;
+                const baseDelta = relief!=null ? Math.min(maxDelta, Math.max(1, relief/100*coeffPer100m)) : null;
+                const valleyDeltaM1 = baseDelta!=null&&favM1!=null ? -Math.round(baseDelta*favM1*10)/10 : null;
+                const valleyDeltaM2 = baseDelta!=null&&favM2!=null ? -Math.round(baseDelta*favM2*10)/10 : null;
+                const predM1 = (rawMorningAvg!=null&&valleyDeltaM1!=null) ? rawMorningAvg+valleyDeltaM1 : null;
+                const predM2 = (rawMorningAvg!=null&&valleyDeltaM2!=null) ? rawMorningAvg+valleyDeltaM2 : null;
+                const log={
+                    id: Date.now(),
+                    date: new Date().toISOString(),
+                    dateLocal: new Date().toLocaleString('fr-FR'),
+                    location: locationName,
+                    reliefIndex: relief,
+                    low: low!=null?Math.round(low*10)/10:null,
+                    mid: mid!=null?Math.round(mid*10)/10:null,
+                    high: high!=null?Math.round(high*10)/10:null,
+                    global: global!=null?Math.round(global*10)/10:null,
+                    eff: eff!=null?Math.round(eff*10)/10:null,
+                    windAvg: windAvg!=null?Math.round(windAvg*10)/10:null,
+                    rawMorningAvg: rawMorningAvg!=null?Math.round(rawMorningAvg*10)/10:null,
+                    rawMinMorning: rawMinMorning!=null?Math.round(rawMinMorning*10)/10:null,
+                    thresh,
+                    modelUsed: microClimateModel,
+                    cloudFactorM1: cloudFactorM1!=null?Math.round(cloudFactorM1*100)/100:null,
+                    cloudFactorM2: cloudFactorM2!=null?Math.round(cloudFactorM2*100)/100:null,
+                    valleyDeltaM1,
+                    valleyDeltaM2,
+                    predM1,
+                    predM2,
+                    obsT,
+                    obsH,
+                    errorM1: predM1!=null?Math.round((obsT-predM1)*10)/10:null,
+                    errorM2: predM2!=null?Math.round((obsT-predM2)*10)/10:null,
+                    comment
+                };
+                const logs=getCalibLogs();
+                logs.unshift(log);
+                setCalibLogs(logs);
+                obsEl.value=''; comEl.value='';
+                renderCalibLogs();
+            }catch(e){ console.error(e); alert('Erreur: '+e.message); }
+        }
+        function renderCalibLogs(){
+            const box=document.getElementById('calib-logs-grid');
+            const stats=document.getElementById('calib-stats');
+            if(!box) return;
+            const logs=getCalibLogs();
+            if(stats) stats.textContent = logs.length ? logs.length+' relevé(s)' : 'Aucun relevé';
+            if(!logs.length){
+                box.innerHTML='<div style="padding:10px; font-size:0.75rem; color:var(--text-muted); text-align:center;">Aucun relevé. Entre ta T° observée ce matin pour commencer.</div>';
+                return;
+            }
+            const headStyle='padding:5px 6px; text-align:center; white-space:nowrap; font-weight:700; color:var(--primary-dark); border-bottom:2px solid rgba(28,56,50,0.15); font-size:0.65rem; background:var(--card-inner-bg); position:sticky; top:0;';
+            const cellStyle='padding:4px 6px; text-align:center; white-space:nowrap; border-bottom:1px solid rgba(0,0,0,0.06); font-size:0.70rem;';
+            box.innerHTML = '<table style="border-collapse:collapse; width:100%;"><thead><tr>'
+                + '<th style="'+headStyle+' text-align:left;">Date</th>'
+                + '<th style="'+headStyle+'">Lieu</th>'
+                + '<th style="'+headStyle+'">Bas</th><th style="'+headStyle+'">Moy</th><th style="'+headStyle+'">Haut</th>'
+                + '<th style="'+headStyle+' background:rgba(59,110,97,0.12);">Ceff</th>'
+                + '<th style="'+headStyle+'">Vent</th><th style="'+headStyle+'">Raw</th>'
+                + '<th style="'+headStyle+'">M1</th><th style="'+headStyle+' background:rgba(59,110,97,0.12);">M2</th>'
+                + '<th style="'+headStyle+' background:rgba(255,193,7,0.15);">Obs</th>'
+                + '<th style="'+headStyle+'">ErrM1</th><th style="'+headStyle+' background:rgba(59,110,97,0.12);">ErrM2</th>'
+                + '<th style="'+headStyle+'">Com</th><th style="'+headStyle+'">X</th>'
+                + '</tr></thead><tbody>'
+                + logs.map(l=> '<tr>'
+                + '<td style="'+cellStyle+' text-align:left; font-size:0.65rem;">'+l.dateLocal.split(' ')[0]+'<br><span style="color:var(--text-muted);">'+(l.dateLocal.split(' ')[1]||'')+'</span></td>'
+                + '<td style="'+cellStyle+'">'+(l.location||'').substring(0,12)+'</td>'
+                + '<td style="'+cellStyle+'">'+(l.low!=null?l.low+'%':'-')+'</td>'
+                + '<td style="'+cellStyle+'">'+(l.mid!=null?l.mid+'%':'-')+'</td>'
+                + '<td style="'+cellStyle+'">'+(l.high!=null?l.high+'%':'-')+'</td>'
+                + '<td style="'+cellStyle+' background:rgba(59,110,97,0.08); font-weight:700;">'+(l.eff!=null?l.eff+'%':'-')+'</td>'
+                + '<td style="'+cellStyle+'">'+(l.windAvg!=null?l.windAvg:'-')+'</td>'
+                + '<td style="'+cellStyle+'">'+(l.rawMorningAvg!=null?l.rawMorningAvg+'°':'-')+'</td>'
+                + '<td style="'+cellStyle+'">'+(l.predM1!=null?l.predM1+'°':'-')+'</td>'
+                + '<td style="'+cellStyle+' background:rgba(59,110,97,0.08); font-weight:700;">'+(l.predM2!=null?l.predM2+'°':'-')+'</td>'
+                + '<td style="'+cellStyle+' background:rgba(255,193,7,0.15); font-weight:800;">'+l.obsT+'°</td>'
+                + '<td style="'+cellStyle+'">'+(l.errorM1!=null?(l.errorM1>0?'+':'')+l.errorM1+'°':'-')+'</td>'
+                + '<td style="'+cellStyle+' background:rgba(59,110,97,0.08); font-weight:700;">'+(l.errorM2!=null?(l.errorM2>0?'+':'')+l.errorM2+'°':'-')+'</td>'
+                + '<td style="'+cellStyle+' text-align:left; max-width:120px; overflow:hidden; text-overflow:ellipsis;" title="'+(l.comment||'').replace(/"/g,'&quot;')+'">'+(l.comment||'')+'</td>'
+                + '<td style="'+cellStyle+'"><button onclick="deleteCalibLog('+l.id+')" style="background:none; border:none; cursor:pointer;">X</button></td>'
+                + '</tr>').join('') + '</tbody></table>';
+        }
+        function deleteCalibLog(id){ const logs=getCalibLogs().filter(l=>l.id!==id); setCalibLogs(logs); renderCalibLogs(); }
+        function clearCalibLogs(){ if(!confirm('Vider tous les relevés ?')) return; setCalibLogs([]); renderCalibLogs(); const out=document.getElementById('calib-optimal-result'); if(out) out.style.display='none'; }
+        function exportCalibCSV(){
+            const logs=getCalibLogs(); if(!logs.length){ alert('Aucun log'); return; }
+            const headers=['dateLocal','location','reliefIndex','low','mid','high','global','eff','windAvg','rawMorningAvg','predM1','predM2','obsT','errorM1','errorM2','thresh','comment'];
+            const csv=[headers.join(';')].concat(logs.map(l=>headers.map(h=>{ const v=l[h]; return v==null?'':String(v).replace(/;/g,','); }).join(';'))).join('\n');
+            const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='metehop-calibration-'+new Date().toISOString().slice(0,10)+'.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),2000);
+        }
+        function calculateOptimalWeights(){
+            const logs=getCalibLogs(); const out=document.getElementById('calib-optimal-result');
+            if(!logs.length || logs.length<3){ out.style.display='block'; out.innerHTML='Il faut au moins 3 relevés. Actuellement: '+logs.length; return; }
+            let best=null; let results=[];
+            for(let wl=0.5; wl<=0.9+1e-9; wl+=0.05){
+                for(let wm=0.05; wm<=0.4+1e-9; wm+=0.05){
+                    const wh=1-wl-wm; if(wh<0 || wh>0.3) continue;
+                    let sse=0, n=0;
+                    for(const l of logs){
+                        if(l.low==null||l.mid==null||l.high==null||l.rawMorningAvg==null||l.windAvg==null||l.reliefIndex==null) continue;
+                        const ceff=wl*l.low+wm*l.mid+wh*l.high;
+                        const cf2=Math.max(0,Math.min(1,1-ceff/l.thresh));
+                        const wf=Math.max(0,Math.min(1,1-l.windAvg/20));
+                        const fav=cf2*wf;
+                        const baseDelta=Math.min(6,Math.max(1,l.reliefIndex/100*0.9));
+                        const delta=-Math.round(baseDelta*fav*10)/10;
+                        const pred=l.rawMorningAvg+delta;
+                        const err=pred-l.obsT; sse+=err*err; n++;
+                    }
+                    if(n===0) continue;
+                    const rmse=Math.sqrt(sse/n);
+                    results.push({wl:Math.round(wl*100)/100, wm:Math.round(wm*100)/100, wh:Math.round(wh*100)/100, rmse, n});
+                    if(!best || rmse<best.rmse) best={wl:Math.round(wl*100)/100, wm:Math.round(wm*100)/100, wh:Math.round(wh*100)/100, rmse, n};
+                }
+            }
+            results.sort((a,b)=>a.rmse-b.rmse); const top3=results.slice(0,3);
+            let sseCurr=0, nCurr=0; for(const l of logs){ if(l.errorM2!=null){ sseCurr+=l.errorM2*l.errorM2; nCurr++; } }
+            const rmseCurr=nCurr?Math.sqrt(sseCurr/nCurr):null;
+            let sseM1=0, cM1=0; for(const l of logs) if(l.errorM1!=null){ sseM1+=l.errorM1*l.errorM1; cM1++; }
+            const rmseM1=cM1?Math.sqrt(sseM1/cM1):null;
+            out.style.display='block';
+            out.innerHTML='<div style="font-weight:800; margin-bottom:4px;">Optimisation ('+logs.length+' logs, '+best.n+' utilisables)</div>'
+                + '<div>RMSE M1: <strong>'+(rmseM1!=null?rmseM1.toFixed(2)+'°C':'-')+'</strong> | RMSE M2 actuel 0.7/0.25/0.05: <strong>'+(rmseCurr!=null?rmseCurr.toFixed(2)+'°C':'-')+'</strong></div>'
+                + '<div style="margin-top:6px;"><strong>Meilleurs poids:</strong> w_low='+best.wl+', w_mid='+best.wm+', w_high='+best.wh+' -> RMSE='+best.rmse.toFixed(2)+'°C</div>'
+                + '<div style="margin-top:4px; font-size:0.70rem;">Top 3:<br>'+top3.map(r=>'- '+r.wl+'/'+r.wm+'/'+r.wh+' -> '+r.rmse.toFixed(2)+'°C').join('<br>')+'</div>';
+        }
+
         function renderCloudNightDebug(){
             try{
                 const box=document.getElementById('cloud-night-debug-grid');
@@ -18809,7 +19009,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 if (w < 50) return; // carte encore masquée (mode Simple, onglet non actif...)
                 done = true;
                 clearInterval(watchdog);
-                try { renderCloudProfileChart(); } catch(e) { console.error('cloudProfile watchdog', e); }
+                try { renderCloudProfileChart(); } catch(e) { console.error('cloudProfile watchdog', e); } try { if(typeof renderCalibLogs==='function') renderCalibLogs(); }catch(e){}
             }, 400);
         })();
 
