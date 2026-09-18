@@ -4411,9 +4411,8 @@
                     </div>
                 </div>
 
-                <!-- Coupe nuageuse verticale — v6, refonte complète en DOM (fini le canvas) — déplacée
-                     dans "Metehop pour les geeks" (18/09/2026), avec Désaccord entre modèles et
-                     Benchmark, au lieu d'être un encart séparé en dehors du bloc repliable. -->
+                <!-- Coupe nuageuse verticale — v7, look retravaillé (grappes de nuages + ligne de
+                     précipitations reliée, sur le modèle de la maquette fournie) — 18/09/2026. -->
                 <div id="cloud-profile-card" data-groups="general" data-level="expert" style="margin-top:12px; background: var(--card-bg); border-radius: var(--radius-medium); padding:12px; width:100%; box-sizing:border-box; border:1px solid rgba(0,0,0,0.06);">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:10px;">
                         <div style="flex:1;">
@@ -4422,10 +4421,9 @@
                         </div>
                         <div style="font-size:0.62rem; color:var(--text-muted); white-space:nowrap;">Source : Open-Meteo</div>
                     </div>
-                    <div id="cloud-profile-grid" style="display:flex; gap:4px; overflow-x:auto; padding:8px 4px 4px; background: linear-gradient(180deg, #eef6f0 0%, #f9fdfb 100%); border-radius:12px; border:1px solid rgba(28,56,50,0.10);">
+                    <div id="cloud-profile-grid" style="display:flex; overflow-x:auto; border-radius:12px; border:1px solid rgba(28,56,50,0.10); background:linear-gradient(180deg, #dbe9f2 0%, #eef6f0 55%, #f9fdfb 100%);">
                         <!-- colonnes générées par renderCloudProfileChart() -->
                     </div>
-                    <div id="cloud-profile-debug" style="font-size:0.62rem; color:#e11d48; margin-top:6px; font-family:monospace; white-space:pre-wrap;">[debug] fonction jamais appelée (rien écrasé cette valeur)</div>
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; flex-wrap:wrap; gap:8px; font-size:0.66rem; color:var(--text-muted);">
                         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
                             <span><i class="fa-solid fa-cloud" style="color:rgba(60,60,70,0.35); margin-right:4px;"></i>Nuages bas</span>
@@ -13733,116 +13731,6 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
             document.getElementById('astro-chart-sub').innerText = `Conditions de ${sunsetHour}h00 à ${sunriseHour}h00` + (microClimateActiveTonight ? ' · ajusté micro-climat' : '');
 
             
-        // ======================================================================
-        // COUPE NUAGEUSE PAR ALTITUDE — v6, refonte DOM (jours en colonnes, nuages
-        // illustrés par icônes) : plus de <canvas>, donc plus de souci de largeur/
-        // hauteur à zéro pendant que la carte est masquée — c'est la disposition la
-        // plus fiable pour ce type de contenu.
-        // ======================================================================
-        function renderCloudProfileChart(){
-            const dbg=document.getElementById('cloud-profile-debug');
-            const now=new Date().toLocaleTimeString('fr-FR');
-            try{
-                const grid=document.getElementById('cloud-profile-grid');
-                const sub=document.getElementById('cloud-profile-sub');
-                if(!grid){ if(dbg) dbg.innerText=`[debug ${now}] grid introuvable !`; return; }
-                if(!weatherData||!weatherData.hourly||!weatherData.hourly.time){
-                    if(sub) sub.innerText='En attente des données météo...';
-                    if(dbg) dbg.innerText=`[debug ${now}] pas de données : weatherData=${typeof weatherData}${weatherData?(' hourly='+(!!weatherData.hourly)):''}`;
-                    return;
-                }
-                const hourly=weatherData.hourly;
-                const daily=weatherData.daily;
-                const times=hourly.time;
-                const nDays=Math.min(daily&&daily.time?daily.time.length:7, 7);
-                if(dbg) dbg.innerText=`[debug ${now}] OK : nDays=${nDays} heures=${times.length} low[0..3]=${(hourly.cloud_cover_low||[]).slice(0,4)} précip[0..3]=${(hourly.precipitation||[]).slice(0,4)}`;
-                if(nDays<1){ return; }
-
-                // Moyenne d'un tableau sur une plage d'indices (heures), en ignorant les valeurs
-                // manquantes ; renvoie null si aucune valeur exploitable.
-                const avgRange=(arr,from,to)=>{
-                    if(!arr) return null;
-                    let sum=0,n=0;
-                    for(let i=from;i<to&&i<arr.length;i++){ const v=arr[i]; if(typeof v==='number'){ sum+=v; n++; } }
-                    return n>0?sum/n:null;
-                };
-                const sumRange=(arr,from,to)=>{
-                    if(!arr) return 0;
-                    let sum=0;
-                    for(let i=from;i<to&&i<arr.length;i++){ const v=arr[i]; if(typeof v==='number') sum+=v; }
-                    return sum;
-                };
-
-                // Opacité de gris en fonction de la couverture nuageuse (%), utilisée pour teinter
-                // l'icône de nuage — courbe légèrement accentuée pour que les faibles couvertures
-                // restent bien visibles sans écraser les fortes couvertures.
-                const cloudOpacity=pct=>pct==null?0:Math.min(1,Math.max(0.10, Math.pow(Math.min(100,Math.max(0,pct))/100,0.75)*0.95));
-                const cloudSize=pct=>{ // taille d'icône en px, 16 à 46
-                    if(pct==null) return 0;
-                    const p=Math.min(100,Math.max(0,pct));
-                    return Math.round(16+p*0.30);
-                };
-
-                let maxPrecip=0;
-                const days=[];
-                for(let d=0; d<nDays; d++){
-                    const from=d*24, to=from+24;
-                    const low=avgRange(hourly.cloud_cover_low,from,to);
-                    const mid=avgRange(hourly.cloud_cover_mid,from,to);
-                    const high=avgRange(hourly.cloud_cover_high,from,to);
-                    const fallback=avgRange(hourly.cloud_cover,from,to)||0;
-                    const precip=Math.round(sumRange(hourly.precipitation,from,to)*10)/10;
-                    if(precip>maxPrecip) maxPrecip=precip;
-                    const dateStr=(daily&&daily.time&&daily.time[d])?daily.time[d]:times[from];
-                    const dt=dateStr?new Date(dateStr):null;
-                    const label=d===0?'Auj.':(dt?dt.toLocaleDateString('fr-FR',{weekday:'short'}).replace('.','') :'');
-                    const dayNum=dt?dt.getDate():'';
-                    days.push({
-                        label, dayNum,
-                        low: low!=null?low:fallback*0.6,
-                        mid: mid!=null?mid:fallback*0.4,
-                        high: high!=null?high:fallback*0.3,
-                        precip
-                    });
-                }
-
-                // Échelle des barres de précipitations : au moins 1 mm de plafond visuel pour
-                // qu'une journée sèche affiche une barre nulle sans diviser par zéro.
-                const precipScale=Math.max(1,maxPrecip);
-
-                grid.innerHTML=days.map(day=>{
-                    const rows=[
-                        {pct:day.high, title:'Nuages hauts (6-13 km)'},
-                        {pct:day.mid, title:'Nuages moyens (2-6 km)'},
-                        {pct:day.low, title:'Nuages bas (0-2 km)'}
-                    ].map(r=>{
-                        const size=cloudSize(r.pct);
-                        const op=cloudOpacity(r.pct);
-                        const pctLabel=r.pct!=null?Math.round(r.pct)+'%':'—';
-                        return `
-                        <div style="height:48px; display:flex; align-items:center; justify-content:center; position:relative;" title="${r.title} : ${pctLabel}">
-                            ${size>0?`<i class="fa-solid fa-cloud" style="font-size:${size}px; color:rgba(35,40,50,${op.toFixed(2)});"></i>`:''}
-                        </div>`;
-                    }).join('');
-                    const barH=Math.round(4+(day.precip/precipScale)*46);
-                    const precipColor=day.precip>5?'#1d4ed8':day.precip>1?'#3b82f6':'#93c5fd';
-                    return `
-                    <div style="flex:0 0 auto; width:78px; display:flex; flex-direction:column; align-items:center; padding:2px 4px; border-radius:8px;">
-                        ${rows}
-                        <div style="width:100%; height:56px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; margin-top:4px;">
-                            ${day.precip>0.1?`<span style="font-size:0.62rem; color:${precipColor}; font-weight:700; margin-bottom:2px;">${day.precip} mm</span>`:''}
-                            <div style="width:22px; height:${barH}px; background:${precipColor}; border-radius:4px 4px 0 0;"></div>
-                        </div>
-                        <div style="font-size:0.72rem; font-weight:700; color:var(--primary-dark); margin-top:6px; text-transform:capitalize;">${day.label}</div>
-                        <div style="font-size:0.60rem; color:var(--text-muted);">${day.dayNum}</div>
-                    </div>`;
-                }).join('');
-
-                if(sub) sub.innerText=`Nuages bas (0-2 km), moyens (2-6 km) et hauts (6-13 km) — ${nDays} jours. Plus c'est foncé, plus c'est couvert.`;
-            }catch(e){ console.error('cloudProfile error',e); const sub=document.getElementById('cloud-profile-sub'); if(sub) sub.innerText='Erreur : '+e.message; }
-        }
-
-
         // === POINT DE ROSÉE — gouttelettes quand l'air est proche de la saturation ===
             // Comparaison directe temp. réelle vs point de rosée réel (tous deux mesurés/prévus par
             // Open-Meteo) : jamais une valeur inventée. Petite tolérance (0.3°C) pour l'arrondi.
@@ -13976,6 +13864,217 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 }
             });
         }
+
+        // ======================================================================
+        // COUPE NUAGEUSE PAR ALTITUDE — v8 (18/09/2026) : nuages en SVG (silhouette
+        // Font Awesome, dégradé de teinte selon la couverture), axe d'altitude à droite,
+        // bandeau jour en fond, précipitations en barres + ligne + gouttes — sur le
+        // modèle de la maquette fournie par l'utilisateur. Tout en DOM/SVG (pas de
+        // <canvas>), donc pas de souci de largeur/hauteur à zéro pendant que la carte
+        // est masquée.
+        // ======================================================================
+        // Silhouette de nuage (Font Awesome "cloud", licence CC BY 4.0) réutilisée en <symbol>
+        // pour ne la définir qu'une fois et l'instancier en <use> à chaque endroit nécessaire.
+        const CLOUD_SVG_PATH = "M0 336c0 79.5 64.5 144 144 144l304 0c70.7 0 128-57.3 128-128 0-51.6-30.5-96.1-74.5-116.3 6.7-13.1 10.5-28 10.5-43.7 0-53-43-96-96-96-17.7 0-34.2 4.8-48.4 13.1-24.1-45.8-72.2-77.1-127.6-77.1-79.5 0-144 64.5-144 144 0 8 .7 15.9 1.9 23.5-56.9 19.2-97.9 73.1-97.9 136.5z";
+
+        function renderCloudProfileChart(){
+            try{
+                const grid=document.getElementById('cloud-profile-grid');
+                const sub=document.getElementById('cloud-profile-sub');
+                if(!grid) return;
+                if(!weatherData||!weatherData.hourly||!weatherData.hourly.time){
+                    if(sub) sub.innerText='En attente des données météo...';
+                    return;
+                }
+                const hourly=weatherData.hourly;
+                const daily=weatherData.daily;
+                const times=hourly.time;
+                const nDays=Math.min(daily&&daily.time?daily.time.length:7, 7);
+                if(nDays<1){ return; }
+
+                const avgRange=(arr,from,to)=>{
+                    if(!arr) return null;
+                    let sum=0,n=0;
+                    for(let i=from;i<to&&i<arr.length;i++){ const v=arr[i]; if(typeof v==='number'){ sum+=v; n++; } }
+                    return n>0?sum/n:null;
+                };
+                const sumRange=(arr,from,to)=>{
+                    if(!arr) return 0;
+                    let sum=0;
+                    for(let i=from;i<to&&i<arr.length;i++){ const v=arr[i]; if(typeof v==='number') sum+=v; }
+                    return sum;
+                };
+
+                let maxPrecip=0;
+                const days=[];
+                for(let d=0; d<nDays; d++){
+                    const from=d*24, to=from+24;
+                    const low=avgRange(hourly.cloud_cover_low,from,to);
+                    const mid=avgRange(hourly.cloud_cover_mid,from,to);
+                    const high=avgRange(hourly.cloud_cover_high,from,to);
+                    const fallback=avgRange(hourly.cloud_cover,from,to)||0;
+                    const precip=Math.round(sumRange(hourly.precipitation,from,to)*10)/10;
+                    if(precip>maxPrecip) maxPrecip=precip;
+                    const dateStr=(daily&&daily.time&&daily.time[d])?daily.time[d]:times[from];
+                    const dt=dateStr?new Date(dateStr):null;
+                    const label=d===0?'Auj.':(dt?dt.toLocaleDateString('fr-FR',{weekday:'short'}).replace('.','') :'');
+                    const dayNum=dt?dt.getDate():'';
+                    days.push({
+                        label, dayNum,
+                        low: low!=null?low:fallback*0.6,
+                        mid: mid!=null?mid:fallback*0.4,
+                        high: high!=null?high:fallback*0.3,
+                        precip
+                    });
+                }
+
+                const COL=112;          // largeur d'une colonne-jour, en px
+                const BAND_H=58;        // hauteur d'une bande d'altitude, en px
+                const CLOUDS_H=BAND_H*3;
+                const PRECIP_H=78;
+                const totalW=nDays*COL;
+                const precipScale=Math.max(2,maxPrecip);
+
+                // --- Dégradés : un jeu de stops par bande (haut/moyen/bas), assombris selon la
+                // couverture nuageuse réelle (0-100%), avec un contraste marqué pour que le %
+                // se lise clairement à l'œil (quasi blanc/invisible à faible couverture, gris
+                // orageux sombre à forte couverture). ---
+                const shadeStops=pct=>{
+                    const p=Math.pow(Math.min(100,Math.max(0,pct==null?0:pct))/100, 0.85);
+                    const top=[252-152*p,253-153*p,255-155*p];
+                    const bot=[222-197*p,225-200*p,230-205*p];
+                    const rgb=a=>`rgb(${a[0]|0},${a[1]|0},${a[2]|0})`;
+                    return {top:rgb(top),bot:rgb(bot)};
+                };
+                // Opacité globale de la grappe : faible couverture = à peine visible (effet "voile"),
+                // forte couverture = pleinement opaque.
+                const cloudAlpha=pct=>{
+                    const p=Math.min(100,Math.max(0,pct==null?0:pct))/100;
+                    return (0.20+0.80*Math.pow(p,0.7)).toFixed(2);
+                };
+
+                let gradCounter=0;
+                const defs=[];
+                // --- Grappe de 2-3 silhouettes qui se chevauchent, tailles/décalages variés selon
+                // un pseudo-hasard stable (basé sur le jour+bande) pour un rendu moins répétitif.
+                // La taille de la grappe reflète directement le % (grand écart 0.30 → 1.25). ---
+                const seededRand=seed=>{ let x=Math.sin(seed*999.7)*10000; return x-Math.floor(x); };
+                const cloudCluster=(pct,dayIdx,bandIdx)=>{
+                    if(pct==null || pct<4) return '';
+                    const {top,bot}=shadeStops(pct);
+                    const alpha=cloudAlpha(pct);
+                    const gid='cpg'+(gradCounter++);
+                    defs.push(`<linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${top}"/><stop offset="1" stop-color="${bot}"/></linearGradient>`);
+                    const scaleBase=0.30+Math.pow(Math.min(100,pct)/100,0.8)*0.95; // 0.30 → 1.25
+                    const seed=dayIdx*7+bandIdx*3+1;
+                    const specs=[
+                        {dx:-0.30,dy:0.10,s:0.72},
+                        {dx:0.05,dy:-0.06,s:1.0},
+                        {dx:0.34,dy:0.14,s:0.66}
+                    ];
+                    const parts=specs.map((sp,i)=>{
+                        const jitter=(seededRand(seed+i)-0.5)*0.10;
+                        const s=scaleBase*(sp.s+jitter);
+                        const w=64*s, h=56*s;
+                        const cx=COL/2 + sp.dx*COL*0.9;
+                        const cy=BAND_H*0.58 + sp.dy*BAND_H;
+                        const x=cx-w/2, y=cy-h/2;
+                        return `<use href="#cloudShape" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" fill="url(#${gid})"/>`;
+                    }).join('');
+                    return `<g style="opacity:${alpha}; filter:drop-shadow(0 2px 2px rgba(20,30,40,0.18));">${parts}</g>`;
+                };
+
+                // --- Fond : bandeau jour (teinte crème), lignes d'altitude + axe à droite ---
+                const altTicks=[0,2,4,6,8,10,12].map(km=>{
+                    const y=CLOUDS_H - (km/13)*CLOUDS_H;
+                    return `<line x1="0" y1="${y.toFixed(1)}" x2="${totalW}" y2="${y.toFixed(1)}" stroke="rgba(28,56,50,0.08)" stroke-width="1"/>`;
+                }).join('');
+                const dayBg=days.map((d,i)=>`<rect x="${i*COL}" y="0" width="${COL}" height="${CLOUDS_H}" fill="${i%2===0?'rgba(250,242,210,0.55)':'rgba(250,242,210,0.30)'}"/>`).join('');
+                const dayDividers=days.map((d,i)=>i>0?`<line x1="${i*COL}" y1="0" x2="${i*COL}" y2="${CLOUDS_H}" stroke="rgba(28,56,50,0.06)"/>`:'').join('');
+
+                const cloudsBody=days.map((day,di)=>{
+                    const bands=[day.high,day.mid,day.low];
+                    return bands.map((pct,bi)=>{
+                        const g=cloudCluster(pct,di,bi);
+                        if(!g) return '';
+                        return `<g transform="translate(${di*COL},${bi*BAND_H})">${g}</g>`;
+                    }).join('');
+                }).join('');
+
+                const cloudsSvg=`
+                    <svg width="${totalW}" height="${CLOUDS_H}" viewBox="0 0 ${totalW} ${CLOUDS_H}" style="display:block;">
+                        <defs>
+                            <symbol id="cloudShape" viewBox="0 0 576 512"><path d="${CLOUD_SVG_PATH}"/></symbol>
+                            ${defs.join('')}
+                        </defs>
+                        ${dayBg}
+                        ${altTicks}
+                        ${dayDividers}
+                        ${cloudsBody}
+                    </svg>`;
+
+                // --- Axe d'altitude (à droite, hors du SVG principal pour rester net au redimensionnement) ---
+                const axisLabels=[12,10,8,6,4,2,0];
+                const axisHtml=`<div style="display:flex; align-items:stretch; gap:2px;">
+                    <div style="display:flex; flex-direction:column; justify-content:space-between; width:22px; height:${CLOUDS_H}px; padding:2px 0; box-sizing:border-box;">
+                        ${axisLabels.map(km=>`<div style="font-size:0.56rem; color:var(--text-muted); text-align:right;">${km}</div>`).join('')}
+                    </div>
+                    <div style="writing-mode:vertical-rl; transform:rotate(180deg); font-size:0.62rem; color:var(--text-muted); white-space:nowrap; height:${CLOUDS_H}px; display:flex; align-items:center; justify-content:center;">Altitude (km)</div>
+                </div>`;
+                // --- Axe des précipitations (à gauche, sur toute la hauteur clouds + précip) ---
+                const leftAxisHtml=`<div style="writing-mode:vertical-rl; transform:rotate(180deg); font-size:0.62rem; color:var(--text-muted); white-space:nowrap; height:${CLOUDS_H+PRECIP_H}px; display:flex; align-items:center; justify-content:center; padding-right:2px;">Précipitation (mm/h)</div>`;
+
+                // --- Étiquettes de jour ---
+                const labelsHtml = days.map(day=>`
+                    <div style="width:${COL}px; flex:0 0 auto; text-align:center; padding-top:4px;">
+                        <div style="font-size:0.76rem; font-weight:700; color:var(--primary-dark); text-transform:capitalize;">${day.label}</div>
+                        <div style="font-size:0.60rem; color:var(--text-muted);">${day.dayNum}</div>
+                    </div>`).join('');
+
+                // --- Précipitations : barres + ligne reliée + gouttes ---
+                const pad=6, plotH=PRECIP_H-18;
+                const xCenter=i=>i*COL+COL/2;
+                const yFor=v=>plotH-pad-((v/precipScale)*(plotH-2*pad));
+                const points=days.map((d,i)=>`${xCenter(i)},${yFor(d.precip).toFixed(1)}`).join(' ');
+                const barsSvg=days.map((d,i)=>{
+                    const bw=COL*0.30;
+                    const bh=Math.max(2,((d.precip/precipScale)*(plotH-2*pad)));
+                    const x=xCenter(i)-bw/2, y=plotH-pad-bh;
+                    const color=d.precip>5?'#1d4ed8':d.precip>1?'#3b82f6':'#93c5fd';
+                    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="3" fill="${color}"></rect>`;
+                }).join('');
+                const dotsSvg=days.map((d,i)=>{
+                    const cx=xCenter(i), cy=yFor(d.precip);
+                    const drop = d.precip>0.1 ? `<text x="${cx}" y="${(cy-8).toFixed(1)}" text-anchor="middle" font-size="10" fill="#1e3a8a" font-family="inherit">\u{1F4A7}</text>` : '';
+                    return `<circle cx="${cx}" cy="${cy.toFixed(1)}" r="3" fill="#1d4ed8" stroke="#fff" stroke-width="1"></circle>${drop}`;
+                }).join('');
+                const mmLabelsSvg=days.map((d,i)=>d.precip>0.1?`<text x="${xCenter(i)}" y="12" text-anchor="middle" font-size="9" font-weight="700" fill="#1d4ed8" font-family="inherit">${d.precip}mm</text>`:'').join('');
+                const precipSvg = `
+                    <svg width="${totalW}" height="${PRECIP_H}" viewBox="0 0 ${totalW} ${PRECIP_H}" style="display:block;">
+                        ${mmLabelsSvg}
+                        <g transform="translate(0,18)">
+                            ${barsSvg}
+                            <polyline points="${points}" fill="none" stroke="#1d4ed8" stroke-width="1.5" stroke-dasharray="3,2" opacity="0.6"></polyline>
+                            ${dotsSvg}
+                        </g>
+                    </svg>`;
+
+                grid.innerHTML = `
+                    <div style="display:flex; align-items:flex-start; padding:4px 2px;">
+                        <div>${leftAxisHtml}</div>
+                        <div style="display:flex; flex-direction:column; min-width:${totalW}px;">
+                            <div>${cloudsSvg}</div>
+                            <div style="border-top:1px dashed rgba(28,56,50,0.15); margin:2px 0;">${precipSvg}</div>
+                            <div style="display:flex; padding-bottom:6px;">${labelsHtml}</div>
+                        </div>
+                        <div style="padding-top:0;">${axisHtml}</div>
+                    </div>`;
+
+                if(sub) sub.innerText=`Nuages bas (0-2 km), moyens (2-6 km) et hauts (6-13 km) — ${nDays} jours. Plus c'est foncé, plus c'est couvert.`;
+            }catch(e){ console.error('cloudProfile error',e); const sub=document.getElementById('cloud-profile-sub'); if(sub) sub.innerText='Erreur : '+e.message; }
+        }
+
+
 
         // ============================================================================
         // CLASSEMENT DES MEILLEURES NUITS D'OBSERVATION (onglet Général, ex-Hobby — voir #astro-card) — 05/09/2026
