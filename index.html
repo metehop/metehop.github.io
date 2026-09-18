@@ -4425,6 +4425,7 @@
                     <div id="cloud-profile-grid" style="display:flex; gap:4px; overflow-x:auto; padding:8px 4px 4px; background: linear-gradient(180deg, #eef6f0 0%, #f9fdfb 100%); border-radius:12px; border:1px solid rgba(28,56,50,0.10);">
                         <!-- colonnes générées par renderCloudProfileChart() -->
                     </div>
+                    <div id="cloud-profile-debug" style="font-size:0.62rem; color:#e11d48; margin-top:6px; font-family:monospace; white-space:pre-wrap;">[debug] fonction jamais appelée (rien écrasé cette valeur)</div>
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; flex-wrap:wrap; gap:8px; font-size:0.66rem; color:var(--text-muted);">
                         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
                             <span><i class="fa-solid fa-cloud" style="color:rgba(60,60,70,0.35); margin-right:4px;"></i>Nuages bas</span>
@@ -13739,18 +13740,22 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
         // plus fiable pour ce type de contenu.
         // ======================================================================
         function renderCloudProfileChart(){
+            const dbg=document.getElementById('cloud-profile-debug');
+            const now=new Date().toLocaleTimeString('fr-FR');
             try{
                 const grid=document.getElementById('cloud-profile-grid');
                 const sub=document.getElementById('cloud-profile-sub');
-                if(!grid) return;
+                if(!grid){ if(dbg) dbg.innerText=`[debug ${now}] grid introuvable !`; return; }
                 if(!weatherData||!weatherData.hourly||!weatherData.hourly.time){
                     if(sub) sub.innerText='En attente des données météo...';
+                    if(dbg) dbg.innerText=`[debug ${now}] pas de données : weatherData=${typeof weatherData}${weatherData?(' hourly='+(!!weatherData.hourly)):''}`;
                     return;
                 }
                 const hourly=weatherData.hourly;
                 const daily=weatherData.daily;
                 const times=hourly.time;
                 const nDays=Math.min(daily&&daily.time?daily.time.length:7, 7);
+                if(dbg) dbg.innerText=`[debug ${now}] OK : nDays=${nDays} heures=${times.length} low[0..3]=${(hourly.cloud_cover_low||[]).slice(0,4)} précip[0..3]=${(hourly.precipitation||[]).slice(0,4)}`;
                 if(nDays<1){ return; }
 
                 // Moyenne d'un tableau sur une plage d'indices (heures), en ignorant les valeurs
