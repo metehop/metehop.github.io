@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="google-site-verification" content="EAFjvrSYgq6wOXpa9cbtcRGDX1La8S88rQWGyPojKcA">
     <title>Metehop</title>
-    <!-- v146 - NEW FROGS PNG ultra lisibles (parapluie, moufles, etc) - FIX complet CORS silencieux sans casser l'app + radar desktop 540px + MAINTENANT stacked desktop (540px) + MAINTENANT stacked desktop desktop + SYNOP Météo-France affiché dans Stations météo + Temp.live -->
+    <!-- v147 - MODEL 2 pondéré nuages bas/moy/haut pour inversion + switch Modèle 1/2 + seuil réglable + équations dans encart geek - NEW FROGS PNG ultra lisibles (parapluie, moufles, etc) - FIX complet CORS silencieux sans casser l'app + radar desktop 540px + MAINTENANT stacked desktop (540px) + MAINTENANT stacked desktop desktop + SYNOP Météo-France affiché dans Stations météo + Temp.live -->
     <!-- v123 - 16/09/2026 : fallback Temp. live (25-30 km) via Benchmark réel + vert plus clair -->
     <meta name="description" content="Metehop : prévisions météo précises pour Grenoble et le Grésivaudan, détection d'inversions thermiques, neige et stations de ski, qualité de l'eau des rivières, nuits d'observation astronomique et bilan hydrique jardin. Données Open-Meteo, Hub'Eau, Pioupiou/OpenWindMap.">
     <meta name="robots" content="index, follow">
@@ -4434,6 +4434,39 @@
                     </div>
                 </div>
 
+                <!-- Comparaison nébulosité nuit (0h-4h) vs valeur retenue par le micro-climat — 18/09/2026.
+                     But : voir d'un coup d'œil si la nébulosité BASSE (la plus pertinente pour le
+                     refroidissement radiatif au sol) diverge de la nébulosité GLOBALE actuellement
+                     utilisée par hoursConditionsFavorable(0,4) dans computeMicroClimateDayEffects(). -->
+                <div id="cloud-night-debug-card" data-groups="general" data-level="expert" style="margin-top:12px; background: var(--card-bg); border-radius: var(--radius-medium); padding:12px; width:100%; box-sizing:border-box; border:1px solid rgba(0,0,0,0.06);">
+                    <div style="font-weight:800; font-size:0.95rem; color:var(--primary-dark);"><i class="fa-solid fa-moon" style="margin-right:6px;"></i> Nébulosité nocturne (0h-4h) vs modèle micro-climat</div>
+                    
+                    <div style="margin-top:10px; padding:10px; background:var(--card-inner-bg); border-radius:10px; border:1px dashed rgba(0,0,0,0.1);">
+                        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
+                            <span style="font-weight:700; font-size:0.8rem;">Modèle inversion :</span>
+                            <label style="display:flex; align-items:center; gap:4px; font-size:0.8rem; cursor:pointer; padding:4px 8px; border-radius:20px; background:rgba(0,0,0,0.05);" title="Modèle 1 = cloud_cover global 0-4h (actuel)">
+                                <input type="radio" name="micro-model" value="1" id="micro-model-1" onchange="onMicroModelChange()"> <span>Modèle 1 (legacy)</span>
+                            </label>
+                            <label style="display:flex; align-items:center; gap:4px; font-size:0.8rem; cursor:pointer; padding:4px 8px; border-radius:20px; background:rgba(59,110,97,0.15);" title="Modèle 2 = pondéré bas/mid/high">
+                                <input type="radio" name="micro-model" value="2" id="micro-model-2" onchange="onMicroModelChange()" checked> <span>Modèle 2 (pondéré)</span>
+                            </label>
+                        </div>
+                        <div id="micro-threshold-row" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                            <label for="micro-threshold-input" style="font-size:0.75rem; font-weight:600;">Seuil nuage 0% inversion (S) :</label>
+                            <input type="number" id="micro-threshold-input" min="20" max="80" step="1" value="50" style="width:70px; padding:4px 6px; border-radius:6px; border:1px solid rgba(0,0,0,0.15); font-size:0.8rem;" onchange="onMicroThresholdChange()">
+                            <span style="font-size:0.70rem; color:var(--text-muted);">% — au-delà, cloudFactor=0. Défaut 50. Recommandé 35-40 pour nuits claires.</span>
+                        </div>
+                        <div id="micro-model-equations" style="margin-top:10px; font-size:0.72rem; line-height:1.4; color:var(--text-dark); background:rgba(255,255,255,0.6); padding:8px; border-radius:8px;">
+                            <!-- équations générées par JS -->
+                        </div>
+                    </div>
+
+                    <div style="font-size:0.70rem; color:var(--text-muted); margin-top:8px; margin-bottom:10px;">Comparaison <strong>globale vs pondérée</strong> sur 0h-4h. Modèle 2 donne plus de poids aux nuages bas (corps noir chaud proche du sol) qui bloquent vraiment le refroidissement radiatif.</div>
+                    <div id="cloud-night-debug-grid" style="overflow-x:auto;">
+                        <!-- tableau généré par renderCloudNightDebug() -->
+                    </div>
+                </div>
+
             </div>
         </div>
 
@@ -4651,7 +4684,7 @@
             <div class="footer-support-row">
                 <a class="footer-support-link" href="https://buymeacoffee.com/stridemetric" target="_blank" rel="noopener">🐸 Aide-moi à nourrir la grenouille Metehop</a>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 17/09/2026 - 130</div>
+            <div class="footer-last-update">Dernière mise à jour : 17/09/2026 - 132</div>
         </footer>
 
     </div>
@@ -8385,6 +8418,15 @@ render16DayTable();
         // reste désactivable via l'interrupteur.
         // ============================================================================
         let microClimateEnabled = true;
+        let microClimateModel = '2'; // '1' = legacy global 0-4h, '2' = pondéré bas/mid/high
+        let microClimateCloudThreshold = 50; // seuil % au-delà duquel cloudFactor = 0
+        try {
+            const savedModel = localStorage.getItem('metehop_microclimate_model_v1');
+            if (savedModel === '1' || savedModel === '2') microClimateModel = savedModel;
+            const savedThresh = parseFloat(localStorage.getItem('metehop_microclimate_thresh_v1'));
+            if (!isNaN(savedThresh) && savedThresh >= 20 && savedThresh <= 80) microClimateCloudThreshold = savedThresh;
+        } catch(e){}
+
         // Corrigé le 05/09/2026 : l'ancienne variable unique `microClimateAdjustments` ne portait
         // l'ajustement que pour UN SEUL jour (celui analysé au moment de l'appel réseau), d'où deux bugs
         // signalés : (1) les effets locaux ne se recalculaient pas en changeant de jour de consultation
@@ -8736,13 +8778,30 @@ render16DayTable();
                 if (!weatherData || !weatherData.hourly) return null;
                 const dayStart = dayIdx * 24;
                 let cloudSum = 0, windSum = 0, n = 0;
+                let cloudLowSum = 0, cloudMidSum = 0, cloudHighSum = 0, nCloudAlt = 0;
                 for (let h = startH; h <= endH; h++) {
                     const idx = dayStart + h;
                     const cloud = weatherData.hourly.cloud_cover ? weatherData.hourly.cloud_cover[idx] : undefined;
                     const wind = weatherData.hourly.wind_speed_10m ? weatherData.hourly.wind_speed_10m[idx] : undefined;
+                    const low = weatherData.hourly.cloud_cover_low ? weatherData.hourly.cloud_cover_low[idx] : undefined;
+                    const mid = weatherData.hourly.cloud_cover_mid ? weatherData.hourly.cloud_cover_mid[idx] : undefined;
+                    const high = weatherData.hourly.cloud_cover_high ? weatherData.hourly.cloud_cover_high[idx] : undefined;
                     if (typeof cloud === 'number' && typeof wind === 'number') { cloudSum += cloud; windSum += wind; n++; }
+                    if (typeof low === 'number' && typeof mid === 'number' && typeof high === 'number') {
+                        cloudLowSum += low; cloudMidSum += mid; cloudHighSum += high; nCloudAlt++;
+                    }
                 }
-                return n ? { cloudAvg: cloudSum / n, windAvg: windSum / n } : null;
+                if (!n) return null;
+                // modèle pondéré : 70% bas, 25% moyen, 5% haut (littérature LW downwelling)
+                const effectiveCloud = nCloudAlt ? (0.7*cloudLowSum + 0.25*cloudMidSum + 0.05*cloudHighSum)/nCloudAlt : null;
+                return { 
+                    cloudAvg: cloudSum / n, 
+                    windAvg: windSum / n,
+                    cloudLowAvg: nCloudAlt ? cloudLowSum / nCloudAlt : null,
+                    cloudMidAvg: nCloudAlt ? cloudMidSum / nCloudAlt : null,
+                    cloudHighAvg: nCloudAlt ? cloudHighSum / nCloudAlt : null,
+                    effectiveCloud: effectiveCloud
+                };
             }
 
             // Calcul des ajustements (coefficients, favorabilité du jour...) — méthodologie complète,
@@ -8779,8 +8838,20 @@ render16DayTable();
                 // tout ou rien. Repères retenus : confiance nulle à partir de 50% de nuage nocturne
                 // ou 20 km/h de vent matinal moyen ; à affiner avec d'autres observations de terrain.
                 let favorabilityFactor = 0;
+                let usedCloudForCalc = null;
+                let cloudFactorDebug = 0;
                 if (night && morning) {
-                    const cloudFactor = Math.max(0, Math.min(1, 1 - night.cloudAvg / 50));
+                    const thresh = (typeof microClimateCloudThreshold === 'number' ? microClimateCloudThreshold : 50);
+                    const model = (typeof microClimateModel !== 'undefined' ? microClimateModel : '1');
+                    let cloudVal;
+                    if (model === '2' && night.effectiveCloud !== null) {
+                        cloudVal = night.effectiveCloud; // pondéré
+                    } else {
+                        cloudVal = night.cloudAvg; // legacy global
+                    }
+                    usedCloudForCalc = cloudVal;
+                    const cloudFactor = Math.max(0, Math.min(1, 1 - cloudVal / thresh));
+                    cloudFactorDebug = cloudFactor;
                     const windFactor = Math.max(0, Math.min(1, 1 - morning.windAvg / 20));
                     favorabilityFactor = Math.round(cloudFactor * windFactor * 100) / 100;
                 }
@@ -14071,7 +14142,160 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                     </div>`;
 
                 if(sub) sub.innerText=`Nuages bas (0-2 km), moyens (2-6 km) et hauts (6-13 km) — ${nDays} jours. Plus c'est foncé, plus c'est couvert.`;
+
+                // Le tableau de comparaison nuit (0h-4h) dépend des mêmes données ; on le
+                // redessine dans la foulée pour rester synchronisé sans multiplier les points
+                // d'appel ailleurs dans le code.
+                if (typeof renderCloudNightDebug === 'function') { try { renderCloudNightDebug(); } catch(e) { console.error('cloudNightDebug', e); } }
             }catch(e){ console.error('cloudProfile error',e); const sub=document.getElementById('cloud-profile-sub'); if(sub) sub.innerText='Erreur : '+e.message; }
+        }
+
+        // ======================================================================
+        // NÉBULOSITÉ NOCTURNE (0h-4h) vs VALEUR RETENUE PAR LE MICRO-CLIMAT — 18/09/2026.
+        // Réplique volontairement le même calcul que hoursConditionsFavorable(0,4) dans
+        // computeMicroClimateDayEffects() (moyenne heures 0 à 4 incluses de weatherData.hourly.
+        // cloud_cover) pour que la "valeur retenue" affichée ici soit garantie identique à celle
+        // qui pilote réellement la correction d'inversion thermique — jamais une valeur recalculée
+        // séparément qui pourrait diverger silencieusement si l'une des deux formules change.
+        // ======================================================================
+        function syncMicroModelUI(){
+            try{
+                const m1=document.getElementById('micro-model-1');
+                const m2=document.getElementById('micro-model-2');
+                const th=document.getElementById('micro-threshold-input');
+                const thrRow=document.getElementById('micro-threshold-row');
+                if(m1) m1.checked = (microClimateModel==='1');
+                if(m2) m2.checked = (microClimateModel==='2');
+                if(th) th.value = microClimateCloudThreshold;
+                if(thrRow) thrRow.style.display = (microClimateModel==='2' ? 'flex' : 'none');
+            }catch(e){}
+        }
+        function updateMicroModelEquations(){
+            const el=document.getElementById('micro-model-equations');
+            if(!el) return;
+            const S=microClimateCloudThreshold;
+            const model=microClimateModel;
+            el.innerHTML = `
+                <div style="font-weight:800; margin-bottom:4px;">📐 Définition des modèles</div>
+                <div style="margin-bottom:6px;">
+                    <strong>Modèle 1 (legacy, actuel) :</strong><br>
+                    <code style="background:rgba(0,0,0,0.06); padding:2px 4px; border-radius:4px;">night = avg(cloud_cover GLOBAL 0h-4h)</code><br>
+                    <code>cloudFactor = max(0, min(1, 1 - night / 50))</code><br>
+                    <code>windFactor = max(0, min(1, 1 - vent_5h-9h / 20))</code><br>
+                    <code>favorability = cloudFactor * windFactor</code><br>
+                    <code>valleyDelta = -min(6, max(1, relief/100*0.9)) * favorability</code>
+                </div>
+                <div style="margin-bottom:6px; border-top:1px dashed rgba(0,0,0,0.12); padding-top:6px;">
+                    <strong>Modèle 2 (pondéré, nouveau - recommandé) :</strong> <span style="background:#3b6e61; color:white; padding:1px 6px; border-radius:10px; font-size:0.65rem;">${model==='2'?'ACTIF':''}</span><br>
+                    <code style="background:rgba(59,110,97,0.12); padding:2px 4px; border-radius:4px;">Ceff = 0.7*low(0-4h) + 0.25*mid(0-4h) + 0.05*high(0-4h)</code><br>
+                    <em style="font-size:0.68rem; color:var(--text-muted);">Bas = corps noir chaud (ε≈1) bloque ~300W/m², Mid ~50%, High cirrus froid ε~0.3 ~<20W/m² au sol — réf. Brutsaert, NASA CERES, Arizona Atmo.</em><br>
+                    <code>cloudFactor2 = max(0, min(1, 1 - Ceff / ${S}))</code> <span style="font-size:0.68rem;">— S réglable (${S}%)</span><br>
+                    <code>favorability2 = cloudFactor2 * windFactor</code><br>
+                    <code>valleyDelta2 = -min(6, max(1, relief/100*0.9)) * favorability2</code><br>
+                    <div style="margin-top:4px; font-size:0.68rem;">
+                    Exemple Tencin 18/09 : low=5%, mid=10%, high=60% → Modèle1 : 60% → factor 0 → <strong>pas d'inversion</strong> → 15°C prévu vs 10°C réel.<br>
+                    Modèle2 : Ceff=0.7*5+0.25*10+0.05*60=9% → factor2=${(Math.max(0,1-9/S)).toFixed(2)} → <strong>inversion conservée</strong>.
+                    </div>
+                </div>
+                <div style="font-size:0.68rem; color:var(--text-muted);">Seuil S : 50% = permissif (actuel), 40% = standard nuits claires, 35% = strict. Vent seuil 20 km/h inchangé.</div>
+            `;
+        }
+        function onMicroModelChange(){
+            const m1=document.getElementById('micro-model-1');
+            microClimateModel = (m1 && m1.checked) ? '1' : '2';
+            try{ localStorage.setItem('metehop_microclimate_model_v1', microClimateModel); }catch(e){}
+            syncMicroModelUI();
+            updateMicroModelEquations();
+            // invalide cache jour + re-render
+            microClimateDayCache={};
+            try{ if(typeof selectedDayIndex!=='undefined'){ renderLocalEffectsPanel(selectedDayIndex); updateDayView(selectedDayIndex); } }catch(e){}
+            try{ renderCloudNightDebug(); }catch(e){}
+        }
+        function onMicroThresholdChange(){
+            const th=document.getElementById('micro-threshold-input');
+            let v=parseFloat(th.value);
+            if(isNaN(v)) v=50;
+            v=Math.max(20,Math.min(80,v));
+            microClimateCloudThreshold=v;
+            try{ localStorage.setItem('metehop_microclimate_thresh_v1', String(v)); }catch(e){}
+            updateMicroModelEquations();
+            microClimateDayCache={};
+            try{ if(typeof selectedDayIndex!=='undefined'){ renderLocalEffectsPanel(selectedDayIndex); updateDayView(selectedDayIndex); } }catch(e){}
+            try{ renderCloudNightDebug(); }catch(e){}
+        }
+
+        function renderCloudNightDebug(){
+            try{
+                const box=document.getElementById('cloud-night-debug-grid');
+                if(!box) return;
+                syncMicroModelUI();
+                updateMicroModelEquations();
+                if(!weatherData||!weatherData.hourly||!weatherData.hourly.time){ box.innerHTML=''; return; }
+                const hourly=weatherData.hourly;
+                const daily=weatherData.daily;
+                const nDays=Math.min(daily&&daily.time?daily.time.length:7, 7);
+
+                const nightAvg=(arr,dayIdx)=>{
+                    if(!arr) return null;
+                    const base=dayIdx*24;
+                    let sum=0,n=0;
+                    for(let h=0;h<=4;h++){ const v=arr[base+h]; if(typeof v==='number'){ sum+=v; n++; } }
+                    return n?sum/n:null;
+                };
+
+                const rows=[];
+                const thresh = microClimateCloudThreshold;
+                for(let d=0; d<nDays; d++){
+                    const low=nightAvg(hourly.cloud_cover_low,d);
+                    const mid=nightAvg(hourly.cloud_cover_mid,d);
+                    const high=nightAvg(hourly.cloud_cover_high,d);
+                    const retained=nightAvg(hourly.cloud_cover,d);
+                    const eff = (low!=null && mid!=null && high!=null) ? (0.7*low + 0.25*mid + 0.05*high) : null;
+                    const dateStr=(daily&&daily.time&&daily.time[d])?daily.time[d]:hourly.time[d*24];
+                    const dt=dateStr?new Date(dateStr):null;
+                    const label=d===0?'Auj.':(dt?dt.toLocaleDateString('fr-FR',{weekday:'short'}).replace('.','') :'');
+                    const cloudFactor1 = retained!=null ? Math.max(0,Math.min(1,1-retained/50)) : null;
+                    const cloudFactor2 = eff!=null ? Math.max(0,Math.min(1,1-eff/thresh)) : null;
+                    const activeFactor = (microClimateModel==='2' ? cloudFactor2 : cloudFactor1);
+                    rows.push({label,dayNum:dt?dt.getDate():'',low,mid,high,retained,eff,cloudFactor1,cloudFactor2,activeFactor});
+                }
+
+                const fmt=v=>v==null?'—':Math.round(v)+'%';
+                const cellStyle='padding:5px 6px; text-align:center; white-space:nowrap; border-bottom:1px solid rgba(28,56,50,0.08);';
+                const headStyle='padding:5px 6px; text-align:center; white-space:nowrap; font-weight:700; color:var(--primary-dark); border-bottom:2px solid rgba(28,56,50,0.15); font-size:0.65rem;';
+
+                box.innerHTML = `
+                    <table style="border-collapse:collapse; width:100%; font-size:0.70rem;">
+                        <thead><tr>
+                            <th style="${headStyle} text-align:left;">Jour</th>
+                            <th style="${headStyle}">Bas</th>
+                            <th style="${headStyle}">Moy</th>
+                            <th style="${headStyle}">Haut</th>
+                            <th style="${headStyle} background:rgba(59,130,246,0.08);">Global<br>(M1)</th>
+                            <th style="${headStyle} background:rgba(59,110,97,0.12);">Ceff<br>(M2)</th>
+                            <th style="${headStyle}">F1<br>50%</th>
+                            <th style="${headStyle} background:rgba(59,110,97,0.12);">F2<br>${thresh}%</th>
+                            <th style="${headStyle} background:rgba(255,193,7,0.15);">Actif</th>
+                        </tr></thead>
+                        <tbody>
+                        ${rows.map(r=>`
+                            <tr style="${r.activeFactor!=null && r.activeFactor>0.1 ? '' : 'opacity:0.6;'}">
+                                <td style="${cellStyle} text-align:left; font-weight:700; color:var(--primary-dark); text-transform:capitalize;">${r.label} <span style="font-weight:400; color:var(--text-muted);">${r.dayNum}</span></td>
+                                <td style="${cellStyle}">${fmt(r.low)}</td>
+                                <td style="${cellStyle}">${fmt(r.mid)}</td>
+                                <td style="${cellStyle}">${fmt(r.high)}</td>
+                                <td style="${cellStyle} background:rgba(59,130,246,0.08);">${fmt(r.retained)}</td>
+                                <td style="${cellStyle} background:rgba(59,110,97,0.12); font-weight:700;">${fmt(r.eff)}</td>
+                                <td style="${cellStyle}">${r.cloudFactor1==null?'—':r.cloudFactor1.toFixed(2)}</td>
+                                <td style="${cellStyle} background:rgba(59,110,97,0.12); font-weight:700;">${r.cloudFactor2==null?'—':r.cloudFactor2.toFixed(2)}</td>
+                                <td style="${cellStyle} background:rgba(255,193,7,0.15); font-weight:800;">${r.activeFactor==null?'—':r.activeFactor.toFixed(2)}</td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>
+                    <div style="font-size:0.65rem; color:var(--text-muted); margin-top:6px;">
+                        Ceff = 0.7×Bas + 0.25×Moy + 0.05×Haut (0h-4h). F1 = modèle 1 (seuil 50% fixe). F2 = modèle 2 (seuil ${thresh}% réglable). Actif = modèle sélectionné. Si Actif <0.10 → inversion annulée ce jour.
+                    </div>`;
+            }catch(e){ console.error('cloudNightDebug error',e); }
         }
 
 
