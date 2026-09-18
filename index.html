@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="google-site-verification" content="EAFjvrSYgq6wOXpa9cbtcRGDX1La8S88rQWGyPojKcA">
     <title>Metehop</title>
-    <!-- v147 - MODEL 2 pondéré nuages bas/moy/haut pour inversion + switch Modèle 1/2 + seuil réglable + équations dans encart geek - NEW FROGS PNG ultra lisibles (parapluie, moufles, etc) - FIX complet CORS silencieux sans casser l'app + radar desktop 540px + MAINTENANT stacked desktop (540px) + MAINTENANT stacked desktop desktop + SYNOP Météo-France affiché dans Stations météo + Temp.live -->
+    <!-- v151 - MODEL2 pondéré + UHI 5 coeffs réglables + calibration matin/ap-midi + logs terrain + optimisation grille -->
     <!-- v123 - 16/09/2026 : fallback Temp. live (25-30 km) via Benchmark réel + vert plus clair -->
     <meta name="description" content="Metehop : prévisions météo précises pour Grenoble et le Grésivaudan, détection d'inversions thermiques, neige et stations de ski, qualité de l'eau des rivières, nuits d'observation astronomique et bilan hydrique jardin. Données Open-Meteo, Hub'Eau, Pioupiou/OpenWindMap.">
     <meta name="robots" content="index, follow">
@@ -8841,30 +8841,29 @@ render16DayTable();
                 if (!weatherData || !weatherData.hourly) return null;
                 const dayStart = dayIdx * 24;
                 let cloudSum = 0, windSum = 0, n = 0;
-                let cloudLowSum = 0, cloudMidSum = 0, cloudHighSum = 0, nCloudAlt = 0;
                 for (let h = startH; h <= endH; h++) {
                     const idx = dayStart + h;
                     const cloud = weatherData.hourly.cloud_cover ? weatherData.hourly.cloud_cover[idx] : undefined;
                     const wind = weatherData.hourly.wind_speed_10m ? weatherData.hourly.wind_speed_10m[idx] : undefined;
-                    const low = weatherData.hourly.cloud_cover_low ? weatherData.hourly.cloud_cover_low[idx] : undefined;
-                    const mid = weatherData.hourly.cloud_cover_mid ? weatherData.hourly.cloud_cover_mid[idx] : undefined;
-                    const high = weatherData.hourly.cloud_cover_high ? weatherData.hourly.cloud_cover_high[idx] : undefined;
                     if (typeof cloud === 'number' && typeof wind === 'number') { cloudSum += cloud; windSum += wind; n++; }
-                    if (typeof low === 'number' && typeof mid === 'number' && typeof high === 'number') {
-                        cloudLowSum += low; cloudMidSum += mid; cloudHighSum += high; nCloudAlt++;
-                    }
+                }
+                return n ? { cloudAvg: cloudSum / n, windAvg: windSum / n } : null;
+            }
+            function hoursEffectiveCloud(startH, endH) {
+                if (!weatherData || !weatherData.hourly) return null;
+                const dayStart = dayIdx * 24;
+                let lowSum=0, midSum=0, highSum=0, n=0;
+                for (let h=startH; h<=endH; h++) {
+                    const idx=dayStart+h;
+                    const low=weatherData.hourly.cloud_cover_low ? weatherData.hourly.cloud_cover_low[idx] : undefined;
+                    const mid=weatherData.hourly.cloud_cover_mid ? weatherData.hourly.cloud_cover_mid[idx] : undefined;
+                    const high=weatherData.hourly.cloud_cover_high ? weatherData.hourly.cloud_cover_high[idx] : undefined;
+                    if (typeof low==='number' && typeof mid==='number' && typeof high==='number') { lowSum+=low; midSum+=mid; highSum+=high; n++; }
                 }
                 if (!n) return null;
-                // modèle pondéré : 70% bas, 25% moyen, 5% haut (littérature LW downwelling)
-                const effectiveCloud = nCloudAlt ? (0.7*cloudLowSum + 0.25*cloudMidSum + 0.05*cloudHighSum)/nCloudAlt : null;
-                return { 
-                    cloudAvg: cloudSum / n, 
-                    windAvg: windSum / n,
-                    cloudLowAvg: nCloudAlt ? cloudLowSum / nCloudAlt : null,
-                    cloudMidAvg: nCloudAlt ? cloudMidSum / nCloudAlt : null,
-                    cloudHighAvg: nCloudAlt ? cloudHighSum / nCloudAlt : null,
-                    effectiveCloud: effectiveCloud
-                };
+                const lowAvg=lowSum/n, midAvg=midSum/n, highAvg=highSum/n;
+                const eff=0.7*lowAvg+0.25*midAvg+0.05*highAvg;
+                return { lowAvg, midAvg, highAvg, eff };
             }
 
             // Calcul des ajustements (coefficients, favorabilité du jour...) — méthodologie complète,
@@ -8901,20 +8900,15 @@ render16DayTable();
                 // tout ou rien. Repères retenus : confiance nulle à partir de 50% de nuage nocturne
                 // ou 20 km/h de vent matinal moyen ; à affiner avec d'autres observations de terrain.
                 let favorabilityFactor = 0;
-                let usedCloudForCalc = null;
-                let cloudFactorDebug = 0;
                 if (night && morning) {
                     const thresh = (typeof microClimateCloudThreshold === 'number' ? microClimateCloudThreshold : 50);
                     const model = (typeof microClimateModel !== 'undefined' ? microClimateModel : '1');
-                    let cloudVal;
-                    if (model === '2' && night.effectiveCloud !== null) {
-                        cloudVal = night.effectiveCloud; // pondéré
-                    } else {
-                        cloudVal = night.cloudAvg; // legacy global
+                    let cloudVal = night.cloudAvg;
+                    if (model === '2') {
+                        const effObj = hoursEffectiveCloud(0,4);
+                        if (effObj && typeof effObj.eff === 'number') cloudVal = effObj.eff;
                     }
-                    usedCloudForCalc = cloudVal;
                     const cloudFactor = Math.max(0, Math.min(1, 1 - cloudVal / thresh));
-                    cloudFactorDebug = cloudFactor;
                     const windFactor = Math.max(0, Math.min(1, 1 - morning.windAvg / 20));
                     favorabilityFactor = Math.round(cloudFactor * windFactor * 100) / 100;
                 }
