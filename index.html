@@ -13743,7 +13743,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 const grid=document.getElementById('cloud-profile-grid');
                 const sub=document.getElementById('cloud-profile-sub');
                 if(!grid) return;
-                if(!window.weatherData||!weatherData.hourly||!weatherData.hourly.time){
+                if(!weatherData||!weatherData.hourly||!weatherData.hourly.time){
                     if(sub) sub.innerText='En attente des données météo...';
                     return;
                 }
@@ -18444,7 +18444,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
     <script>
         
         // Hooks coupe nuageuse v5
-        window.addEventListener('resize', ()=>{ if(window.weatherData){ try{ renderCloudProfileChart(); }catch(e){} } });
+        window.addEventListener('resize', ()=>{ if(typeof weatherData!=='undefined' && weatherData){ try{ renderCloudProfileChart(); }catch(e){} } });
         (function(){
             const orig = window.toggleCardCollapse;
             if(orig){
@@ -18476,7 +18476,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 tries++;
                 if (done || tries > 50) { clearInterval(watchdog); return; }
                 const c = document.getElementById('cloud-profile-grid');
-                if (!c || !window.weatherData || !window.weatherData.hourly) return;
+                if (!c || !weatherData || !weatherData.hourly) return;
                 const w = c.clientWidth || c.offsetWidth || 0;
                 if (w < 50) return; // carte encore masquée (mode Simple, onglet non actif...)
                 done = true;
