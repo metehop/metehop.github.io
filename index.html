@@ -630,9 +630,9 @@
         /* Emoji + mot "actualités" empilés : même encombrement qu'avant (largeur inchangée, hauteur
            toujours calée sur .vigilance-banner via align-items:stretch) — juste l'emoji légèrement
            réduit et un libellé minuscule ajoutés dans le même espace, sans agrandir la case. */
-        .weather-news-btn .wn-emoji { font-size: 0.95rem; line-height: 1; }
+        .weather-news-btn .wn-emoji { font-size: 1.35rem; line-height: 1; display:block; transform: translateY(-1px); }
         .weather-news-btn .wn-label {
-            font-size: 0.42rem;
+            font-size: 0.58rem;
             font-weight: 700;
             line-height: 1;
             color: var(--text-muted);
@@ -4732,7 +4732,7 @@
             <div class="footer-support-row">
                 <a class="footer-support-link" href="https://buymeacoffee.com/stridemetric" target="_blank" rel="noopener">🐸 Aide-moi à nourrir la grenouille Metehop</a>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 17/09/2026 - 130</div>
+            <div class="footer-last-update">Dernière mise à jour : 17/09/2026 - 133</div>
         </footer>
 
     </div>
@@ -6002,27 +6002,54 @@
 
         function sentence16Days() {
             const days = lastForecastRemarkableDays;
-            if (!days) return null; // v149.1 - pas encore chargé cette session : on laisse recomputeWeatherNews garder la valeur précédente (cache ou calcul antérieur)
+            // v133 - helper confiance pour nuancer le 2e hook actualités
+            function confidenceLabelForDay(dayIdx) {
+                try {
+                    if (typeof ensembleConfidenceByDay === 'undefined' || !ensembleConfidenceByDay) return null;
+                    const v = ensembleConfidenceByDay[dayIdx];
+                    if (typeof v !== 'number') return null;
+                    if (v >= 4) return { txt: 'bon niveau de confiance (4/4)', emoji: '🟢' };
+                    if (v === 3) return { txt: 'probable (3/4)', emoji: '🟡' };
+                    if (v === 2) return { txt: 'à confirmer (2/4)', emoji: '🟠' };
+                    if (v <= 1) return { txt: 'à confirmer, faible niveau de confiance (1/4)', emoji: '🔴' };
+                    return null;
+                } catch(e) { return null; }
+            }
+            function appendConfidence(base, dayIdx) {
+                const c = confidenceLabelForDay(dayIdx);
+                if (!c) return base;
+                // évite double point
+                const sep = base.trim().endsWith('.') ? '' : '.';
+                return `${base}${sep} ${c.emoji} Indice de prévisibilité : ${c.txt}.`;
+            }
+
+            if (!days) return null;
             if (!days.length) {
-                return pick([
-                    "Les 16 prochains jours s'annoncent sans excès notable : aucune case ne ressort particulièrement dans le tableau détaillé, une météo plutôt classique pour la saison.",
-                    "Rien de marquant à l'horizon des deux prochaines semaines : le tableau 16 jours ne met aucune journée en évidence."
+                const base = pick([
+                    "Les 16 prochains jours s'annoncent sans excès notable : aucune case ne ressort particulièrement dans le tableau détaillé, une météo plutôt classique pour la saison",
+                    "Rien de marquant à l'horizon des deux prochaines semaines : le tableau 16 jours ne met aucune journée en évidence"
                 ]);
+                // moyenne J0-J2 pour le cas sans événement marquant
+                let avgDay = 0;
+                try { if (typeof ensembleConfidenceByDay !== 'undefined' && ensembleConfidenceByDay && ensembleConfidenceByDay.length) avgDay = 0; } catch(e){}
+                return appendConfidence(base, avgDay);
             }
             const d = days[0];
             const when = d.day === 0 ? "aujourd'hui" : (d.day === 1 ? 'demain' : `${d.dayStr} ${d.dateNum}`);
             const rest = days.length > 1 ? ` (et ${days.length - 1} autre${days.length - 1 > 1 ? 's' : ''} jour${days.length - 1 > 1 ? 's' : ''} à repérer dans le tableau)` : '';
             const byType = {
-                storm: () => `Un risque d'orage se dessine ${when} ${d.stormMatin ? 'en matinée' : 'en après-midi'} — c'est la case orange à repérer dans le tableau 16 jours${rest}.`,
-                snow: () => `Un épisode neigeux est annoncé ${when} — visible via la case violette du tableau 16 jours${rest}.`,
-                cold: () => `Ça va piquer ${when} : jusqu'à ${d.minT}°C annoncés, gel possible — la case bleu foncé du tableau le signale${rest}.`,
-                hot: () => `Un pic de chaleur se profile ${when}, avec ${d.maxT}°C au programme — repérable par la case rouge du tableau${rest}.`,
-                rain: () => `${when.charAt(0).toUpperCase() + when.slice(1)}, un cumul de pluie notable est attendu (environ ${d.rain.toFixed(0)} mm) — la case bleu clair du tableau le met en avant${rest}.`,
-                wind: () => `Des rafales soutenues sont prévues ${when}, jusqu'à ${d.gustMax} km/h — c'est la case verte du tableau 16 jours${rest}.`
+                storm: () => `Un risque d'orage se dessine ${when} ${d.stormMatin ? 'en matinée' : 'en après-midi'} — c'est la case orange à repérer dans le tableau 16 jours${rest}`,
+                snow: () => `Un épisode neigeux est annoncé ${when} — visible via la case violette du tableau 16 jours${rest}`,
+                cold: () => `Ça va piquer ${when} : jusqu'à ${d.minT}°C annoncés, gel possible — la case bleu foncé du tableau le signale${rest}`,
+                hot: () => `Un pic de chaleur se profile ${when}, avec ${d.maxT}°C au programme — repérable par la case rouge du tableau${rest}`,
+                rain: () => `${when.charAt(0).toUpperCase() + when.slice(1)}, un cumul de pluie notable est attendu (environ ${d.rain.toFixed(0)} mm) — la case bleu clair du tableau le met en avant${rest}`,
+                wind: () => `Des rafales soutenues sont prévues ${when}, jusqu'à ${d.gustMax} km/h — c'est la case verte du tableau 16 jours${rest}`
             };
-            let result = (byType[d.type] || (() => `Une journée à surveiller ${when} dans le tableau 16 jours${rest}.`))();
+            let result = (byType[d.type] || (() => `Une journée à surveiller ${when} dans le tableau 16 jours${rest}`))();
             const streak = findWeatherStreak(days);
             if (streak) result += ' ' + streakSentence(streak);
+            // v133 - nuance avec indice de prévisibilité du jour concerné
+            result = appendConfidence(result, d.day);
             return result;
         }
 
