@@ -893,10 +893,17 @@
             align-items: center;
             justify-content: space-between;
             margin-top: 4px;
+            gap: 4px;
         }
-        .day-tab-bottom i { font-size: 0.85rem; color: var(--accent-orange); }
+        .day-tab-bottom i { font-size: 0.85rem; color: var(--accent-orange); margin-right: 4px; }
         .day-tab.active .day-tab-bottom i { color: #f5d061; }
-        .day-tab-temp { font-size: 0.8rem; font-weight: 700; }
+        .day-tab-temp { font-size: 0.8rem; font-weight: 700; display:flex; gap:2px; align-items:center; }
+        .temp-min { color: #2b6cb0; } /* bleu min */
+        .temp-max { color: #c0392b; } /* rouge max */
+        .temp-sep { color: var(--text-muted); font-weight:400; margin:0 1px; }
+        .day-tab.active .temp-min { color: #7ec8ff; }
+        .day-tab.active .temp-max { color: #ff8a7a; }
+        .day-tab.active .temp-sep { color: #a4c2b9; }
 
         /* Grille 2 colonnes : Heures + Radar */
         .two-cols {
@@ -911,7 +918,6 @@
             /* v141 - Radar +20% uniquement desktop : 270px -> 540px - FIX hauteur + invalidateSize */
             #map { height: 540px !important; min-height: 540px !important; }
             .map-wrapper #map { height: 540px !important; min-height: 540px !important; }
-        }
         }
 
         /* Séparateurs de section de l'onglet Général en mode expert (réorganisation du 09/09/2026) :
@@ -2094,7 +2100,7 @@
         body.simple-mode .day-tab { padding: 6px 12px; gap: 2px; }
         body.simple-mode .day-tab-date { display: none; }
         body.simple-mode .day-tab-bottom { margin-top: 2px; flex-wrap: nowrap; }
-        body.simple-mode .day-tab-temp { font-size: 0.62rem; white-space: nowrap; }
+        body.simple-mode .day-tab-temp { font-size: 0.8rem; font-weight: 700; display:flex; gap:2px; align-items:center; }
 
         .sources-modal-overlay {
             display: none;
@@ -13026,7 +13032,8 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 // public non familier de la météo) au lieu du seul maximum — voir aussi le CSS
                 // body.simple-mode .day-tab, qui réduit la hauteur de ces cases (ajouté le 07/09/2026,
                 // sur demande). Mode Expert inchangé : uniquement le maximum, comme avant.
-                const tempDisplay = (displayMode === 'simple') ? `${minT}° / ${maxT}°` : `${maxT}°`;
+                // Modif 20/09/2026 : min en bleu, max en rouge (demande utilisateur) — affiché dans tous les modes
+                const tempDisplay = `<span class="temp-min">${minT}°</span><span class="temp-sep"> / </span><span class="temp-max">${maxT}°</span>`;
 
                 tab.innerHTML = `
                     <div class="day-tab-name">${dayName}</div>
