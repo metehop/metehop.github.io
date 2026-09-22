@@ -4459,9 +4459,9 @@
                         </div>
                         <div id="micro-threshold-row" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                             <label for="micro-threshold-input" style="font-size:0.75rem; font-weight:600;">Seuil nuage 0% inversion (S) :</label>
-                            <input type="number" id="micro-threshold-input" min="20" max="80" step="1" value="50" style="width:70px; padding:4px 6px; border-radius:6px; border:1px solid rgba(0,0,0,0.15); font-size:0.8rem;" onchange="onMicroThresholdChange()">
-                            <span style="font-size:0.70rem; color:var(--text-muted);">% — au-delà, cloudFactor=0. Défaut 50. Recommandé 35-40 pour nuits claires.</span>
-                        </div>
+                            <input type="number" id="micro-threshold-input" min="20" max="80" step="1" value="38" style="width:70px; padding:4px 6px; border-radius:6px; border:1px solid rgba(0,0,0,0.15); font-size:0.8rem;" onchange="onMicroThresholdChange()">
+                            <span style="font-size:0.70rem; color:var(--text-muted);">% — au-delà, cloudFactor=0. Défaut 38. Recommandé 35-40 pour nuits claires.</span>
+                        </div><div style="font-size:0.65rem; color:var(--text-muted); margin-top:4px;">Modèle 2 = coeff/100m calculé automatiquement depuis Inv Open-Meteo (T925-T1000) sur 0h-6h pour 16j. Modèle 1 = valeur fixe ci-dessous.</div>
                         <div id="micro-uhi-row" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:8px; padding-top:8px; border-top:1px dashed rgba(0,0,0,0.1);">
                             <span style="font-size:0.75rem; font-weight:700;">Coeffs îlot de chaleur :</span>
                             <label style="font-size:0.70rem;">Afternoon factor (0-1): <input type="number" id="micro-uhi-afternoon-input" min="0" max="1" step="0.05" value="0.2" style="width:60px; padding:3px 5px; border-radius:5px; border:1px solid rgba(0,0,0,0.15); font-size:0.75rem;" onchange="onMicroUHIChange()"></label>
@@ -4473,6 +4473,44 @@
                             <label style="font-size:0.70rem;">Suppression inversion (0-1): <input type="number" id="micro-valley-supp-input" min="0" max="1" step="0.05" value="0.5" style="width:60px; padding:3px 5px; border-radius:5px; border:1px solid rgba(0,0,0,0.15); font-size:0.75rem;" onchange="onMicroUHIChange()"></label>
                             <label style="font-size:0.70rem;">Amplif. UHI (0-2): <input type="number" id="micro-valley-amp-input" min="0" max="2" step="0.05" value="0.8" style="width:60px; padding:3px 5px; border-radius:5px; border:1px solid rgba(0,0,0,0.15); font-size:0.75rem;" onchange="onMicroUHIChange()"></label>
                         </div>
+                        <div id="micro-inversion-row" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:6px; padding-top:8px; border-top:1px dashed rgba(0,0,0,0.1);">
+                            <span style="font-size:0.75rem; font-weight:700;">Coeffs inversion (v1 fixe / v2 auto OM) :</span>
+                            <label style="font-size:0.70rem;" title="Fonction: intensité refroidissement par 100m encaissement. Défaut 0.9">Coeff/100m (0.2-2): <input type="number" id="micro-inv-coeff-input" min="0.2" max="2" step="0.05" value="0.9" style="width:60px; padding:3px 5px; border-radius:5px; border:1px solid rgba(0,0,0,0.15); font-size:0.75rem;" onchange="onMicroInversionChange()"></label>
+                            <label style="font-size:0.70rem;" title="Fonction: plafond max refroidissement inversion. Défaut 6°C">Plafond max (°C): <input type="number" id="micro-inv-max-input" min="1" max="10" step="0.5" value="6" style="width:60px; padding:3px 5px; border-radius:5px; border:1px solid rgba(0,0,0,0.15); font-size:0.75rem;" onchange="onMicroInversionChange()"></label>
+                        </div>
+                        <div id="micro-advanced-row" style="display:flex; flex-direction:column; gap:8px; margin-top:10px; padding:10px; background:rgba(59,110,97,0.08); border-radius:10px; border:1px dashed rgba(59,110,97,0.2);">
+                            <div style="font-weight:800; font-size:0.8rem; color:var(--primary-dark);"><i class="fa-solid fa-sliders" style="margin-right:6px;"></i> Coeffs avancés — tous paramétrables (v162)</div>
+                            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                                <span style="font-size:0.75rem; font-weight:700;">Poids nuages M2 (Ceff):</span>
+                                <label style="font-size:0.70rem;">Low <input type="number" id="micro-w-low-input" min="0" max="1" step="0.05" value="0.7" style="width:55px; padding:3px 5px; border-radius:5px; border:1px solid rgba(0,0,0,0.15);" onchange="onMicroAdvancedChange()"></label>
+                                <label style="font-size:0.70rem;">Mid <input type="number" id="micro-w-mid-input" min="0" max="1" step="0.05" value="0.25" style="width:55px; padding:3px 5px; border-radius:5px; border:1px solid rgba(0,0,0,0.15);" onchange="onMicroAdvancedChange()"></label>
+                                <label style="font-size:0.70rem;">High <input type="number" id="micro-w-high-input" min="0" max="1" step="0.05" value="0.05" style="width:55px; padding:3px 5px; border-radius:5px; border:1px solid rgba(0,0,0,0.15);" onchange="onMicroAdvancedChange()"></label>
+                                <span id="micro-w-sum" style="font-size:0.65rem; color:var(--text-muted);"></span>
+                            </div>
+                            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                                <span style="font-size:0.75rem; font-weight:700;">Seuils détection:</span>
+                                <label style="font-size:0.70rem;">Relief ≥ <input type="number" id="micro-relief-thresh-input" min="0" max="200" step="5" value="40" style="width:60px; padding:3px 5px; border-radius:5px; border:1px solid rgba(0,0,0,0.15);" onchange="onMicroAdvancedChange()"></label>
+                                <label style="font-size:0.70rem;">Pop ≥ <input type="number" id="micro-pop-thresh-input" min="0" max="100000" step="500" value="3000" style="width:70px; padding:3px 5px; border-radius:5px; border:1px solid rgba(0,0,0,0.15);" onchange="onMicroAdvancedChange()"></label>
+                                <label style="font-size:0.70rem;">Bâti corr ≥ <input type="number" id="micro-building-corr-input" min="0" max="500" step="5" value="30" style="width:60px; padding:3px 5px; border-radius:5px; border:1px solid rgba(0,0,0,0.15);" onchange="onMicroAdvancedChange()"></label>
+                                <label style="font-size:0.70rem;">Bâti dense ≥ <input type="number" id="micro-building-dense-input" min="0" max="1000" step="10" value="120" style="width:60px; padding:3px 5px; border-radius:5px; border:1px solid rgba(0,0,0,0.15);" onchange="onMicroAdvancedChange()"></label>
+                                <label style="font-size:0.70rem;">Bâti mod ≥ <input type="number" id="micro-building-mod-input" min="0" max="1000" step="10" value="30" style="width:60px; padding:3px 5px; border-radius:5px; border:1px solid rgba(0,0,0,0.15);" onchange="onMicroAdvancedChange()"></label>
+                            </div>
+                            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                                <span style="font-size:0.75rem; font-weight:700;">Vent/nuage/fav:</span>
+                                <label style="font-size:0.70rem;">Vent max inv <input type="number" id="micro-wind-inv-input" min="1" max="50" step="1" value="20" style="width:55px; padding:3px 5px; border-radius:5px; border:1px solid rgba(0,0,0,0.15);" onchange="onMicroAdvancedChange()"> km/h</label>
+                                <label style="font-size:0.70rem;">Vent max UHI <input type="number" id="micro-wind-uhi-input" min="1" max="50" step="1" value="15" style="width:55px; padding:3px 5px; border-radius:5px; border:1px solid rgba(0,0,0,0.15);" onchange="onMicroAdvancedChange()"> km/h</label>
+                                <label style="font-size:0.70rem;">Nuage max UHI <input type="number" id="micro-cloud-uhi-input" min="0" max="100" step="5" value="40" style="width:55px; padding:3px 5px; border-radius:5px; border:1px solid rgba(0,0,0,0.15);" onchange="onMicroAdvancedChange()"> %</label>
+                                <label style="font-size:0.70rem;">Fav min <input type="number" id="micro-fav-min-input" min="0" max="1" step="0.05" value="0.1" style="width:55px; padding:3px 5px; border-radius:5px; border:1px solid rgba(0,0,0,0.15);" onchange="onMicroAdvancedChange()"></label>
+                            </div>
+                            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                                <span style="font-size:0.75rem; font-weight:700;">Oke:</span>
+                                <label style="font-size:0.70rem;">A <input type="number" id="micro-oke-a-input" min="0" max="5" step="0.01" value="2.01" style="width:60px; padding:3px 5px; border-radius:5px; border:1px solid rgba(0,0,0,0.15);" onchange="onMicroAdvancedChange()"></label>
+                                <label style="font-size:0.70rem;">B <input type="number" id="micro-oke-b-input" min="0" max="10" step="0.01" value="4.06" style="width:60px; padding:3px 5px; border-radius:5px; border:1px solid rgba(0,0,0,0.15);" onchange="onMicroAdvancedChange()"></label>
+                                <span style="font-size:0.65rem; color:var(--text-muted);">ΔTmax = A*log10(pop) - B</span>
+                                <button onclick="resetMicroAdvanced()" style="margin-left:auto; background:rgba(0,0,0,0.06); border:1px solid rgba(0,0,0,0.1); padding:4px 8px; border-radius:6px; font-size:0.70rem; cursor:pointer;">Reset</button>
+                            </div>
+                        </div>
+
                         <div id="micro-model-equations" style="margin-top:10px; font-size:0.72rem; line-height:1.4; color:var(--text-dark); background:rgba(255,255,255,0.6); padding:8px; border-radius:8px;">
                             <!-- équations générées par JS -->
                         </div>
@@ -4481,6 +4519,15 @@
                     <div style="font-size:0.70rem; color:var(--text-muted); margin-top:8px; margin-bottom:10px;">Comparaison <strong>globale vs pondérée</strong> sur 0h-4h. Modèle 2 donne plus de poids aux nuages bas (corps noir chaud proche du sol) qui bloquent vraiment le refroidissement radiatif.</div>
                     <div id="cloud-night-debug-grid" style="overflow-x:auto;">
                         <!-- tableau généré par renderCloudNightDebug() -->
+                    </div>
+                    <div id="inversion-coeff-card" style="margin-top:12px; padding:10px; background:var(--card-inner-bg); border-radius:10px; border:1px solid rgba(0,0,0,0.06);">
+                        <div style="font-weight:700; font-size:0.80rem; color:var(--primary-dark); margin-bottom:6px;"><i class="fa-solid fa-calculator" style="margin-right:6px;"></i> Calcul Coeff/100m — 3 prochains jours (auto)</div>
+                        <div id="inversion-coeff-grid" style="overflow-x:auto;">Chargement...</div>
+                    </div>
+                    <div id="valley-urban-debug-card" style="margin-top:12px; padding:10px; background:var(--card-inner-bg); border-radius:10px; border:1px solid rgba(0,0,0,0.06);">
+                        <div style="font-weight:700; font-size:0.80rem; color:var(--primary-dark); margin-bottom:6px;"><i class="fa-solid fa-city" style="margin-right:6px;"></i> Ville en cuvette — diagnostic (Grenoble & co)</div>
+                        <div id="valley-urban-debug-grid" style="overflow-x:auto;">Chargement...</div>
+                        <div style="font-size:0.65rem; color:var(--text-muted); margin-top:6px;">Détection: relief≥40 = fond de vallée, pop≥3000 + bâti≥30 = urbain. Co-localisé = les 2. Inversion finale = base × fav × suppression. UHI final = base Oke × afternoon × amplif.</div>
                     </div>
                 </div>
 
@@ -4738,7 +4785,7 @@
             <div class="footer-support-row">
                 <a class="footer-support-link" href="https://buymeacoffee.com/stridemetric" target="_blank" rel="noopener">🐸 Aide-moi à nourrir la grenouille Metehop</a>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 17/09/2026 - 133</div>
+            <div class="footer-last-update">Dernière mise à jour : 22/09/2026 - 134</div>
         </footer>
 
     </div>
@@ -8052,6 +8099,7 @@ function applyDisplayMode() {
                 if (mySeq !== weatherRequestSeq) return; // un lieu plus récent a été demandé entretemps
                 if (!res.ok) throw new Error();
                 weatherData = await res.json();
+                try{ loadInversionLevels(lat, lon); }catch(e){}
                 if (mySeq !== weatherRequestSeq) return;
                 if (locationName !== 'Ma position') saveLastLocation(lat, lon, locationName, population);
 
@@ -8500,12 +8548,29 @@ render16DayTable();
         // ============================================================================
         let microClimateEnabled = true;
         let microClimateModel = '2'; // '1' = legacy global 0-4h, '2' = pondéré bas/mid/high
-        let microClimateCloudThreshold = 50; // seuil % au-delà duquel cloudFactor = 0
-        let microClimateUHIAfternoonFactor = 0.2; // UHI_AFTERNOON_BASE_FACTOR - part du max théorique Oke appliquée l'après-midi (14-18h)
-        let microClimateUHIValleyAmp = 0.8; // UHI_VALLEY_AMPLIFICATION - amplification cuvette peu ventilée
-        let microClimateValleyUrbanSupp = 0.5; // VALLEY_URBAN_SUPPRESSION - atténuation inversion nocturne par ville
-        let microClimateUHIDense = 2.5; // repli bâti dense sans population
-        let microClimateUHIMode = 1.5; // repli bâti modéré
+        let microClimateCloudThreshold = 38; // seuil % au-delà duquel cloudFactor = 0
+        let microClimateUHIAfternoonFactor = 0.2;
+        let microClimateUHIValleyAmp = 0.8;
+        let microClimateValleyUrbanSupp = 0.5;
+        let microClimateUHIDense = 2.5;
+        let microClimateUHIMode = 1.5;
+        let microClimateInvCoeff = 0.9;
+        let microClimateInvMax = 6;
+        // === v162 avancés ===
+        let microClimateWeightLow = 0.7;
+        let microClimateWeightMid = 0.25;
+        let microClimateWeightHigh = 0.05;
+        let microClimateReliefThreshold = 40;
+        let microClimatePopThreshold = 3000;
+        let microClimateBuildingCorroboration = 30;
+        let microClimateBuildingDense = 120;
+        let microClimateBuildingModeree = 30;
+        let microClimateWindMaxInversion = 20;
+        let microClimateWindMaxUHI = 15;
+        let microClimateCloudMaxUHI = 40;
+        let microClimateFavMin = 0.1;
+        let microClimateOkeA = 2.01;
+        let microClimateOkeB = 4.06;
         try {
             const savedModel = localStorage.getItem('metehop_microclimate_model_v1');
             if (savedModel === '1' || savedModel === '2') microClimateModel = savedModel;
@@ -8521,6 +8586,27 @@ render16DayTable();
             if (!isNaN(savedDense) && savedDense>=0 && savedDense<=5) microClimateUHIDense = savedDense;
             const savedMode = parseFloat(localStorage.getItem('metehop_uhi_moderee_v1'));
             if (!isNaN(savedMode) && savedMode>=0 && savedMode<=5) microClimateUHIMode = savedMode;
+            const savedInvCoeff = parseFloat(localStorage.getItem('metehop_inv_coeff_v1'));
+            if (!isNaN(savedInvCoeff)) microClimateInvCoeff = Math.max(0.2, Math.min(2, savedInvCoeff));
+            const savedInvMax = parseFloat(localStorage.getItem('metehop_inv_max_v1'));
+            if (!isNaN(savedInvMax)) microClimateInvMax = Math.max(1, Math.min(10, savedInvMax));
+            try{
+                const gl = (k, def, min, max) => { const v=parseFloat(localStorage.getItem(k)); return (!isNaN(v)&&v>=min&&v<=max)?v:def; };
+                microClimateWeightLow = gl('metehop_w_low_v1', 0.7, 0, 1);
+                microClimateWeightMid = gl('metehop_w_mid_v1', 0.25, 0, 1);
+                microClimateWeightHigh = gl('metehop_w_high_v1', 0.05, 0, 1);
+                microClimateReliefThreshold = gl('metehop_relief_thresh_v1', 40, 0, 200);
+                microClimatePopThreshold = gl('metehop_pop_thresh_v1', 3000, 0, 100000);
+                microClimateBuildingCorroboration = gl('metehop_building_corr_v1', 30, 0, 500);
+                microClimateBuildingDense = gl('metehop_building_dense_v1', 120, 0, 1000);
+                microClimateBuildingModeree = gl('metehop_building_mod_v1', 30, 0, 1000);
+                microClimateWindMaxInversion = gl('metehop_wind_inv_v1', 20, 1, 50);
+                microClimateWindMaxUHI = gl('metehop_wind_uhi_v1', 15, 1, 50);
+                microClimateCloudMaxUHI = gl('metehop_cloud_uhi_v1', 40, 0, 100);
+                microClimateFavMin = gl('metehop_fav_min_v1', 0.1, 0, 1);
+                microClimateOkeA = gl('metehop_oke_a_v1', 2.01, 0, 5);
+                microClimateOkeB = gl('metehop_oke_b_v1', 4.06, 0, 10);
+            }catch(e){}
         } catch(e){}
 
         // Corrigé le 05/09/2026 : l'ancienne variable unique `microClimateAdjustments` ne portait
@@ -8895,7 +8981,7 @@ render16DayTable();
                 }
                 if (!n) return null;
                 const lowAvg=lowSum/n, midAvg=midSum/n, highAvg=highSum/n;
-                const eff=0.7*lowAvg+0.25*midAvg+0.05*highAvg;
+                const eff=microClimateWeightLow*lowAvg+microClimateWeightMid*midAvg+microClimateWeightHigh*highAvg;
                 return { lowAvg, midAvg, highAvg, eff };
             }
 
@@ -8906,9 +8992,10 @@ render16DayTable();
             // rester prudents : ce sont des ORDRES DE GRANDEUR indicatifs, pas une mesure.
             let valleyDeltaC = 0, valleyFavorable = false;
             let valleyDetected = false;
+            let valleyDeltaC_base = 0, favorabilityFactor = 0, coeffPer100m = 0.9, baseDeltaC = 0;
 
             // 1. Fond de vallée / inversion thermique matinale
-            if (typeof reliefIndex === 'number' && reliefIndex >= 40) {
+            if (typeof reliefIndex === 'number' && reliefIndex >= microClimateReliefThreshold) {
                 valleyDetected = true;
                 // Ancien seuil binaire (cloudAvg<30 ET windAvg<12 sur 5h-9h) : une prévision de
                 // grille juste un peu trop nuageuse OU un peu trop ventée annulait TOTALEMENT la
@@ -8932,9 +9019,9 @@ render16DayTable();
                 // progressivement avec le nuage nocturne/vent matinal prévus, au lieu de basculer
                 // tout ou rien. Repères retenus : confiance nulle à partir de 50% de nuage nocturne
                 // ou 20 km/h de vent matinal moyen ; à affiner avec d'autres observations de terrain.
-                let favorabilityFactor = 0;
+                favorabilityFactor = 0;
                 if (night && morning) {
-                    const thresh = (typeof microClimateCloudThreshold === 'number' ? microClimateCloudThreshold : 50);
+                    const thresh = (typeof microClimateCloudThreshold === 'number' ? microClimateCloudThreshold : 38);
                     const model = (typeof microClimateModel !== 'undefined' ? microClimateModel : '1');
                     let cloudVal = night.cloudAvg;
                     if (model === '2') {
@@ -8942,17 +9029,43 @@ render16DayTable();
                         if (effObj && typeof effObj.eff === 'number') cloudVal = effObj.eff;
                     }
                     const cloudFactor = Math.max(0, Math.min(1, 1 - cloudVal / thresh));
-                    const windFactor = Math.max(0, Math.min(1, 1 - morning.windAvg / 20));
+                    const windFactor = Math.max(0, Math.min(1, 1 - morning.windAvg / microClimateWindMaxInversion));
                     favorabilityFactor = Math.round(cloudFactor * windFactor * 100) / 100;
                 }
-                valleyFavorable = favorabilityFactor > 0.1; // en dessous, signal trop faible pour être affiché
+                valleyFavorable = favorabilityFactor > microClimateFavMin; // en dessous, signal trop faible pour être affiché
                 // ~0,5 à 1,7°C/100m de relief encaissant selon les études de terrain (voir Sources &
                 // modèles utilisés) ; retenu dans le haut de cette fourchette (0,9°C/100m), plafonné
                 // à -6°C au-delà duquel l'estimation devient trop incertaine pour un chiffre unique.
-                const coeffPer100m = 0.9;
-                const maxDeltaC = 6;
-                const baseDeltaC = Math.min(maxDeltaC, Math.max(1, reliefIndex / 100 * coeffPer100m));
+                coeffPer100m = (typeof microClimateInvCoeff==='number'?microClimateInvCoeff:0.9);
+                const maxDeltaC = (typeof microClimateInvMax==='number'?microClimateInvMax:6);
+                // v2 auto : si modèle 2 et sondage dispo, coeff calculé dynamiquement pour ce jour
+                if((typeof microClimateModel!=='undefined' && microClimateModel==='2') && weatherData && weatherData.hourly && weatherData.hourly.temperature_1000hPa && weatherData.hourly.temperature_925hPa){
+                    try{
+                        const dayStart = dayIdx*24;
+                        let sum1000=0,sum925=0,n=0;
+                        for(let h=0; h<=6; h++){
+                            const idx=dayStart+h;
+                            const t1000=weatherData.hourly.temperature_1000hPa[idx];
+                            const t925=weatherData.hourly.temperature_925hPa[idx];
+                            if(typeof t1000==='number' && typeof t925==='number' && isFinite(t1000) && isFinite(t925)){ sum1000+=t1000; sum925+=t925; n++; }
+                        }
+                        if(n){
+                            const inv = (sum925/n) - (sum1000/n); // T925 - T1000 sur 0h-6h
+                            if(typeof reliefIndex==='number' && reliefIndex>0 && inv>0.2){
+                                // coeff vrai = Inv / (relief/100)
+                                const coeffDyn = inv / (reliefIndex/100);
+                                // clamp 0.2-2 pour rester dans fourchette physique + éviter emballement
+                                coeffPer100m = Math.max(0.2, Math.min(2, Math.round(coeffDyn*100)/100));
+                            } else if(inv<=0.2){
+                                // pas d'inversion prévue par le synoptique -> refroidissement minimal mais pas nul (0.2)
+                                coeffPer100m = 0.2;
+                            }
+                        }
+                    }catch(e){}
+                }
+                baseDeltaC = Math.min(maxDeltaC, Math.max(1, reliefIndex / 100 * coeffPer100m));
                 valleyDeltaC = valleyFavorable ? -Math.round(baseDeltaC * favorabilityFactor * 10) / 10 : 0;
+                valleyDeltaC_base = valleyDeltaC; // avant suppression ville en cuvette, pour affichage
             }
 
             // 2. Îlot de chaleur urbain — la POPULATION ADMINISTRATIVE d'une commune française peut
@@ -8964,9 +9077,9 @@ render16DayTable();
             let uhiDetected = false;
             let uhiEstimate = null;
             const populationKnown = typeof resolvedPopulation === 'number' && resolvedPopulation > 0;
-            const buildingCorroborates = (typeof buildingCount !== 'number') || buildingCount >= 30;
-            if (populationKnown && resolvedPopulation >= 3000 && buildingCorroborates) {
-                const est = 2.01 * Math.log10(resolvedPopulation) - 4.06;
+            const buildingCorroborates = (typeof buildingCount !== 'number') || buildingCount >= microClimateBuildingCorroboration;
+            if (populationKnown && resolvedPopulation >= microClimatePopThreshold && buildingCorroborates) {
+                const est = microClimateOkeA * Math.log10(resolvedPopulation) - microClimateOkeB;
                 if (est > 0.3) uhiEstimate = Math.round(est * 10) / 10;
             }
             // Corrigé le 06/09/2026 (bug signalé, cf. Tencin +3,8°C) : `urbanTier` (repli sur le
@@ -8979,12 +9092,12 @@ render16DayTable();
             // densité bâtie sert de signal de secours. Dès que la population est connue — même
             // petite —, elle prévaut : en dessous de 3000 habitants, pas d'îlot de chaleur, point.
             const urbanTier = (!populationKnown && typeof buildingCount === 'number')
-                ? (buildingCount >= 120 ? 'dense' : (buildingCount >= 30 ? 'moderee' : null))
+                ? (buildingCount >= microClimateBuildingDense ? 'dense' : (buildingCount >= microClimateBuildingModeree ? 'moderee' : null))
                 : null;
             if (uhiEstimate || urbanTier) {
                 uhiDetected = true;
                 const afternoon = hoursConditionsFavorable(14, 18);
-                uhiFavorable = !!(afternoon && afternoon.cloudAvg < 40 && afternoon.windAvg < 15);
+                uhiFavorable = !!(afternoon && afternoon.cloudAvg < microClimateCloudMaxUHI && afternoon.windAvg < microClimateWindMaxUHI);
                 // Valeur numérique : l'estimation Oke/Landsberg si la population est connue ET
                 // corroborée par le bâti, sinon un point représentatif de la fourchette habituelle
                 // selon la densité bâtie détectée.
@@ -9071,15 +9184,21 @@ render16DayTable();
             const valleyCoLocatedNote = urbanValleyCoLocated ? ' <em>(atténué : ville en cuvette)</em>' : '';
             const uhiCoLocatedNote = urbanValleyCoLocated ? ' <em>(cuvette peu ventilée)</em>' : '';
             if (valleyDetected) {
+                let extraValley = '';
+                if(urbanValleyCoLocated){
+                    extraValley = ` <span style="font-size:0.65rem; opacity:0.7">base ${valleyDeltaC_base}°C × supp ${VALLEY_URBAN_SUPPRESSION} → final</span>`;
+                }
+                extraValley += ` <span style="font-size:0.65rem; opacity:0.6">[relief ${reliefIndex} | fav ${typeof favorabilityFactor!=='undefined'?favorabilityFactor:'?'} | coeff ${coeffPer100m}]</span>`;
                 chips.push({
                     emoji: '🏔️', alert: valleyFavorable,
-                    label: 'Fond de vallée (inversion thermique matinale)' + (valleyFavorable ? ` — <strong>${valleyDeltaC}°C 5h-9h</strong>${valleyCoLocatedNote}` : '')
+                    label: 'Fond de vallée (inversion thermique matinale)' + (valleyFavorable ? ` — <strong>${valleyDeltaC}°C 5h-9h</strong>${valleyCoLocatedNote}${extraValley}` : ` — <em>non favorable ce jour</em> (fav ${typeof favorabilityFactor!=='undefined'?favorabilityFactor:0})${extraValley}`)
                 });
             }
             if (uhiDetected) {
+                let extraUHI = ` <span style="font-size:0.65rem; opacity:0.6">[pop ${resolvedPopulation||'?'} | bâti ${buildingCount||'?'}${urbanValleyCoLocated?` | ×${UHI_VALLEY_AMPLIFICATION}`:''}]</span>`;
                 chips.push({
                     emoji: '🏙️', alert: uhiFavorable,
-                    label: 'Îlot de chaleur urbain (fin d\'après-midi/soir)' + (uhiFavorable ? ` — <strong>+${uhiDeltaC}°C 14h-18h</strong>${uhiCoLocatedNote}` : '')
+                    label: 'Îlot de chaleur urbain (fin d\'après-midi/soir)' + (uhiFavorable ? ` — <strong>+${uhiDeltaC}°C 14h-18h</strong>${uhiCoLocatedNote}${extraUHI}` : ` — non favorable${extraUHI}`)
                 });
             }
             if (waterDetected) {
@@ -14268,7 +14387,30 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 if(mod) mod.value = microClimateUHIMode;
                 if(supp) supp.value = microClimateValleyUrbanSupp;
                 if(amp) amp.value = microClimateUHIValleyAmp;
+                const invCoeffEl=document.getElementById('micro-inv-coeff-input');
+                const invMaxEl=document.getElementById('micro-inv-max-input');
+                if(invCoeffEl) invCoeffEl.value = microClimateInvCoeff;
+                if(invMaxEl) invMaxEl.value = microClimateInvMax;
                 if(thrRow) thrRow.style.display = (microClimateModel==='2' ? 'flex' : 'none');
+                try{
+                    const sv = (id, v) => { const el=document.getElementById(id); if(el) el.value=v; };
+                    sv('micro-w-low-input', microClimateWeightLow);
+                    sv('micro-w-mid-input', microClimateWeightMid);
+                    sv('micro-w-high-input', microClimateWeightHigh);
+                    sv('micro-relief-thresh-input', microClimateReliefThreshold);
+                    sv('micro-pop-thresh-input', microClimatePopThreshold);
+                    sv('micro-building-corr-input', microClimateBuildingCorroboration);
+                    sv('micro-building-dense-input', microClimateBuildingDense);
+                    sv('micro-building-mod-input', microClimateBuildingModeree);
+                    sv('micro-wind-inv-input', microClimateWindMaxInversion);
+                    sv('micro-wind-uhi-input', microClimateWindMaxUHI);
+                    sv('micro-cloud-uhi-input', microClimateCloudMaxUHI);
+                    sv('micro-fav-min-input', microClimateFavMin);
+                    sv('micro-oke-a-input', microClimateOkeA);
+                    sv('micro-oke-b-input', microClimateOkeB);
+                    const sumEl=document.getElementById('micro-w-sum');
+                    if(sumEl){ const s=microClimateWeightLow+microClimateWeightMid+microClimateWeightHigh; sumEl.innerText='somme='+s.toFixed(2)+(Math.abs(s-1)>0.01?' ⚠️':' ✅'); sumEl.style.color=Math.abs(s-1)>0.01?'#a00':'var(--text-muted)'; }
+                }catch(e){}
             }catch(e){}
         }
         function onMicroUHIChange(){
@@ -14346,10 +14488,10 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 const pop = (typeof microClimateGeoSignals!=='undefined' && microClimateGeoSignals && typeof microClimateGeoSignals.resolvedPopulation==='number') ? microClimateGeoSignals.resolvedPopulation : null;
                 const buildingCount = (typeof microClimateGeoSignals!=='undefined' && microClimateGeoSignals && typeof microClimateGeoSignals.buildingCount==='number') ? microClimateGeoSignals.buildingCount : null;
                 const thresh = microClimateCloudThreshold;
-                const eff = (low!=null&&mid!=null&&high!=null) ? (0.7*low+0.25*mid+0.05*high) : null;
+                const eff = (low!=null&&mid!=null&&high!=null) ? (microClimateWeightLow*low+microClimateWeightMid*mid+microClimateWeightHigh*high) : null;
                 const cloudFactorM1 = global!=null ? Math.max(0,Math.min(1,1-global/50)) : null;
                 const cloudFactorM2 = eff!=null ? Math.max(0,Math.min(1,1-eff/thresh)) : null;
-                const windFactor = windAvg!=null ? Math.max(0,Math.min(1,1-windAvg/20)) : null;
+                const windFactor = windAvg!=null ? Math.max(0,Math.min(1,1 - windAvg / microClimateWindMaxInversion)) : null;
                 const favM1 = (cloudFactorM1!=null&&windFactor!=null) ? cloudFactorM1*windFactor : null;
                 const favM2 = (cloudFactorM2!=null&&windFactor!=null) ? cloudFactorM2*windFactor : null;
                 const coeffPer100m=0.9, maxDelta=6;
@@ -14365,8 +14507,8 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 const valleySupp = microClimateValleyUrbanSupp;
                 const valleyAmp = microClimateUHIValleyAmp;
                 let uhiEst=null;
-                if(pop!=null && pop>=3000){ const est=2.01*Math.log10(pop)-4.06; if(est>0.3) uhiEst=Math.round(est*10)/10; }
-                const urbanTier = (pop==null && typeof buildingCount==='number') ? (buildingCount>=120?'dense':(buildingCount>=30?'moderee':null)) : null;
+                if(pop!=null && pop>=microClimatePopThreshold){ const est=microClimateOkeA*Math.log10(pop)-microClimateOkeB; if(est>0.3) uhiEst=Math.round(est*10)/10; }
+                const urbanTier = (pop==null && typeof buildingCount==='number') ? (buildingCount >= microClimateBuildingDense ? 'dense':(buildingCount >= microClimateBuildingModeree ? 'moderee':null)) : null;
                 const cloudFactorUHI = globalPm!=null ? Math.max(0,Math.min(1,1-globalPm/40)) : null; // seuil 40% pour UHI d'après code
                 const windFactorUHI = windPm!=null ? Math.max(0,Math.min(1,1-windPm/15)) : null;
                 const favUHI = (cloudFactorUHI!=null&&windFactorUHI!=null) ? cloudFactorUHI*windFactorUHI : null;
@@ -14508,14 +14650,14 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 for(const l of pmLogs){
                     if(l.population==null && l.buildingCount==null) continue;
                     let uhiEst=null; if(l.population!=null && l.population>=3000){ const est=2.01*Math.log10(l.population)-4.06; if(est>0.3) uhiEst=est; }
-                    const urbanTier = (l.population==null && typeof l.buildingCount==='number') ? (l.buildingCount>=120?'dense':(l.buildingCount>=30?'moderee':null)) : null;
+                    const urbanTier = (l.population==null && typeof l.buildingCount==='number') ? (l.buildingCount >= microClimateBuildingDense ? 'dense':(l.buildingCount >= microClimateBuildingModeree ? 'moderee':null)) : null;
                     const cloudFactorUHI = l.globalPm!=null ? Math.max(0,Math.min(1,1-l.globalPm/40)) : 1;
                     const windFactorUHI = l.windPm!=null ? Math.max(0,Math.min(1,1-l.windPm/15)) : 1;
                     const fav=cloudFactorUHI*windFactorUHI;
                     const uhiPoint = uhiEst!=null ? uhiEst*af : (urbanTier==='dense'?l.denseV:urbanTier==='moderee'?l.modeV:null);
                     if(uhiPoint==null) continue;
                     let delta = Math.round(uhiPoint*fav*10)/10;
-                    const valleyDetected = l.reliefIndex!=null && l.reliefIndex>=40;
+                    const valleyDetected = l.reliefIndex!=null && l.reliefIndex >= microClimateReliefThreshold;
                     const uhiDetected = (uhiEst!=null || urbanTier!=null);
                     if(valleyDetected && uhiDetected){ delta = Math.round(delta*l.valleyAmp*10)/10; }
                     const pred = l.rawAfternoonAvg + delta;
@@ -14535,7 +14677,29 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 + (bestAf?'<div style="margin-top:6px;"><strong>Meilleur afternoonFactor:</strong> '+bestAf.af+' -> RMSE='+bestAf.rmse.toFixed(2)+'°C (n='+bestAf.n+')</div><div style="font-size:0.68rem; margin-top:4px;">Applique-le via le champ Afternoon factor ci-dessus, puis re-calcule. Ensuite on pourra optimiser dense/modéré de la même façon.</div>':'<div>Pas assez de données avec population/bâti</div>');
         }
 
-        function updateMicroModelEquations(){
+        function onMicroInversionChange(){
+            let v;
+            const coeffEl=document.getElementById('micro-inv-coeff-input');
+            const maxEl=document.getElementById('micro-inv-max-input');
+            if(coeffEl){ v=parseFloat(coeffEl.value); if(!isNaN(v)){ microClimateInvCoeff=Math.max(0.2,Math.min(2,v)); localStorage.setItem('metehop_inv_coeff_v1', String(microClimateInvCoeff)); } }
+            if(maxEl){ v=parseFloat(maxEl.value); if(!isNaN(v)){ microClimateInvMax=Math.max(1,Math.min(10,v)); localStorage.setItem('metehop_inv_max_v1', String(microClimateInvMax)); } }
+            updateMicroModelEquations();
+            microClimateDayCache={};
+            try{
+                if(typeof selectedDayIndex!=='undefined'){
+                    renderLocalEffectsPanel(selectedDayIndex);
+                    updateDayView(selectedDayIndex);
+                    renderCarousel();
+                } else if(typeof currentDayIndex!=='undefined'){
+                    renderLocalEffectsPanel(currentDayIndex);
+                    updateDayView(currentDayIndex);
+                }
+            }catch(e){ console.error('inv change render',e); }
+            try{ renderCloudNightDebug(); }catch(e){}
+            try{ renderInversionCoeffTable(); }catch(e){}
+            try{ renderValleyUrbanDebug(); }catch(e){}
+        }
+                function updateMicroModelEquations(){
             const el=document.getElementById('micro-model-equations');
             if(!el) return;
             const S=microClimateCloudThreshold;
@@ -14551,7 +14715,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 </div>
                 <div style="margin-bottom:6px; border-top:1px dashed rgba(0,0,0,0.12); padding-top:6px;">
                     <strong>Modèle 2 (pondéré) :</strong> <span style="background:#3b6e61; color:white; padding:1px 6px; border-radius:10px; font-size:0.65rem;">${model==='2'?'ACTIF':''}</span><br>
-                    <code style="background:rgba(59,110,97,0.12); padding:2px 4px; border-radius:4px;">Ceff = 0.7*low + 0.25*mid + 0.05*high (0-4h)</code> | <code>cloudFactor2 = max(0, 1 - Ceff / ${S})</code> S=${S}%<br>
+                    <code style="background:rgba(59,110,97,0.12); padding:2px 4px; border-radius:4px;">Ceff = microClimateWeightLow*low+microClimateWeightMid*mid+microClimateWeightHigh*high (0-4h)</code> | <code>cloudFactor2 = max(0, 1 - Ceff / ${S})</code> S=${S}%<br>
                     <em style="font-size:0.66rem; color:var(--text-muted);">Low corps noir chaud ε≈1 ~300W/m², Mid ~50%, High cirrus froid ε~0.3 ~<20W/m²</em><br>
                     <div style="margin-top:4px;">Exemple Tencin 18/09 : low=5%, mid=10%, high=60% → M1: 60% → factor 0 → <strong>pas d'inversion</strong> (15°C vs 10°C réel). M2: Ceff=9% → factor2=${(Math.max(0,1-9/S)).toFixed(2)} → <strong>inversion conservée</strong>.</div>
                 </div>
@@ -14581,11 +14745,12 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
             microClimateDayCache={};
             try{ if(typeof selectedDayIndex!=='undefined'){ renderLocalEffectsPanel(selectedDayIndex); updateDayView(selectedDayIndex); } }catch(e){}
             try{ renderCloudNightDebug(); }catch(e){}
+            try{ renderValleyUrbanDebug(); }catch(e){}
         }
         function onMicroThresholdChange(){
             const th=document.getElementById('micro-threshold-input');
             let v=parseFloat(th.value);
-            if(isNaN(v)) v=50;
+            if(isNaN(v)) v=38;
             v=Math.max(20,Math.min(80,v));
             microClimateCloudThreshold=v;
             try{ localStorage.setItem('metehop_microclimate_thresh_v1', String(v)); }catch(e){}
@@ -14595,7 +14760,61 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
             try{ renderCloudNightDebug(); }catch(e){}
         }
 
+
+        function onMicroAdvancedChange(){
+            try{
+                const gv = (id, min, max, def) => { const el=document.getElementById(id); if(!el) return def; let v=parseFloat(el.value); if(isNaN(v)) return def; v=Math.max(min, Math.min(max, v)); return v; };
+                microClimateWeightLow = gv('micro-w-low-input', 0, 1, 0.7);
+                microClimateWeightMid = gv('micro-w-mid-input', 0, 1, 0.25);
+                microClimateWeightHigh = gv('micro-w-high-input', 0, 1, 0.05);
+                microClimateReliefThreshold = gv('micro-relief-thresh-input', 0, 500, 40);
+                microClimatePopThreshold = gv('micro-pop-thresh-input', 0, 200000, 3000);
+                microClimateBuildingCorroboration = gv('micro-building-corr-input', 0, 1000, 30);
+                microClimateBuildingDense = gv('micro-building-dense-input', 0, 2000, 120);
+                microClimateBuildingModeree = gv('micro-building-mod-input', 0, 2000, 30);
+                microClimateWindMaxInversion = gv('micro-wind-inv-input', 1, 100, 20);
+                microClimateWindMaxUHI = gv('micro-wind-uhi-input', 1, 100, 15);
+                microClimateCloudMaxUHI = gv('micro-cloud-uhi-input', 0, 100, 40);
+                microClimateFavMin = gv('micro-fav-min-input', 0, 1, 0.1);
+                microClimateOkeA = gv('micro-oke-a-input', 0, 10, 2.01);
+                microClimateOkeB = gv('micro-oke-b-input', 0, 20, 4.06);
+                localStorage.setItem('metehop_w_low_v1', String(microClimateWeightLow));
+                localStorage.setItem('metehop_w_mid_v1', String(microClimateWeightMid));
+                localStorage.setItem('metehop_w_high_v1', String(microClimateWeightHigh));
+                localStorage.setItem('metehop_relief_thresh_v1', String(microClimateReliefThreshold));
+                localStorage.setItem('metehop_pop_thresh_v1', String(microClimatePopThreshold));
+                localStorage.setItem('metehop_building_corr_v1', String(microClimateBuildingCorroboration));
+                localStorage.setItem('metehop_building_dense_v1', String(microClimateBuildingDense));
+                localStorage.setItem('metehop_building_mod_v1', String(microClimateBuildingModeree));
+                localStorage.setItem('metehop_wind_inv_v1', String(microClimateWindMaxInversion));
+                localStorage.setItem('metehop_wind_uhi_v1', String(microClimateWindMaxUHI));
+                localStorage.setItem('metehop_cloud_uhi_v1', String(microClimateCloudMaxUHI));
+                localStorage.setItem('metehop_fav_min_v1', String(microClimateFavMin));
+                localStorage.setItem('metehop_oke_a_v1', String(microClimateOkeA));
+                localStorage.setItem('metehop_oke_b_v1', String(microClimateOkeB));
+            }catch(e){ console.error('adv', e); }
+            try{ syncMicroModelUI(); }catch(e){}
+            updateMicroModelEquations();
+            microClimateDayCache={};
+            try{ if(typeof selectedDayIndex!=='undefined'){ renderLocalEffectsPanel(selectedDayIndex); updateDayView(selectedDayIndex); renderCarousel(); } }catch(e){}
+            try{ renderCloudNightDebug(); }catch(e){}
+            try{ renderValleyUrbanDebug(); }catch(e){}
+            try{ renderInversionCoeffTable(); }catch(e){}
+        }
+        function resetMicroAdvanced(){
+            try{
+                ['metehop_w_low_v1','metehop_w_mid_v1','metehop_w_high_v1','metehop_relief_thresh_v1','metehop_pop_thresh_v1','metehop_building_corr_v1','metehop_building_dense_v1','metehop_building_mod_v1','metehop_wind_inv_v1','metehop_wind_uhi_v1','metehop_cloud_uhi_v1','metehop_fav_min_v1','metehop_oke_a_v1','metehop_oke_b_v1'].forEach(k=>{ try{localStorage.removeItem(k);}catch(e){} });
+            }catch(e){}
+            microClimateWeightLow=0.7; microClimateWeightMid=0.25; microClimateWeightHigh=0.05;
+            microClimateReliefThreshold=40; microClimatePopThreshold=3000; microClimateBuildingCorroboration=30;
+            microClimateBuildingDense=120; microClimateBuildingModeree=30;
+            microClimateWindMaxInversion=20; microClimateWindMaxUHI=15; microClimateCloudMaxUHI=40; microClimateFavMin=0.1;
+            microClimateOkeA=2.01; microClimateOkeB=4.06;
+            try{ syncMicroModelUI(); }catch(e){}
+            onMicroAdvancedChange();
+        }
         function renderCloudNightDebug(){
+
             try{
                 const box=document.getElementById('cloud-night-debug-grid');
                 if(!box) return;
@@ -14621,7 +14840,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                     const mid=nightAvg(hourly.cloud_cover_mid,d);
                     const high=nightAvg(hourly.cloud_cover_high,d);
                     const retained=nightAvg(hourly.cloud_cover,d);
-                    const eff = (low!=null && mid!=null && high!=null) ? (0.7*low + 0.25*mid + 0.05*high) : null;
+                    const eff = (low!=null && mid!=null && high!=null) ? (microClimateWeightLow*low + microClimateWeightMid*mid + microClimateWeightHigh*high) : null;
                     const dateStr=(daily&&daily.time&&daily.time[d])?daily.time[d]:hourly.time[d*24];
                     const dt=dateStr?new Date(dateStr):null;
                     const label=d===0?'Auj.':(dt?dt.toLocaleDateString('fr-FR',{weekday:'short'}).replace('.','') :'');
@@ -14666,12 +14885,228 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                     <div style="font-size:0.65rem; color:var(--text-muted); margin-top:6px;">
                         Ceff = 0.7×Bas + 0.25×Moy + 0.05×Haut (0h-4h). F1 = modèle 1 (seuil 50% fixe). F2 = modèle 2 (seuil ${thresh}% réglable). Actif = modèle sélectionné. Si Actif <0.10 → inversion annulée ce jour.
                     </div>`;
+
+                try{ renderInversionCoeffTable(); }catch(e){}
+            try{ renderValleyUrbanDebug(); }catch(e){}
             }catch(e){ console.error('cloudNightDebug error',e); }
         }
 
 
 
+        
+        let inversionLevelsData=null;
+let inversionLevelsLoading=false;
+async function loadInversionLevels(lat, lon){
+    if(inversionLevelsLoading) return;
+    inversionLevelsLoading=true;
+    try{
+        const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_1000hPa,temperature_925hPa&timezone=auto&forecast_days=16`;
+        const res=await fetchWithTimeout(url,{timeout:8000});
+        if(!res.ok) throw new Error('HTTP '+res.status);
+        inversionLevelsData=await res.json();
+        if(inversionLevelsData && inversionLevelsData.hourly && weatherData && weatherData.hourly){
+            weatherData.hourly.temperature_1000hPa = inversionLevelsData.hourly.temperature_1000hPa;
+            weatherData.hourly.temperature_925hPa = inversionLevelsData.hourly.temperature_925hPa;
+        }
+        try{ microClimateDayCache={}; }catch(e){}
+        try{ if(typeof selectedDayIndex!=='undefined'){ renderLocalEffectsPanel(selectedDayIndex); updateDayView(selectedDayIndex); renderCarousel(); } }catch(e){}
+        renderInversionCoeffTable();
+    }catch(e){
+        console.error('loadInversionLevels',e);
+    }finally{ inversionLevelsLoading=false; }
+}
+
+
+function renderValleyUrbanDebug(){
+            try{
+                const box=document.getElementById('valley-urban-debug-grid');
+                if(!box) return;
+                if(!microClimateGeoSignals || !weatherData || !weatherData.hourly){
+                    box.innerHTML='<span style="font-size:0.68rem; color:var(--text-muted);">En attente analyse...</span>';
+                    return;
+                }
+                const reliefIdx = microClimateGeoSignals.reliefIndex;
+                const pop = microClimateGeoSignals.resolvedPopulation;
+                const bCount = microClimateGeoSignals.buildingCount;
+                const nDays = Math.min(7, weatherData.daily.time?weatherData.daily.time.length:7);
+                let rows=[];
+                for(let d=0; d<nDays; d++){
+                    try{
+                        const adj = (typeof getMicroClimateAdjustmentsForDay==='function')? getMicroClimateAdjustmentsForDay(d):null;
+                        // recalcule fav pour debug même si adj null
+                        let fav=0, cloudVal=0, windVal=0, effObj=null;
+                        if(weatherData.hourly){
+                            const dayStart=d*24;
+                            let cSum=0, wSum=0, n=0;
+                            let lowSum=0,midSum=0,highSum=0,nn=0;
+                            for(let h=0; h<=4; h++){
+                                const idx=dayStart+h;
+                                const c=weatherData.hourly.cloud_cover?weatherData.hourly.cloud_cover[idx]:undefined;
+                                if(typeof c==='number'){ cSum+=c; n++; }
+                                const low=weatherData.hourly.cloud_cover_low?weatherData.hourly.cloud_cover_low[idx]:undefined;
+                                const mid=weatherData.hourly.cloud_cover_mid?weatherData.hourly.cloud_cover_mid[idx]:undefined;
+                                const high=weatherData.hourly.cloud_cover_high?weatherData.hourly.cloud_cover_high[idx]:undefined;
+                                if(typeof low==='number'){ lowSum+=low; midSum+=mid; highSum+=high; nn++; }
+                            }
+                            let cloudAvg=n?cSum/n:null;
+                            let eff = (nn? (microClimateWeightLow*lowSum/nn+microClimateWeightMid*midSum/nn+microClimateWeightHigh*highSum/nn):null);
+                            const model = (typeof microClimateModel!=='undefined'?microClimateModel:'2');
+                            cloudVal = (model==='2' && eff!=null) ? eff : cloudAvg;
+                            const thresh = (typeof microClimateCloudThreshold==='number'?microClimateCloudThreshold:38);
+                            let windSum2=0, wn=0;
+                            for(let h=5; h<=9; h++){ const idx=dayStart+h; const w=weatherData.hourly.wind_speed_10m?weatherData.hourly.wind_speed_10m[idx]:undefined; if(typeof w==='number'){ windSum2+=w; wn++; } }
+                            windVal = wn?windSum2/wn:null;
+                            if(cloudVal!=null && windVal!=null){
+                                const cf=Math.max(0,Math.min(1,1-cloudVal/thresh));
+                                const wf=Math.max(0,Math.min(1,1 - windVal / microClimateWindMaxInversion));
+                                fav=Math.round(cf*wf*100)/100;
+                            }
+                        }
+                        const valley = adj?adj.valley:null;
+                        const uhi = adj?adj.uhi:null;
+                        const coLoc = (reliefIdx>=microClimateReliefThreshold) && ( (typeof pop==='number'&&pop>=microClimatePopThreshold) || (typeof bCount==='number'&&bCount>=30) );
+                        rows.push({d, fav, cloudVal, windVal, valley, uhi, coLoc});
+                    }catch(e){ rows.push({d, error:true}); }
+                }
+                const supp = (typeof microClimateValleyUrbanSupp==='number'?microClimateValleyUrbanSupp:0.5);
+                const amp = (typeof microClimateUHIValleyAmp==='number'?microClimateUHIValleyAmp:0.8);
+                let html = `<div style="font-size:0.68rem;">Relief=${reliefIdx} | Pop=${pop||'—'} | Bâti=${bCount||'—'} | Supp=${supp} | Amp=${amp} | Seuil=${microClimateCloudThreshold}% | Modèle=${microClimateModel}</div>`;
+                html += `<table style="width:100%; border-collapse:collapse; margin-top:6px; font-size:0.70rem;"><tr style="background:rgba(0,0,0,0.05);"><th style="padding:4px;">J</th><th style="padding:4px;">Nuage 0-4h eff</th><th style="padding:4px;">Vent 5-9h</th><th style="padding:4px;">Fav</th><th style="padding:4px;">Inversion base→final</th><th style="padding:4px;">UHI final</th><th style="padding:4px;">Co-loc?</th></tr>`;
+                rows.forEach(r=>{
+                    const dateStr = weatherData.daily.time[r.d];
+                    const dt = dateStr?new Date(dateStr):null;
+                    const label = r.d===0?'Auj.':(dt?dt.toLocaleDateString('fr-FR',{weekday:'short'}).replace('.',''):'J'+r.d);
+                    const invTxt = r.valley ? `${r.valley.deltaC}°C ${r.valley.active?'✅':'❌'}` : '—';
+                    const uhiTxt = r.uhi ? `${r.uhi.deltaC}°C ${r.uhi.active?'✅':'❌'}` : '—';
+                    html+=`<tr style="border-top:1px solid rgba(0,0,0,0.06);"><td style="padding:4px; text-align:center; font-weight:700;">${label}</td><td style="padding:4px; text-align:center;">${r.cloudVal!=null?Math.round(r.cloudVal)+'%':'—'}</td><td style="padding:4px; text-align:center;">${r.windVal!=null?Math.round(r.windVal)+'km/h':'—'}</td><td style="padding:4px; text-align:center; font-weight:700; color:${r.fav>0.5?'#1c6e3a':r.fav>0.1?'#b7791f':'#a00'}">${r.fav!=null?r.fav:'—'}</td><td style="padding:4px; text-align:center;">${invTxt}</td><td style="padding:4px; text-align:center;">${uhiTxt}</td><td style="padding:4px; text-align:center;">${r.coLoc?'🏔️🏙️':'—'}</td></tr>`;
+                });
+                html+=`</table>`;
+                html+=`<div style="margin-top:6px; font-size:0.65rem; color:var(--text-muted);">Si inversion forte observée à Grenoble mais fav faible → vérifie nuage 0-4h effectif (low/mid/high) et vent 5-9h. Modèle 2 avec seuil 38% garde l'inversion même avec cirrus hauts. Co-loc applique supp ${supp} sur inversion et ×${amp} sur UHI. Tu peux monter supp à 0.7-0.8 pour tester inversion plus forte.</div>`;
+                box.innerHTML=html;
+            }catch(e){ console.error('valleyUrbanDebug', e); }
+        }
+
+function renderInversionCoeffTable(){
+            try{
+                const box=document.getElementById('inversion-coeff-grid');
+                if(!box) return;
+                if(!weatherData||!weatherData.hourly||!weatherData.daily){ box.innerHTML='<span style="font-size:0.68rem; color:var(--text-muted);">Pas de données</span>'; return; }
+                const reliefIdx = (typeof microClimateGeoSignals!=='undefined' && microClimateGeoSignals && typeof microClimateGeoSignals.reliefIndex==='number') ? microClimateGeoSignals.reliefIndex : null;
+                if(reliefIdx==null){ box.innerHTML='<span style="font-size:0.68rem; color:var(--text-muted);">Relief non analysé — active micro-climat ou change de lieu</span>'; return; }
+                const coeffParam = (typeof microClimateInvCoeff==='number'?microClimateInvCoeff:0.9);
+                const maxParam = (typeof microClimateInvMax==='number'?microClimateInvMax:6);
+                const nDays = Math.min(16, weatherData.daily.time?weatherData.daily.time.length:16);
+                const adjs=[];
+                for(let d=0; d<nDays; d++){ try{ adjs[d]= (typeof getMicroClimateAdjustmentsForDay==='function')? getMicroClimateAdjustmentsForDay(d):null; }catch(e){ adjs[d]=null; } }
+                function getFavForDay(dayIdx){
+                    if(!weatherData||!weatherData.hourly) return null;
+                    const dayStart=dayIdx*24;
+                    let cloudSum=0, n=0;
+                    for(let h=0; h<=4; h++){ const c=weatherData.hourly.cloud_cover?weatherData.hourly.cloud_cover[dayStart+h]:null; if(typeof c==='number'){ cloudSum+=c; n++; } }
+                    let cloudAvg=n?cloudSum/n:null;
+                    if((typeof microClimateModel!=='undefined' && microClimateModel==='2') && weatherData.hourly.cloud_cover_low){
+                        let low=0,mid=0,high=0,nn=0;
+                        for(let h=0; h<=4; h++){
+                            const idx=dayStart+h;
+                            const l=weatherData.hourly.cloud_cover_low[idx], m=weatherData.hourly.cloud_cover_mid[idx], hh=weatherData.hourly.cloud_cover_high[idx];
+                            if(typeof l==='number' && typeof m==='number' && typeof hh==='number'){ low+=l; mid+=m; high+=hh; nn++; }
+                        }
+                        if(nn){ cloudAvg=microClimateWeightLow*low/nn+microClimateWeightMid*mid/nn+microClimateWeightHigh*high/nn; }
+                    }
+                    let wSum=0, wn=0;
+                    for(let h=5; h<=9; h++){ const w=weatherData.hourly.wind_speed_10m?weatherData.hourly.wind_speed_10m[dayStart+h]:null; if(typeof w==='number'){ wSum+=w; wn++; } }
+                    const windAvg=wn?wSum/wn:null;
+                    if(cloudAvg==null || windAvg==null) return null;
+                    const thresh=(typeof microClimateCloudThreshold==='number'?microClimateCloudThreshold:38);
+                    const cloudFactor=Math.max(0,Math.min(1,1-cloudAvg/thresh));
+                    const windFactor=Math.max(0,Math.min(1,1 - windAvg / microClimateWindMaxInversion));
+                    const fav=Math.round(cloudFactor*windFactor*100)/100;
+                    return {cloudAvg, windAvg, fav, cloudFactor, windFactor};
+                }
+                function avgRange(arr,dayIdx,h0,h1){
+                    if(!arr) return null;
+                    const base=dayIdx*24;
+                    let sum=0,c=0;
+                    for(let h=h0; h<=h1; h++){ const v=arr[base+h]; if(typeof v==='number' && isFinite(v)){ sum+=v; c++; } }
+                    return c?sum/c:null;
+                }
+                const rows=[];
+                for(let d=0; d<nDays; d++){
+                    const favObj=getFavForDay(d);
+                    const fav=favObj?favObj.fav:null;
+                    const base = Math.min(maxParam, Math.max(1, reliefIdx/100*coeffParam));
+                    const adj=adjs[d];
+                    const delta = adj && adj.valley ? adj.valley.deltaC : 0;
+                    let supp=1;
+                    try{
+                        if(typeof microClimateValleyUrbanSupp==='number'){
+                            const pop = microClimateGeoSignals.resolvedPopulation;
+                            const building = microClimateGeoSignals.buildingCount;
+                            const uhiDetected = (typeof pop==='number' && pop>=microClimatePopThreshold) || (typeof building==='number' && building>=30);
+                            const valleyDetected = reliefIdx>=microClimateReliefThreshold;
+                            if(valleyDetected && uhiDetected) supp=microClimateValleyUrbanSupp;
+                        }
+                    }catch(e){}
+                    const coeffAuto = (fav && fav>microClimateFavMin && reliefIdx>0) ? (Math.abs(delta) / (reliefIdx/100 * fav * supp)) : null;
+                    // Vrai sondage Open-Meteo
+                    const t1000 = avgRange(weatherData.hourly.temperature_1000hPa, d, 0, 6);
+                    const t925 = avgRange(weatherData.hourly.temperature_925hPa, d, 0, 6);
+                    const inv = (t1000!=null && t925!=null) ? (t925 - t1000) : null;
+                    const coeffVrai = (inv!=null && reliefIdx>0) ? (inv / (reliefIdx/100)) : null; // si inv>0, coeff qui expliquerait l'inversion
+                    const dateStr=weatherData.daily.time[d];
+                    const dt=dateStr?new Date(dateStr):null;
+                    const label=d===0?'Auj.':(dt?dt.toLocaleDateString('fr-FR',{weekday:'short'}).replace('.',''):'');
+                    rows.push({label, dayNum:dt?dt.getDate():'', favObj, fav, base, delta, coeffAuto, t1000, t925, inv, coeffVrai, supp});
+                }
+                const fmt=v=>v==null?'—':(Math.round(v*10)/10)+'';
+                const fmtInv=v=>{
+                    if(v==null) return '—';
+                    const val=Math.round(v*10)/10;
+                    const sign=val>0?'+':'';
+                    const color= val>=2? '#b91c1c' : val>=0.5? '#d97706' : val>=-0.5? '#5e706a' : '#2b6cb0';
+                    const bg= val>=2? 'rgba(185,28,28,0.12)' : val>=0.5? 'rgba(217,119,6,0.12)' : 'transparent';
+                    return `<span style="color:${color}; background:${bg}; padding:2px 5px; border-radius:4px; font-weight:700;">${sign}${val}°</span>`;
+                };
+                const cell='padding:5px 6px; text-align:center; white-space:nowrap; border-bottom:1px solid rgba(28,56,50,0.08);';
+                const head='padding:5px 6px; text-align:center; white-space:nowrap; font-weight:700; color:var(--primary-dark); border-bottom:2px solid rgba(28,56,50,0.15); font-size:0.65rem;';
+                const hasInv = rows.some(r=>r.inv!=null);
+                box.innerHTML=`
+                    <table style="border-collapse:collapse; width:100%; font-size:0.70rem;">
+                        <thead><tr>
+                            <th style="${head} text-align:left;">Jour</th>
+                            <th style="${head}">Nuage<br>0-4h</th>
+                            <th style="${head}">Fav</th>
+                            <th style="${head} background:rgba(13,91,58,0.08);">ΔT modèle</th>
+                            <th style="${head} background:rgba(59,110,97,0.12);">Coeff param</th>
+                            <th style="${head} background:rgba(255,193,7,0.15);">Coeff auto<br>(formule)</th>
+                            <th style="${head} background:rgba(185,28,28,0.08);">Inv OM<br>T925-T1000</th>
+                            <th style="${head} background:rgba(185,28,28,0.12);">Coeff vrai<br>OM</th>
+                        </tr></thead>
+                        <tbody>
+                        ${rows.map(r=>`
+                            <tr>
+                                <td style="${cell} text-align:left; font-weight:700; text-transform:capitalize;">${r.label} <span style="color:var(--text-muted);">${r.dayNum}</span></td>
+                                <td style="${cell}">${r.favObj?fmt(r.favObj.cloudAvg)+'%':'—'}</td>
+                                <td style="${cell}">${r.fav!=null?r.fav.toFixed(2):'—'}</td>
+                                <td style="${cell} background:rgba(13,91,58,0.05); font-weight:700; color:${r.delta<0?'#0d5b3a':'#5e706a'}">${r.delta!=null?(r.delta>0?'+':'')+fmt(r.delta)+'°':'—'}</td>
+                                <td style="${cell} background:rgba(59,110,97,0.08);">${coeffParam}</td>
+                                <td style="${cell} background:rgba(255,193,7,0.12); font-weight:700;">${r.coeffAuto!=null? (Math.round(r.coeffAuto*100)/100)+'°/100m':'—'}</td>
+                                <td style="${cell} background:rgba(185,28,28,0.05);">${fmtInv(r.inv)}</td>
+                                <td style="${cell} background:rgba(185,28,28,0.10); font-weight:800;">${r.coeffVrai!=null? (Math.round(r.coeffVrai*100)/100)+'°/100m':'—'}</td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>
+                    <div style="font-size:0.62rem; color:var(--text-muted); margin-top:6px; line-height:1.35;">
+                        <b>Coeff auto (formule)</b> = |ΔT modèle| / (relief/100 × Fav × supp) → inverse de ta formule, vérifie cohérence interne.<br>
+                        <b>Inv OM</b> = T925 - T1000 (0h-6h) depuis Open-Meteo (requête 3j séparée, non bloquante). <b>Coeff vrai OM</b> = Inv / (relief/100) → coeff qui expliquerait l'inversion prévue par le modèle synoptique. ${hasInv?'':'<br><i>Chargement sondage en cours...</i>'}
+                        <br>Exemple : relief=380, Inv=+2.8° → coeff vrai = 2.8 / 3.8 = 0.74°/100m. Si ton param est à 0.9, tu sur-refroidis (cas 7° vs 11°).
+                    </div>`;
+            }catch(e){ console.error('coeff table',e); }
+        }
+
         // ============================================================================
+        // CLASSEMENT DES MEILLEURES NUITS
+// ============================================================================
         // CLASSEMENT DES MEILLEURES NUITS D'OBSERVATION (onglet Général, ex-Hobby — voir #astro-card) — 05/09/2026
         // ============================================================================
         // Aucune donnée nouvelle : reprend, pour CHAQUE nuit des 16 jours de prévision, exactement
