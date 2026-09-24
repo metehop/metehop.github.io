@@ -1230,6 +1230,126 @@
             border-radius: var(--radius-medium);
             z-index: 1;
         }
+        /* Carte des champignons (onglet Nature, sous le Bilan hydrique — 23/09/2026) */
+        #mush-map {
+            height: 300px;
+            width: 100%;
+            border-radius: var(--radius-medium);
+            z-index: 1;
+            margin: 0 0 8px;
+        }
+        @media (min-width: 768px) {
+            #mush-map { height: 420px; }
+        }
+        /* Cases de l'overlay (grille 132×132 étirée) nettes : sans pixelated, un fillRect de
+           1 px devenait un flou presque invisible sur les tuiles OSM (23/09/2026). */
+        #mush-map img.leaflet-image-layer { image-rendering: pixelated; }
+        html.dark #mush-map img.leaflet-image-layer { image-rendering: pixelated; }
+        /* En-tête de prévision au-dessus de la carte (demande 23/09/2026) : date du jour
+           sélectionné dans l'onglet principal (le même que le bandeau hero), températures
+           min/max et pictos Matin / Après-midi — la carte suit donc le jour choisi. */
+        .mush-day-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+            padding: 7px 10px;
+            margin: 2px 0 8px;
+            background: var(--card-inner-bg);
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            border-radius: var(--radius-medium);
+        }
+        .mush-day-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+        .mush-day-date {
+            font-size: 0.74rem;
+            font-weight: 800;
+            color: var(--primary-dark);
+            text-transform: capitalize;
+        }
+        .mush-day-temps {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--text-muted);
+        }
+        .mush-day-temps strong { color: var(--primary-dark); font-weight: 800; }
+        .mush-day-temps i { font-size: 0.85em; opacity: 0.8; }
+        .mush-day-pictos { display: flex; gap: 10px; }
+        .mush-day-picto { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+        .mush-day-picto i {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: #fcf6e6;
+            color: var(--accent-orange);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+        }
+        .mush-day-picto span {
+            font-size: 0.48rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.2px;
+            color: var(--text-muted);
+        }
+        html.dark .mush-day-header { border-color: rgba(255, 255, 255, 0.07); }
+        html.dark .mush-day-picto i { background: rgba(255, 255, 255, 0.08); }
+        .mush-species-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin: 8px 0;
+        }
+        .mush-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 9px;
+            border-radius: 999px;
+            border: 1px solid rgba(0, 0, 0, 0.12);
+            background: var(--card-inner-bg);
+            color: var(--text-dark);
+            font-size: 0.66rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s ease, color 0.15s ease;
+            font-family: inherit;
+        }
+        .mush-chip:hover { border-color: var(--accent-green); }
+        .mush-chip.active {
+            background: var(--primary-dark);
+            color: #f5f8f6;
+            border-color: var(--primary-dark);
+        }
+        .mush-chip-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
+        }
+        .mush-legend-row {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            margin-top: 6px;
+            font-size: 0.64rem;
+            font-weight: 700;
+            color: var(--text-muted);
+        }
+        .mush-legend-bar {
+            flex: 1;
+            height: 9px;
+            border-radius: 4px;
+            background: linear-gradient(90deg, rgba(120, 120, 120, 0.05), rgba(120, 120, 120, 0.8));
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        .mush-legend-caption { font-weight: 600; white-space: nowrap; }
         .ski-snow-map-legend {
             display: flex;
             align-items: center;
@@ -2872,6 +2992,7 @@
         html.dark #map,
         html.dark #trajet-map,
         html.dark #ski-snow-map,
+        html.dark #mush-map,
         html.dark .leaflet-container {
             background: #142019;
         }
@@ -3448,6 +3569,94 @@
                     <span class="astro-legend-item"><span class="legend-dash" style="border-color:#3b6e61;"></span> Bilan cumulé (axe droit)</span>
                 </div>
                 <div class="card-sage-sub" style="margin-top:6px; font-size:0.65rem;" id="water-balance-caveat">ET0 (FAO Penman-Monteith) : référence pour une pelouse de référence bien alimentée en eau — pas ajustée selon le type de plante (coefficient cultural propre à chaque culture non appliqué ici). Indicatif pour repérer une tendance de déficit ou d'excédent, pas une consigne d'arrosage précise.</div>
+            </div>
+        </div>
+
+        <!-- Où trouver des champignons — carte OpenStreetMap (même tuilier que le radar) ajoutée
+             le 23/09/2026 juste sous le Bilan hydrique : zones de couleur par espèce avec indice
+             de probabilité 0 à 4 sur une matrice 3 × 3 de carrés de 500 m (1,5 × 1,5 km),
+             croisant relief (DEM Open-Meteo : pente, exposition, cuvettes), couvert forestier +
+             essences (Overpass OSM), pH du sol (SoilGrids) et mémoire hydrique recalculée pour le
+             jour choisi dans l'onglet principal (en-tête date/T°/pictos au-dessus de la carte).
+             Repliable comme Pollution & pollens (toggleCardCollapse). -->
+        <div class="chart-card" id="mushroom-map-card" data-groups="eau" data-level="expert" style="display:none;">
+            <div class="chart-header-row">
+                <div class="chart-header" style="flex:1; margin-bottom:0;">
+                    <div>
+                        <div class="card-sage-title">
+                            <i class="fa-solid fa-tree" style="color: #8b5e3c; margin-right: 6px;"></i>
+                            Où trouver des champignons — 10 espèces
+                        </div>
+                        <div class="card-sage-sub" id="mushroom-note">Indice 0 à 4 sur une matrice 3 × 3 de carrés de 500 m (1,5 × 1,5 km) autour du lieu — vue d'ensemble 5 × 5 km.</div>
+                    </div>
+                </div>
+                <button type="button" class="card-collapse-btn" onclick="toggleCardCollapse('mushroom-card-body', this)" title="Réduire/développer cet encart">
+                    <i class="fa-solid fa-chevron-up"></i>
+                </button>
+            </div>
+            <div class="card-collapsible-body" id="mushroom-card-body">
+                <div class="heating-status-row" id="mushroom-pills" style="display:none;">
+                    <div class="heating-status-pill">
+                        <div class="heating-pill-label">Pluie 10 j</div>
+                        <div class="heating-pill-value" id="mush-precip10">--</div>
+                    </div>
+                    <div class="heating-status-pill">
+                        <div class="heating-pill-label">Hygrométrie moy.</div>
+                        <div class="heating-pill-value" id="mush-humidity">--</div>
+                    </div>
+                    <div class="heating-status-pill">
+                        <div class="heating-pill-label">Couvert boisé</div>
+                        <div class="heating-pill-value" id="mush-forest-pct">--</div>
+                    </div>
+                    <div class="heating-status-pill">
+                        <div class="heating-pill-label">Indice max</div>
+                        <div class="heating-pill-value" id="mush-max-index">--</div>
+                    </div>
+                </div>
+                <div class="mush-species-row" id="mushroom-species-row"></div>
+                <!-- En-tête du jour de prévision (demande 23/09/2026) : recalculé par
+                     mushUpdateDayHeader() à chaque changement d'onglet jour dans le carrousel
+                     principal — même jour que le bandeau hero (updateDayView). -->
+                <div class="mush-day-header" id="mush-day-header">
+                    <div class="mush-day-info">
+                        <div class="mush-day-date" id="mush-day-date">—</div>
+                        <div class="mush-day-temps">
+                            <span><i class="fa-solid fa-temperature-low"></i> <strong id="mush-day-tmin">--</strong></span>
+                            <span><i class="fa-solid fa-temperature-high"></i> <strong id="mush-day-tmax">--</strong></span>
+                        </div>
+                    </div>
+                    <div class="mush-day-pictos">
+                        <div class="mush-day-picto" id="mush-day-morning" title="Matin">
+                            <i class="fa-solid fa-sun" id="mush-day-morning-icon"></i>
+                            <span>Matin</span>
+                        </div>
+                        <div class="mush-day-picto" id="mush-day-afternoon" title="Après-midi">
+                            <i class="fa-solid fa-sun" id="mush-day-afternoon-icon"></i>
+                            <span>Aprèm</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="map-wrapper" id="mushroom-map-wrapper">
+                    <div class="map-toolbar">
+                        <div class="radar-header-toggle">
+                            <button type="button" class="map-recenter-btn" id="mush-pick-location-btn" onclick="toggleMushPickLocationMode()" title="Choisir un lieu de prévisions sur la carte">
+                                <i class="fa-solid fa-map-pin"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="mush-pick-hint" class="radar-pick-hint" style="display:none;">
+                        <i class="fa-solid fa-map-pin"></i> Touchez la carte pour choisir un lieu de prévisions
+                    </div>
+                    <div id="mush-map"></div>
+                </div>
+                <div class="mush-legend-row">
+                    <span class="mush-legend-label">0</span>
+                    <span class="mush-legend-bar" id="mushroom-legend-bar"></span>
+                    <span class="mush-legend-label">4</span>
+                    <span class="mush-legend-caption" id="mushroom-legend-caption">Probabilité de station</span>
+                </div>
+                <div class="card-sage-sub" id="mushroom-species-metrics" style="margin-top:6px; font-size:0.68rem; font-weight:600;">Sélectionne une espèce pour voir ses métriques.</div>
+                <div class="card-sage-sub" style="margin-top:6px; font-size:0.62rem;" id="mushroom-caveat">Indices indicatifs (0 à 4) croisant relief, essences, sol et hydrométrie — pas une garantie de cueillette. Sources : Open-Meteo Elevation (MNT), Open-Meteo (pluie/humidité/vent 10 j), Overpass OpenStreetMap (forêts & essences), SoilGrids/ISRIC (pH du sol, échantillonné et interpolé). Hors-ligne : les données déjà chargées restent affichées et les tuiles OSM déjà consultées sont servies depuis le cache du service worker. Merci de ne jamais cueillir sans identification certaine.</div>
             </div>
         </div>
 
@@ -4488,9 +4697,6 @@
             </div>
         </div>
 
-            </div>
-        </div>
-
         <!-- STATION HYDROMÉTRIQUE LA PLUS PROCHE + VIGILANCE CRUES — sources officielles gratuites
              et sans clé : Hub'Eau (API Hydrométrie, opérée par le Service Central Vigicrues lui-même)
              pour la station/les mesures, et le flux GeoJSON public de Vigicrues (tronçons de
@@ -4702,7 +4908,7 @@
             <div class="footer-support-row">
                 <a class="footer-support-link" href="https://buymeacoffee.com/stridemetric" target="_blank" rel="noopener">🐸 Aide-moi à nourrir la grenouille Metehop</a>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 23/09/2026 - 136/div>
+            <div class="footer-last-update">Dernière mise à jour : 23/09/2026 - 137</div>
         </footer>
 
     </div>
@@ -4997,6 +5203,22 @@
             </div>
 
             <div class="sources-group">
+                <h4>Carte des champignons — 10 espèces</h4>
+                <div class="sources-item">
+                    <strong>Méthode</strong>
+                    <span>L'encart "Où trouver des champignons" (onglet Nature, sous le Bilan hydrique) calcule, pour une grille de 132×132 cases couvrant une matrice 3 × 3 de carrés de 500 m de côté (1,5 × 1,5 km) autour du lieu — les indices sont recalculés pour le jour choisi dans l'onglet principal, comme le bandeau hero (la carte s'ouvre en vue 5 × 5 km centrée sur le lieu ; le bouton épingle, identique à celui du radar, permet de choisir un autre point de prévision directement sur la carte), un indice de probabilité 0 à 4 par espèce en croisant : le <strong>relief</strong> (MNT Open-Meteo Elevation — pente, exposition N/S, position cuvette/crête via TPI, altitude), le <strong>couvert et les essences</strong> (Overpass OpenStreetMap — forêts, bois, prairies, landes, parcs et pelouses urbains, tags species/genus quand renseignés, avec repli automatique sur des miroirs si le nœud principal est en saturation ou en reset), la <strong>nature du sol</strong> (pH SoilGrids/ISRIC échantillonné en 9 points puis interpolé en distance inverse : acide / neutre / calcaire selon l'espèce), la <strong>mémoire hydrique</strong> (pluie des 10 derniers jours + prévision 7 j + hygrométrie + températures Open-Meteo, direction du vent moyen pour l'assèchement du versant au vent), une <strong>porte d'habitat</strong> (hors couvert requis — sous-bois pour une espèce forestière, terrain dégagé pour une espèce de prairie — l'indice s'effondre vers 0) et la <strong>fenêtre de saison</strong> de l'espèce. Pondérations : essence/couvert 37 %, hydrométrie 16 %, sol 12 %, pente 10 %, altitude 9 %, exposition 8 %, TPI 8 %, puis multiplication par la porte d'habitat, le facteur hydrique global (0,70 à 1,00) et le facteur de saison (1 = mois optimal, 0,72 = mois adjacent, 0,45 = hors saison).</span>
+                </div>
+                <div class="sources-item">
+                    <strong>Les 10 espèces &amp; leurs métriques</strong>
+                    <span>Cèpe de Bordeaux, Girolle, Trompette des morts, Pied de mouton, Lactaire délicieux, Morille, Pleurote en huit, Coulemelle, Rosé des prés et Chanterelle en tube — sélection des espèces les plus ramassées/huntées en France. La coulemelle est l'ancienne « lépiote élevée » (Macrolepiota procera, même espèce) et la chanterelle en tube (Cantharellus tubaeformis) est une espèce distincte de la girolle (Cantharellus cibius). Préférences écologiques (essences hôtes, pH, exposition, hydrométrie, altitude, saison) tirées de la littérature mycosylvicole française : guide "Intégrer la production de champignons dans la gestion forestière" (agroforesterie.fr / MYCOFOREST), fiche CNPF "Techniques de production et valorisation de champignons forestiers", fiches espèces des associations mycologiques et de l'ONF (expositions N pour les milieux frais, pentes douces 0–10 % optimales, pH 4,5–6,5 pour le cèpe de Bordeaux calcifuge, etc.).</span>
+                </div>
+                <div class="sources-item">
+                    <strong>Limites honnêtes</strong>
+                    <span>Indices <strong>indicatifs</strong> d'habitat et de conditions du moment — ce n'est pas une carte de gisement ni une prévision de fructification garantie (le déclencheur exact d'une poussée reste en partie chaotique). Les tags d'essences OSM sont incomplets : une forêt sans tag vaut "essence inconnue" (score intermédiaire), jamais une essence devinée. Le pH est échantillonné finement et interpolé : il reste une estimation. Ne jamais cueillir sans identification certaine — en cas de doute, un pharmacien mycologue ou une association mycologique locale.</span>
+                </div>
+            </div>
+
+            <div class="sources-group">
                 <h4>Jardinage : températures clés</h4>
                 <div class="sources-item">
                     <strong>Zéro de végétation (Zv)</strong>
@@ -5122,7 +5344,7 @@
             'pollen-card-body': () => pollenChart,
             'astro-card-body': () => astroChart,
         };
-        const CARD_COLLAPSE_DEFAULTS = { 'pollen-card-body': true, 'astro-card-body': true, 'geek-card-body': true };
+        const CARD_COLLAPSE_DEFAULTS = { 'pollen-card-body': true, 'astro-card-body': true, 'geek-card-body': true, 'mushroom-card-body': true };
         const CARD_COLLAPSE_KEY = 'metehop_card_collapsed_v1';
 
         function loadCardCollapseState() {
@@ -5146,6 +5368,12 @@
                 const getChart = COLLAPSIBLE_CHART_GETTERS[bodyId];
                 const chart = getChart && getChart();
                 if (chart) setTimeout(() => chart.resize(), 50);
+                // Carte des champignons : Leaflet mesure 0×0 quand le conteneur est replié,
+                // on relance la mesure + le recadrage sur la grille au dépli (comme le resize
+                // Chart.js ci-dessus).
+                if (bodyId === 'mushroom-card-body' && typeof mushMap !== 'undefined' && mushMap) {
+                    setTimeout(() => { try { mushMap.invalidateSize(); if (typeof mushRefit === 'function') mushRefit(); } catch (e) {} }, 120);
+                }
             }
         }
 
@@ -5346,6 +5574,15 @@
         let plantationLoaded = false;     // données Jardinage (température sol/air)
         let waterBalanceLoaded = false;   // bilan hydrique jardin (pluie vs ET0)
         let waterBalanceChart = null;
+        // Carte des champignons (23/09/2026) : chargée à l'ouverture de l'onglet Eau/Nature,
+        // comme le bilan hydrique — voir loadMushroomMap() et resetMushroomGate().
+        let mushroomLoaded = false;
+        let mushMap = null;               // instance Leaflet de la carte champignons
+        let mushOverlay = null;           // L.imageOverlay dessinant la grille d'indices
+        let mushMarker = null;            // marqueur du lieu consulté
+        let mushroomGrid = null;          // { N, halfKm, centerLat/centerLon, cells[], hydro, phKnown, forestPct }
+        let mushroomSelected = 'mush-cepe'; // espèce active (chips + overlay)
+        let mushPickingLocation = false;  // mode "épingle" actif : le prochain clic choisit le lieu de prévision (mêmes commandes que la carte radar)
         let seasonalTrendsLoaded = false; // tendances saisonnières (bouton "Charger les données")
         let heatingLoaded = false;        // estimation chauffage (chargement auto à l'ouverture de l'onglet)
         let lastHeatingResult = null;     // { onDoy, offDoy, climByDoy, ... } pour éviter de recalculer au resize
@@ -7195,6 +7432,17 @@ function applyDisplayMode() {
                     document.getElementById('water-balance-note').innerText = 'Données indisponibles pour le moment.';
                 });
             }
+            // Carte des champignons (ajout 23/09/2026) : même chargement différé à l'ouverture
+            // de l'onglet que le bilan hydrique juste au-dessus (MNT + Overpass + SoilGrids +
+            // mémoire hydrique 10 j, tout en parallèle via allSettled).
+            if (group === 'eau' && !mushroomLoaded && currentLat !== null) {
+                mushroomLoaded = true;
+                document.getElementById('mushroom-note').innerText = 'Chargement du relief, des sols et du couvert forestier...';
+                loadMushroomMap(currentLat, currentLon).catch((err) => {
+                    console.error('Chargement carte champignons :', err);
+                    document.getElementById('mushroom-note').innerText = 'Données indisponibles pour le moment.';
+                });
+            }
             if (group === 'eau' && !heatingLoaded && currentLat !== null) {
                 heatingLoaded = true;
                 document.getElementById('heating-note').innerText = 'Chargement de la climatologie locale...';
@@ -7237,6 +7485,7 @@ function applyDisplayMode() {
                 if (group === 'eau' && plantTempChart) plantTempChart.resize();
                 if (group === 'eau' && heatingChart) heatingChart.resize();
                 if (group === 'eau' && waterBalanceChart) waterBalanceChart.resize();
+                if (group === 'eau' && mushMap) { try { mushMap.invalidateSize(); } catch (e) {} }
                 if (group === 'eau' && hydroChart) hydroChart.resize();
                 if (group === 'eau' && tempEauChart) tempEauChart.resize();
                 if (group === 'eau' && nappesChart) nappesChart.resize();
@@ -7301,6 +7550,20 @@ function applyDisplayMode() {
             waterBalanceLoaded = false;
             document.getElementById('water-balance-note').innerText = 'Pluie prévue vs évapotranspiration de référence.';
             if (waterBalanceChart) { waterBalanceChart.destroy(); waterBalanceChart = null; }
+        }
+
+        // ---- Carte des champignons (ajout 23/09/2026) : nouveau lieu demandé → la grille de
+        // probabilité (MNT, Overpass, SoilGrids, hydrométrie) doit être recalculée pour ce lieu
+        // à la prochaine ouverture de l'onglet Eau/Nature. La carte Leaflet est conservée (simple
+        // setView) : seul l'overlay et les données sont refaits dans loadMushroomMap().
+        function resetMushroomGate() {
+            mushroomLoaded = false;
+            const note = document.getElementById('mushroom-note');
+            if (note) note.innerText = 'Cuvettes, versants & sous-bois : indice de probabilité 0 à 4 par zone.';
+            const pills = document.getElementById('mushroom-pills');
+            if (pills) pills.style.display = 'none';
+            if (mushOverlay && mushMap) { try { mushMap.removeLayer(mushOverlay); } catch (e) {} mushOverlay = null; }
+            mushroomGrid = null;
         }
 
         // ---- Station météo personnelle à proximité (Tencin, ITENCI3) : Weather Underground PWS ----
@@ -7826,7 +8089,7 @@ function applyDisplayMode() {
             try {
                 if (!pioupiouCache || (Date.now() - pioupiouCache.ts) > 10 * 60000) {
                     const resP = await fetchWithTimeout('https://api.pioupiou.fr/v1/live/all', { timeout: 12000 });
-                    if (mySeq !== weatherRequestSeq) return; // lieu changé pendant le chargement
+            if (mySeq !== weatherRequestSeq) return; // lieu changé pendant le chargement
                     if (!resP.ok) throw new Error('Pioupiou injoignable');
                     const dataP = await resP.json();
                     pioupiouCache = { ts: Date.now(), list: Array.isArray(dataP.data) ? dataP.data : [], attribution: dataP.attribution || null };
@@ -8057,8 +8320,9 @@ render16DayTable();
                 // du micro-climat — voir loadStormRiskForLocation().
                 loadStormRiskForLocation(lat, lon).catch(() => {});
                 // Un changement de lieu (recherche classique ou fonction cible sur la carte) ferme
-                // le mode sélection s'il était resté actif.
+                // le mode sélection s'il était resté actif — carte radar ET carte champignons.
                 pickingLocation = false;
+                if (typeof setMushPickMode === 'function') setMushPickMode(false);
                 initRadarMap(lat, lon).then(() => loadEvoMetehop()).catch(() => loadEvoMetehop());
                 if (mapLayersState.wind || mapLayersState.temp || mapLayersState.cloud) updateMapOverlayLayers().catch(() => {});
                 updateMoonPhase();
@@ -8077,6 +8341,18 @@ render16DayTable();
                 if (hydroDataLoaded) loadHydroCard(lat, lon).catch(() => {});
                 resetPlantationGate();
                 resetWaterBalanceGate();
+                resetMushroomGate();
+                // Carte des champignons : si l'onglet Nature est déjà actif, on recharge tout de
+                // suite pour le nouveau lieu (sinon l'ancienne grille resterait affichée jusqu'au
+                // prochain passage sur un autre onglet puis retour — cf. gardenCalendar ci-dessous).
+                mushroomLoaded = (currentGroup === 'eau');
+                if (mushroomLoaded && typeof lat === 'number') {
+                    document.getElementById('mushroom-note').innerText = 'Chargement du relief, des sols et du couvert forestier...';
+                    loadMushroomMap(lat, lon).catch((err) => {
+                        console.error('Chargement carte champignons :', err);
+                        document.getElementById('mushroom-note').innerText = 'Données indisponibles pour le moment.';
+                    });
+                }
                 resetSeasonalTrendsGate();
                 resetHeatingGate();
                 resetGardenGate();
@@ -14017,6 +14293,12 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
             // pictogramme "maintenant" : purement local, pas d'appel réseau ici, seulement
             // l'affichage/masquage selon le jour désormais sélectionné.
             refreshStormRiskUI(dayIdx);
+            // Carte "Où trouver des champignons" (demande 23/09/2026) : les indices, la
+            // saison, l'hydrométrie et l'en-tête date/T°/pictos suivent le jour choisi
+            // dans le carrousel (le même que le hero). 100 % local : aucun appel réseau,
+            // les relevés et la prévision sont déjà en mémoire. Garde-fou try/catch car
+            // updateDayView tourne aussi quand la carte n'est pas encore chargée.
+            try { if (typeof mushRefreshForDay === 'function') mushRefreshForDay(dayIdx); } catch (e) {}
             // Corrigé le 07/09/2026 : le tableau des marées (renderMarineTable) n'était appelé qu'une
             // seule fois, au chargement initial de la plage (loadMarineDataForBeach), jamais depuis
             // ce changement de jour — il restait donc figé sur le jour de la première sélection quel
@@ -18097,6 +18379,1076 @@ async function loadInversionLevels(lat, lon){
         }
 
         // ============================================================================
+        // CARTE DES CHAMPIGNONS — 10 espèces les plus ramassées en France (23/09/2026)
+        // Dernier arbitrage espèces (23/09/2026) : Coprin chevelu retiré, Lépiote élevée
+        // renommée « Coulemelle » (même espèce) et Chanterelle en tube ajoutée — espèce
+        // distincte de la girolle (Cantharellus cibius), symbiose des résineux de montagne.
+        // ============================================================================
+        // Encart repliable sous le Bilan hydrique (onglet Eau/Nature), même carte OpenStreetMap
+        // que le radar. Pour chaque case d'une grille de 132×132 couvrant une matrice 3 × 3 de
+        // carrés de 500 m (1,5 × 1,5 km) autour du lieu, on calcule un indice de probabilité
+        // 0 à 4 en croisant :
+        //   • Relief (MNT Open-Meteo Elevation — 9 tuiles de 10×10 pts, ~55 m) : pente,
+        //     exposition (versant frais N vs versant chaud S), position topographique (cuvette
+        //     humide vs crête/versant sec — TPI), altitude ;
+        //   • Couvert & essences (Overpass OSM : forêts, bois, prairies, landes + tags
+        //     species/genus quand ils existent) : symbiose mycorhizienne ou substrat ;
+        //   • Nature du sol : pH SoilGrids/ISRIC échantillonné en 9 points puis interpolé
+        //     (acide / neutre / calcaire selon les préférences de l'espèce) ;
+        //   • Mémoire hydrique : pluie des 10 derniers jours + prévision 7 j + hygrométrie +
+        //     températures (Open-Meteo), vent moyen (assèchement du versant au vent) — RECALCULÉE
+        //     pour le jour choisi dans l'onglet principal (mushRefreshForDay, comme le hero) ;
+        //   • Fenêtre de saison de l'espèce (modulateur global, indexée sur le MOIS du jour
+        //     sélectionné et non plus sur la date réelle).
+        // Sources : guide mycosylviculture (agroforesterie.fr/CRPF), fiches espèces (ONF, MYCO),
+        // écologie établie (pentes 0-10 % opt, expositions N pour les milieux frais, acide pour
+        // cèpes/girolles/lactaires, etc.).
+        // IMPORTANT : indices INDICATIFS d'habitat + conditions du moment — pas une carte de
+        // gisement, et jamais une garantie de cueillette (identification certaine obligatoire).
+        const MUSH_N = 132;         // cases par côté : 3 × 44 → matrice 3 × 3 de carrés de 500 m
+        const MUSH_HALF_KM = 0.75;  // demi-côté : 0,75 km → zone scorée de 1,5 km de côté
+        // (demande du 23/09/2026 : 9 carrés de 500 m en matrice 3 × 3 au lieu d'un carré unique,
+        // pour voir le contraste de probabilité sur une plus grande zone). La carte, elle,
+        // s'ouvre en vue 5 × 5 km centrée sur le lieu via mushFitContext().
+        // Repli MNT : 10×10 = 100 pts = MAXIMUM accepté par l'API Elevation Open-Meteo
+        // ("must not exceed 100 coordinates") — au-delà elle renvoie un HTTP 400 et le
+        // chargement échouait entièrement (fix 23/09/2026, testé en conditions réelles).
+        const MUSH_DEM = 10;        // résolution du repli MNT (appel unique 10×10 = 100 pts)
+
+        const MUSHROOM_SPECIES = [
+            {
+                id: 'mush-cepe', name: 'Cèpe de Bordeaux', sci: 'Boletus edulis', color: '#8b5e3c',
+                hosts: ['quercus', 'chene', 'fagus', 'hetre', 'picea', 'epicea', 'abies', 'sapin', 'castanea', 'chat'],
+                symbiotic: true, forest: true, soil: [4.5, 6.5], soilTol: 0.9,
+                slopeDeg: [5, 30], aspect: 'n', hydro: 'mesic', tpi: 'versant', altM: [0, 1800],
+                months: [8, 9, 10, 11], metrics: 'Symbiose : chênes, hêtres, épicéas, sapins · sol acide bien drainé (pH 4,5–6,5) · versants frais N/NE, pentes 5–30° bien égouttées · 0–1800 m (optimum 400–1200) · poussée 8–14 j après 30–50 mm de pluie (sept.–nov.).'
+            },
+            {
+                id: 'mush-girolle', name: 'Girolle', sci: 'Cantharellus cibarius', color: '#e9c46a',
+                hosts: ['fagus', 'hetre', 'quercus', 'chene', 'pinus', 'pin', 'abies', 'sapin', 'picea', 'epicea'],
+                symbiotic: true, forest: true, soil: [4.5, 6.5], soilTol: 1.0,
+                slopeDeg: [0, 25], aspect: 'any', hydro: 'mesic', tpi: 'any', altM: [0, 1500],
+                months: [7, 8, 9, 10, 11], metrics: 'Symbiose très polyvalente (hêtre, chêne, pin, sapin) · sol acide · sous-bois bien développé, mousse et litière fraîche, mi-ombre · 0–1500 m · juil.–nov., pic sept.–oct.'
+            },
+            {
+                id: 'mush-trompette', name: 'Trompette des morts', sci: 'Craterellus cornucopioides', color: '#4a3f6b',
+                hosts: ['quercus', 'chene', 'fagus', 'hetre', 'castanea', 'chat'],
+                symbiotic: true, forest: true, soil: [4.5, 6.5], soilTol: 1.0,
+                slopeDeg: [0, 25], aspect: 'n', hydro: 'wet', tpi: 'cuvette', altM: [0, 1200],
+                months: [10, 11, 12], metrics: 'Symbiose : chênes et hêtres, sous-bois humide · sol acide · cuvettes et bas de versant qui restent frais · après la chute des feuilles (nov.–déc.), jusqu\'aux premières gelées.'
+            },
+            {
+                id: 'mush-piedmouton', name: 'Pied de mouton', sci: 'Hydnum repandum', color: '#cbb88f',
+                hosts: ['quercus', 'chene', 'fagus', 'hetre', 'pinus', 'pin', 'abies', 'sapin'],
+                symbiotic: true, forest: true, soil: [5.0, 7.2], soilTol: 1.1,
+                slopeDeg: [0, 20], aspect: 'any', hydro: 'mesic', tpi: 'any', altM: [0, 1200],
+                months: [10, 11, 12, 1], metrics: 'Symbiose : chêne, hêtre, pin · sol acide à légèrement neutre · pentes douces et lisières bien éclairées · très résistant au gel (jusqu\'à −3 °C) · oct.–janv.'
+            },
+            {
+                id: 'mush-lactaire', name: 'Lactaire délicieux', sci: 'Lactarius deliciosus', color: '#c1440e',
+                hosts: ['pinus', 'pin', 'picea', 'epicea', 'abies', 'sapin'],
+                symbiotic: true, forest: true, soil: [4.5, 6.5], soilTol: 0.9,
+                slopeDeg: [5, 30], aspect: 'n', hydro: 'mesic', tpi: 'versant', altM: [200, 1500],
+                months: [8, 9, 10, 11], metrics: 'Symbiose : pins, épicéas, sapins (résineux) · sol acide · versants bien drainés 200–1500 m · poussée après pluies régulières d\'automne (sept.–nov.).'
+            },
+            {
+                id: 'mush-morille', name: 'Morille', sci: 'Morchella esculenta', color: '#6b7a4f',
+                hosts: ['quercus', 'chene', 'pinus', 'pin', 'salix', 'saule', 'populus', 'peuplier'],
+                symbiotic: false, forest: 'edge', soil: [6.2, 7.5], soilTol: 0.8,
+                slopeDeg: [0, 20], aspect: 's', hydro: 'dry', tpi: 'any', altM: [0, 1200],
+                months: [3, 4, 5], metrics: 'Printemps : chênes, pins, saules, ourlets · sol neutre à calcaire (brun calcique), bien réchauffé · lisières et clairières en S/O, sols secs exposés au soleil · 0–1200 m · mars–mai après houles douces.'
+            },
+            {
+                id: 'mush-pleurote', name: 'Pleurote en huit', sci: 'Pleurotus ostreatus', color: '#9e958b',
+                hosts: ['populus', 'peuplier', 'salix', 'saule', 'fagus', 'hetre', 'quercus', 'chene', 'fraxinus', 'frene'],
+                symbiotic: false, forest: true, soil: [5.5, 7.5], soilTol: 1.3,
+                slopeDeg: [0, 12], aspect: 'n', hydro: 'wet', tpi: 'cuvette', altM: [0, 1000],
+                months: [12, 1, 2, 3, 4], metrics: 'Saprophyte sur bois mort : peuplier, saule, hêtre, chêne · ripisylves et cuvettes fraîches, humidité > 80 % · bords de cours d\'eau, fonds de vallon · automne–hiver (sept.–avr.).'
+            },
+            {
+                id: 'mush-coulemelle', name: 'Coulemelle', sci: 'Macrolepiota procera', color: '#ede4d3',
+                hosts: [],
+                symbiotic: false, forest: 'edge', soil: [6.2, 7.4], soilTol: 1.0,
+                slopeDeg: [0, 12], aspect: 'any', hydro: 'mesic', tpi: 'any', altM: [0, 900],
+                months: [6, 7, 8, 9, 10, 11], metrics: 'Saprophyte des prairies, lisières et haies (ancienne « lépiote élevée ») · sol neutre riche en humus · terrain dégagé ou lisière de bois clair, jamais sous couvert dense · mai–nov.'
+            },
+            {
+                id: 'mush-rose', name: 'Rosé des prés', sci: 'Agaricus campestris', color: '#e0669a',
+                hosts: [],
+                symbiotic: false, forest: false, soil: [6.5, 7.8], soilTol: 1.0,
+                slopeDeg: [0, 10], aspect: 's', hydro: 'mesic', tpi: 'any', altM: [0, 800],
+                months: [5, 6, 7, 8, 9, 10], metrics: 'Prairies et pâtures non fertilisées, sols neutres à calcaires · terrain ouvert (jamais sous bois) · colonies en cercle, humide au printemps puis après pluies d\'été · avr.–nov.'
+            },
+            {
+                // Ajoutée le 23/09/2026 à la place du Coprin chevelu — espèce distincte de la
+                // girolle (Cantharellus cibius) : la « chanterelle » des résineux de montagne.
+                id: 'mush-chanterelle', name: 'Chanterelle en tube', sci: 'Cantharellus tubaeformis', color: '#b07d2b',
+                hosts: ['picea', 'epicea', 'abies', 'sapin', 'pinus', 'pin'],
+                symbiotic: true, forest: true, soil: [3.5, 5.5], soilTol: 1.0,
+                slopeDeg: [0, 25], aspect: 'n', hydro: 'wet', tpi: 'any', altM: [200, 2000],
+                months: [8, 9, 10, 11, 12, 1], metrics: 'Symbiose : épicéas, sapins, pins (résineux de montagne) · sol acide, mousseux et humide · sous-bois d\'épicéa, cuvettes fraîches, landes à myrtilles · 200–2000 m · août–janvier, pic sept.–nov., fructifie aussi en hiver doux.'
+            }
+        ];
+
+        function hexToRgb(hex) {
+            const h = hex.replace('#', '');
+            return [parseInt(h.substring(0, 2), 16), parseInt(h.substring(2, 4), 16), parseInt(h.substring(4, 6), 16)];
+        }
+
+        function mushClamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
+
+        function mushExtractPh(json) {
+            // Réponse SoilGrids : { values: { "0": { mean: [ [643] ] } } } — unité pH×10.
+            try {
+                const vals = json && json.values;
+                if (!vals) return null;
+                const first = vals[Object.keys(vals)[0]];
+                let m = first && first.mean;
+                while (Array.isArray(m)) m = m[0];
+                if (typeof m !== 'number' || isNaN(m)) return null;
+                return m > 14 ? m / 10 : m;
+            } catch (e) { return null; }
+        }
+
+        // Fenêtre de saison : 1 = mois optimal, 0.72 = mois adjacent, 0.45 = hors saison
+        // (habitat toujours affiché, mais l'indice global baisse — honnête sur le moment).
+        function mushSeasonFactor(sp, nowMonth) {
+            if (sp.months.indexOf(nowMonth) !== -1) return { f: 1, label: 'saison active' };
+            const prev = ((nowMonth - 2 + 12) % 12) + 1;
+            const next = (nowMonth % 12) + 1;
+            if (sp.months.indexOf(prev) !== -1 || sp.months.indexOf(next) !== -1) {
+                return { f: 0.72, label: 'saison limítrophe' };
+            }
+            return { f: 0.45, label: 'hors saison' };
+        }
+
+        // ---- Suit le jour choisi dans l'onglet principal (demande 23/09/2026) ---------------
+        // mushRefreshForDay() est appelée par updateDayView() à chaque changement d'onglet
+        // jour du carrousel (le même jour que le bandeau hero) : la carte recalcule la
+        // saison (mois du jour de prévision, plus la date réelle), l'hydrométrie de la
+        // fenêtre 10 j passés / 7 j prévus centrée sur CE jour, l'humidité spatiale de
+        // chaque case et l'en-tête date + min/max + pictos matin/après-midi. Zéro appel
+        // réseau : tout est déjà en mémoire (relevés du chargement + prévision 16 j).
+
+        function mushSelectedMonth(dayIdx) {
+            try {
+                if (weatherData && weatherData.daily && weatherData.daily.time && weatherData.daily.time[dayIdx]) {
+                    return new Date(weatherData.daily.time[dayIdx] + 'T12:00:00').getMonth() + 1;
+                }
+                if (weatherData && weatherData.hourly && weatherData.hourly.time && weatherData.hourly.time[dayIdx * 24]) {
+                    return new Date(weatherData.hourly.time[dayIdx * 24]).getMonth() + 1;
+                }
+            } catch (e) {}
+            return new Date().getMonth() + 1;
+        }
+
+        // Index date → { precip, tmax, tmin, hum } : relevés du chargement de la carte
+        // (10 j passés + 7 j prévus, meta.days) complétés par la prévision principale
+        // 16 jours (weatherData) qui prime sur les dates communes.
+        function mushDayRecords() {
+            const rec = {};
+            try {
+                const md = (mushroomGrid && mushroomGrid.meta && mushroomGrid.meta.days) || {};
+                Object.keys(md).forEach(d => { rec[d] = Object.assign({}, md[d]); });
+            } catch (e) {}
+            try {
+                if (weatherData && weatherData.daily && weatherData.daily.time) {
+                    const dd = weatherData.daily;
+                    for (let i = 0; i < dd.time.length; i++) {
+                        const r = rec[dd.time[i]] || (rec[dd.time[i]] = {});
+                        if (typeof dd.temperature_2m_max[i] === 'number') r.tmax = dd.temperature_2m_max[i];
+                        if (typeof dd.temperature_2m_min[i] === 'number') r.tmin = dd.temperature_2m_min[i];
+                    }
+                }
+                if (weatherData && weatherData.hourly && weatherData.hourly.time) {
+                    const hh = weatherData.hourly;
+                    const acc = {};
+                    for (let i = 0; i < hh.time.length; i++) {
+                        const d = hh.time[i].slice(0, 10);
+                        const a = acc[d] || (acc[d] = { p: 0, rh: [] });
+                        if (hh.precipitation && typeof hh.precipitation[i] === 'number') a.p += hh.precipitation[i];
+                        if (hh.relative_humidity_2m && typeof hh.relative_humidity_2m[i] === 'number') a.rh.push(hh.relative_humidity_2m[i]);
+                    }
+                    Object.keys(acc).forEach(d => {
+                        const r = rec[d] || (rec[d] = {});
+                        r.precip = acc[d].p; // pluie de la prévision 16 j : primaire sur le fetch carte
+                        if (acc[d].rh.length) r.hum = acc[d].rh.reduce((x, y) => x + y, 0) / acc[d].rh.length;
+                    });
+                }
+            } catch (e) {}
+            return rec;
+        }
+
+        // Hydrométrie du jour de prévision dayIdx : même formule que le chargement de la
+        // carte mais glissée sur CE jour (pluie des 10 j le précédant, pluie des 7 j le
+        // suivant, T° et hygrométrie des mêmes fenêtres). Fenêtre incomplète (bords de la
+        // prévision) → extrapolation proportionnelle ; aucun relevé → hydro de base.
+        function mushHydroForDay(dayIdx, baseHydro) {
+            const recs = mushDayRecords();
+            let date = null;
+            try {
+                if (weatherData && weatherData.daily && weatherData.daily.time && weatherData.daily.time[dayIdx]) date = weatherData.daily.time[dayIdx];
+                else if (weatherData && weatherData.hourly && weatherData.hourly.time && weatherData.hourly.time[dayIdx * 24]) date = weatherData.hourly.time[dayIdx * 24].slice(0, 10);
+            } catch (e) {}
+            if (!date) return { hydro: baseHydro, precip10: null, humidity: null };
+            const dayMs = Date.parse(date + 'T12:00:00Z');
+            const iso = ms => new Date(ms).toISOString().slice(0, 10);
+            let p10 = 0, n10 = 0, tSum = 0, tN = 0, hSum = 0, hN = 0;
+            for (let k = 9; k >= 0; k--) {
+                const r = recs[iso(dayMs - k * 86400000)];
+                if (!r) continue;
+                if (typeof r.precip === 'number') { p10 += r.precip; n10++; }
+                if (typeof r.tmax === 'number' && typeof r.tmin === 'number') { tSum += (r.tmax + r.tmin) / 2; tN++; }
+                if (typeof r.hum === 'number') { hSum += r.hum; hN++; }
+            }
+            let p7 = 0, n7 = 0;
+            for (let k = 0; k <= 6; k++) {
+                const r = recs[iso(dayMs + k * 86400000)];
+                if (r && typeof r.precip === 'number') { p7 += r.precip; n7++; }
+            }
+            if (!n10 && !n7 && !tN && !hN) return { hydro: baseHydro, precip10: null, humidity: null };
+            if (n10 && n10 < 10) p10 = p10 * 10 / n10;   // fenêtre tronquée → taux journalier × 10
+            if (n7 && n7 < 7) p7 = p7 * 7 / n7;           // idem pour les 7 j à venir
+            const tMean = tN ? tSum / tN : null;
+            const hum = hN ? hSum / hN : null;
+            let tempOk = 0.3;
+            if (tMean !== null) {
+                if (tMean >= 8 && tMean <= 18) tempOk = 1;
+                else if (tMean > 18 && tMean <= 24) tempOk = 1 - (tMean - 18) / 8;
+                else if (tMean >= 3 && tMean < 8) tempOk = 0.3 + (tMean - 3) / 10;
+                else tempOk = 0.05;
+            }
+            const hydro = mushClamp(
+                0.34 * mushClamp(p10 / 45, 0, 1) +
+                0.22 * mushClamp(p7 / 30, 0, 1) +
+                0.22 * tempOk +
+                0.22 * (hum !== null ? mushClamp((hum - 65) / 25, 0, 1) : 0.5), 0, 1);
+            return { hydro, precip10: n10 ? p10 : null, humidity: hum };
+        }
+
+        // En-tête au-dessus de la carte : date du jour de prévision (le même que le hero),
+        // températures min/max (micro-climat inclus, comme le hero) et pictos Matin (9 h) /
+        // Après-midi (15 h) repris du trio du bandeau.
+        function mushUpdateDayHeader(dayIdx) {
+            const dateEl = document.getElementById('mush-day-date');
+            if (!dateEl) return;
+            if (!weatherData || !weatherData.hourly || !weatherData.hourly.time || !weatherData.hourly.time[dayIdx * 24]) {
+                dateEl.innerText = '—';
+                return;
+            }
+            const start = dayIdx * 24;
+            const selectedDate = new Date(weatherData.hourly.time[start]);
+            const base = selectedDate.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+            const prefix = dayIdx === 0 ? "Aujourd'hui · " : (dayIdx === 1 ? 'Demain · ' : '');
+            dateEl.innerText = prefix + base;
+            const temps = weatherData.hourly.temperature_2m.slice(start, start + 24);
+            let adj = temps;
+            try {
+                const dayHourOffsets = Array.from({ length: temps.length }, (_, h) => h);
+                adj = applyMicroClimateToTemps(temps, dayHourOffsets, dayIdx);
+            } catch (e) {}
+            const finite = adj.filter(v => typeof v === 'number' && !isNaN(v));
+            const tminEl = document.getElementById('mush-day-tmin');
+            const tmaxEl = document.getElementById('mush-day-tmax');
+            if (tminEl) tminEl.innerText = finite.length ? Math.round(Math.min(...finite)) + '°C' : '--';
+            if (tmaxEl) tmaxEl.innerText = finite.length ? Math.round(Math.max(...finite)) + '°C' : '--';
+            const at = h => {
+                const idx = start + h;
+                const code = weatherData.hourly.weather_code ? (weatherData.hourly.weather_code[idx] || 0) : 0;
+                const isDay = weatherData.hourly.is_day ? weatherData.hourly.is_day[idx] : 1;
+                const c = wmoMap[code] || wmoMap[0];
+                return (isDay === 0 && code === 0) ? { icon: 'fa-moon', label: 'Nuit claire' } : c;
+            };
+            const am = at(9), pm = at(15);
+            const amEl = document.getElementById('mush-day-morning-icon');
+            const pmEl = document.getElementById('mush-day-afternoon-icon');
+            if (amEl) amEl.className = 'fa-solid ' + am.icon;
+            if (pmEl) pmEl.className = 'fa-solid ' + pm.icon;
+            const amW = document.getElementById('mush-day-morning');
+            const pmW = document.getElementById('mush-day-afternoon');
+            if (amW) amW.title = 'Matin : ' + am.label;
+            if (pmW) pmW.title = 'Après-midi : ' + pm.label;
+        }
+
+        // Point d'entrée appelé par updateDayView() : tout se recalcule pour le jour choisi.
+        function mushRefreshForDay(dayIdx) {
+            try { mushUpdateDayHeader(dayIdx); } catch (e) {}
+            if (!mushroomGrid) return; // carte pas encore chargée (chargement différé à l'onglet)
+            const baseHydro = (mushroomGrid.meta && typeof mushroomGrid.meta.hydro === 'number') ? mushroomGrid.meta.hydro : 0.5;
+            const dayHyd = mushHydroForDay(dayIdx, baseHydro);
+            const ctx = { hydro: dayHyd.hydro, nowMonth: mushSelectedMonth(dayIdx) };
+            mushroomGrid.ctx = ctx;
+            mushroomGrid.dayHyd = dayHyd;
+            // Humidité spatiale : structurel (exposition, pente, cuvette, vent — figé au
+            // chargement) × mémoire hydrique DU JOUR choisi, comme au chargement.
+            const cells = mushroomGrid.cells;
+            for (let k = 0; k < cells.length; k++) {
+                const c = cells[k];
+                if (typeof c.moistRaw === 'number') c.moist = mushClamp(c.moistRaw * (0.55 + 0.45 * ctx.hydro), 0, 1);
+            }
+            mushRenderOverlay();
+            mushUpdatePills();
+            mushUpdateLegendAndMetrics();
+            const note = document.getElementById('mushroom-note');
+            if (note) {
+                const g = mushroomGrid;
+                const sf = mushSeasonFactor(MUSHROOM_SPECIES.find(s => s.id === mushroomSelected) || MUSHROOM_SPECIES[0], ctx.nowMonth);
+                note.innerText = 'Hydrométrie 10 j (à la date choisie) : ' + Math.round(ctx.hydro * 100) + ' % · couvert boisé : ' +
+                    Math.round(g.forestPct * 100) + ' % · sol : ' +
+                    (g.phKnown ? 'pH estimé (SoilGrids, ' + (g.phCount || 0) + '/9 pts)' : 'pH indisponible') +
+                    ' · ' + sf.label + (g.noDem ? ' · relief (MNT) indisponible, indices sans pente/exposition' : '') + '.';
+            }
+        }
+
+        function mushPhScore(ph, sp) {
+            if (ph === null || ph === undefined) return 0.6; // pH inconnu → neutre, jamais inventé
+            const [optA, optB] = sp.soil;
+            if (ph >= optA && ph <= optB) return 1;
+            const d = ph < optA ? optA - ph : ph - optB;
+            return mushClamp(1 - d / sp.soilTol, 0, 1);
+        }
+
+        function mushSlopeScore(slopeDeg, sp) {
+            const [a, b] = sp.slopeDeg;
+            if (slopeDeg >= a && slopeDeg <= b) return 1;
+            const d = slopeDeg < a ? a - slopeDeg : slopeDeg - b;
+            return mushClamp(1 - d / 10, 0, 1);
+        }
+
+        function mushAltScore(alt, sp) {
+            if (alt === null || alt === undefined || typeof alt !== 'number' || isNaN(alt)) return 0.6; // MNT absent (noDem) → neutre, comme un pH inconnu
+            const [a, b] = sp.altM;
+            if (alt >= a && alt <= b) return 1;
+            const d = alt < a ? a - alt : alt - b;
+            return mushClamp(1 - d / 250, 0, 1);
+        }
+
+        // Score 0..1 d'une case pour une espèce (pondérations identiques pour toutes les
+        // espèces : seules les préférences changent — plus lisible et plus honnête).
+        function mushScoreCell(sp, cell, ctx) {
+            const W = { host: 0.24, land: 0.13, hydro: 0.16, slope: 0.10, aspect: 0.08, soil: 0.12, alt: 0.09, tpi: 0.08 };
+            // — Hôte / essence : tag species/genus OSM de la parcelle contenante
+            let hostS;
+            if (!sp.symbiotic || !sp.hosts.length) hostS = 0.8;
+            else if (cell.speciesStr) {
+                hostS = 0.2;
+                for (let i = 0; i < sp.hosts.length; i++) {
+                    if (cell.speciesStr.indexOf(sp.hosts[i]) !== -1) { hostS = 1; break; }
+                }
+            } else if (cell.forest) hostS = 0.62;  // forêt oui, essence non renseignée sur OSM
+            else hostS = 0.15;
+            // — Couvert : espèce forestière / de lisière / de prairie
+            let landS;
+            if (sp.forest === true) landS = cell.forest ? 1 : (cell.open ? 0.25 : 0.1);
+            else if (sp.forest === false) landS = cell.forest ? 0.1 : 1;
+            else landS = cell.forest ? 0.45 : (cell.open ? 1 : 0.7); // 'edge' : lisière & milieux ouverts
+            // — Hydrométrie spatiale (exposition, drainage par la pente, cuvette, vent) × mémoire pluie
+            const hydroS = mushClamp(1 - Math.abs(cell.moist - ({ dry: 0.28, mesic: 0.55, wet: 0.78 })[sp.hydro]) / 0.4, 0, 1);
+            const slopeS = mushSlopeScore(cell.slopeDeg, sp);
+            // — Exposition : versant frais N (aspectMoist haut) vs versant chaud S
+            let aspectS = 0.75;
+            if (sp.aspect === 'n') aspectS = cell.aspectMoist;
+            else if (sp.aspect === 's') aspectS = 1 - cell.aspectMoist;
+            const soilS = mushPhScore(cell.ph, sp);
+            const altS = mushAltScore(cell.alt, sp);
+            // — Cuvette (TPI négatif) vs versant/crête (TPI positif)
+            const tpiN = mushClamp(cell.tpi / 5, -1, 1);
+            let tpiS = 0.7;
+            if (sp.tpi === 'cuvette') tpiS = 0.5 - 0.5 * tpiN;
+            else if (sp.tpi === 'versant') tpiS = 0.5 + 0.5 * tpiN;
+            const raw = W.host * hostS + W.land * landS + W.hydro * hydroS + W.slope * slopeS +
+                W.aspect * aspectS + W.soil * soilS + W.alt * altS + W.tpi * tpiS;
+            // Porte d'habitat (calibrage 23/09/2026 d'après une simulation complète sur
+            // Grenoble avec de vraies données) : hors couvert requis, l'indice s'effondre
+            // vers 0 — c'est le vrai "0" de la carte (zone impropre), pas une teinte uniforme
+            // à 1 sur tout le territoire. Un espèce forestière dans une clairière ouverte ne
+            // vaut rien ; un rosé des prés sous couvert dense non plus.
+            let gate = 1;
+            if (sp.forest === true) gate = cell.forest ? 1 : (cell.open ? 0.45 : 0.26);
+            else if (sp.forest === false) gate = cell.forest ? 0.30 : 1;
+            else gate = cell.forest ? 0.55 : 1; // 'edge' : lisière/ouvert idéal, sous-bois dense pénalisé
+            const gated = raw * gate;
+            const sf = mushSeasonFactor(sp, ctx.nowMonth);
+            const globalHyd = 0.70 + 0.30 * ctx.hydro; // année sèche → tout descend, zones relatives conservées
+            return mushClamp(Math.round(gated * globalHyd * sf.f * 4), 0, 4);
+        }
+
+        // Hôte dans un polygone OSM (ray casting) — anneau déjà fermé par Overpass.
+        function mushPointInRing(lat, lon, ring) {
+            let inside = false;
+            for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+                const yi = ring[i].lat, xi = ring[i].lon, yj = ring[j].lat, xj = ring[j].lon;
+                if (((yi > lat) !== (yj > lat)) && (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi)) inside = !inside;
+            }
+            return inside;
+        }
+
+        let mushChipsRendered = false;
+        function mushRenderSpeciesChips() {
+            if (mushChipsRendered) return;
+            const row = document.getElementById('mushroom-species-row');
+            if (!row) return;
+            row.innerHTML = '';
+            MUSHROOM_SPECIES.forEach(sp => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'mush-chip' + (sp.id === mushroomSelected ? ' active' : '');
+                btn.dataset.spId = sp.id;
+                btn.title = sp.sci;
+                btn.innerHTML = '<span class="mush-chip-dot" style="background:' + sp.color + ';"></span>' + sp.name;
+                btn.addEventListener('click', () => mushSelectSpecies(sp.id));
+                row.appendChild(btn);
+            });
+            mushChipsRendered = true;
+        }
+
+        function mushSelectSpecies(id) {
+            mushroomSelected = id;
+            document.querySelectorAll('#mushroom-species-row .mush-chip').forEach(c => {
+                c.classList.toggle('active', c.dataset.spId === id);
+            });
+            mushUpdateLegendAndMetrics();
+            mushRenderOverlay();
+            mushUpdatePills();
+        }
+
+        function mushUpdateLegendAndMetrics() {
+            const sp = MUSHROOM_SPECIES.find(s => s.id === mushroomSelected);
+            if (!sp) return;
+            const [r, g, b] = hexToRgb(sp.color);
+            const bar = document.getElementById('mushroom-legend-bar');
+            if (bar) {
+                bar.style.background = 'linear-gradient(90deg, rgba(' + r + ',' + g + ',' + b + ',0.05), rgba(' + r + ',' + g + ',' + b + ',0.30) 25%, rgba(' + r + ',' + g + ',' + b + ',0.50) 50%, rgba(' + r + ',' + g + ',' + b + ',0.68) 75%, rgba(' + r + ',' + g + ',' + b + ',0.88))';
+            }
+            const cap = document.getElementById('mushroom-legend-caption');
+            if (cap) cap.textContent = 'Indice · ' + sp.name;
+            const met = document.getElementById('mushroom-species-metrics');
+            if (met) {
+                // Mois du JOUR DE PRÉVISION sélectionné (pas la date réelle) : la légende
+                // suit le carrousel de l'onglet principal, comme les indices de la grille.
+                const nowMonth = (mushroomGrid && mushroomGrid.ctx && mushroomGrid.ctx.nowMonth) || mushSelectedMonth(selectedDayIndex);
+                const sf = mushSeasonFactor(sp, nowMonth);
+                met.textContent = sp.metrics + ' [' + sf.label + ']';
+            }
+        }
+
+        // Mode "choisir un lieu de prévision" (bouton épingle — même UX que la carte radar,
+        // ajout 23/09/2026) : le prochain clic sur la carte charge ce point comme nouveau
+        // lieu de prévision de toute l'app (fetchWeather recharge aussi la grille 500 m).
+        function setMushPickMode(on) {
+            mushPickingLocation = on;
+            const btn = document.getElementById('mush-pick-location-btn');
+            const hint = document.getElementById('mush-pick-hint');
+            if (btn) btn.classList.toggle('active', on);
+            if (hint) hint.style.display = on ? 'block' : 'none';
+        }
+        function toggleMushPickLocationMode() { setMushPickMode(!mushPickingLocation); }
+
+        // Recadre la carte sur une fenêtre de 5 km × 5 km centrée sur (lat, lon) — vue par
+        // défaut de l'encart (la grille d'indices colorée couvre une matrice 3 × 3 de
+        // carrés de 500 m, soit 1,5 × 1,5 km au centre : MUSH_HALF_KM = 0,75). S'appelle
+        // aussi au dépli (mushRefit) quand le conteneur était encore en display:none au
+        // premier rendu.
+        function mushFitContext(lat, lon) {
+            if (!mushMap) return;
+            try {
+                mushMap.invalidateSize();
+                const halfM = 2500; // 5 km / 2
+                const dLat = halfM / 111320;
+                const dLon = halfM / (111320 * Math.cos(lat * Math.PI / 180));
+                mushMap.fitBounds(
+                    L.latLngBounds([lat - dLat, lon - dLon], [lat + dLat, lon + dLon]),
+                    { padding: [8, 8] }
+                );
+            } catch (e) {
+                try { mushMap.setView([lat, lon], 13); } catch (e2) { /* carte encore cachée : mushRefit s'en charge au dépli */ }
+            }
+        }
+
+        // Construit (une fois) la carte Leaflet OSM et la place sur le lieu courant.
+        function mushEnsureMap(lat, lon) {
+            if (typeof L === 'undefined') return;
+            const el = document.getElementById('mush-map');
+            if (!el) return;
+            if (!mushMap) {
+                mushMap = L.map('mush-map', { zoomControl: false }).setView([lat, lon], 11);
+                L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
+                    maxZoom: 18, attribution: '© OpenStreetMap France'
+                }).addTo(mushMap);
+                try {
+                    if (typeof ResizeObserver !== 'undefined') {
+                        new ResizeObserver(() => { try { if (mushMap) mushMap.invalidateSize(); } catch (e) {} })
+                            .observe(document.getElementById('mushroom-map-wrapper'));
+                    }
+                } catch (e) {}
+                mushMap.on('click', mushOnMapClick);
+            }
+            // Vue par défaut systématique : 5 km × 5 km centrés sur le lieu (aussi bien au
+            // premier rendu qu'après un changement de lieu via la recherche ou l'épingle).
+            mushFitContext(lat, lon);
+            if (mushMarker) { try { mushMap.removeLayer(mushMarker); } catch (e) {} mushMarker = null; }
+            mushMarker = L.marker([lat, lon]).addTo(mushMap)
+                .bindPopup(escapeHtml(currentLocationName || 'Lieu affiché'));
+        }
+
+        function mushCellFromLatLng(latlng) {
+            if (!mushroomGrid) return null;
+            const g = mushroomGrid;
+            const v = (g.north - latlng.lat) / (g.north - g.south);
+            const u = (latlng.lng - g.west) / (g.east - g.west);
+            const i = Math.floor(v * g.N), j = Math.floor(u * g.N);
+            if (i < 0 || j < 0 || i >= g.N || j >= g.N) return null;
+            return g.cells[i * g.N + j];
+        }
+
+        function mushAspectLabel(deg) {
+            const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+            return dirs[Math.round(((deg % 360) + 360) % 360 / 45) % 8];
+        }
+
+        async function mushOnMapClick(e) {
+            // Mode épingle actif → ce clic choisit le lieu de prévision (pas la popup d'indice) :
+            // on désarme d'abord pour qu'un double-clic ne recharge pas deux fois.
+            if (mushPickingLocation) {
+                setMushPickMode(false);
+                try {
+                    await applyPickedForecastLocation(e.latlng.lat, e.latlng.lng);
+                } catch (err) { console.error('Choix de lieu (carte champignons) :', err); }
+                return;
+            }
+            const cell = mushCellFromLatLng(e.latlng);
+            if (!cell) return;
+            const sp = MUSHROOM_SPECIES.find(s => s.id === mushroomSelected);
+            if (!sp) return;
+            const idx = mushScoreCell(sp, cell, mushroomGrid.ctx);
+            const pos = cell.tpi < -0.8 ? 'cuvette / bas de versant' : (cell.tpi > 0.8 ? 'crête / haut de versant' : 'versant régulier');
+            let html = '<strong>' + escapeHtml(sp.name) + '</strong> — indice <strong>' + idx + '</strong>/4<br>';
+            html += 'Altitude : ' + (cell.alt === null || cell.alt === undefined ? 'n/d (relief absent)' : Math.round(cell.alt) + ' m') + ' · pente : ' + cell.slopeDeg.toFixed(1) + '° (' + pos + ')<br>';
+            html += 'Exposition : ' + (cell.aspectDeg === null || cell.aspectDeg === undefined ? 'n/d (relief absent)' : mushAspectLabel(cell.aspectDeg) + (cell.aspectMoist > 0.6 ? ' (frais/humide)' : (cell.aspectMoist < 0.4 ? ' (chaud/sec)' : ''))) + '<br>';
+            html += 'Couvert : ' + (cell.forest ? 'boisé' : (cell.open ? 'ouvert (prairie/lande)' : 'hors forêt')) +
+                (cell.speciesStr ? ' · ' + escapeHtml(cell.speciesStr) : '') + '<br>';
+            html += 'Sol : pH ' + (cell.ph !== null && cell.ph !== undefined ? cell.ph.toFixed(1) + ' (est.)' : 'non mesuré') +
+                ' · hydrométrie locale : ' + Math.round(cell.moist * 100) + ' %';
+            L.popup({ maxWidth: 260 }).setLatLng(e.latlng).setContent(html).openOn(mushMap);
+        }
+
+        function mushUpdatePills() {
+            const pills = document.getElementById('mushroom-pills');
+            if (!pills || !mushroomGrid) return;
+            const g = mushroomGrid;
+            // Pastilles pluie/hygro : fenêtre 10 j DU JOUR sélectionné (dayHyd, calculée par
+            // mushRefreshForDay) si disponible, sinon les relevés figés du chargement.
+            document.getElementById('mush-precip10').textContent =
+                (g.dayHyd && g.dayHyd.precip10 !== null && g.dayHyd.precip10 !== undefined)
+                    ? Math.round(g.dayHyd.precip10) + ' mm'
+                    : (g.meta.precip10 !== null ? Math.round(g.meta.precip10) + ' mm' : 'n/d');
+            document.getElementById('mush-humidity').textContent =
+                (g.dayHyd && g.dayHyd.humidity !== null && g.dayHyd.humidity !== undefined)
+                    ? Math.round(g.dayHyd.humidity) + ' %'
+                    : (g.meta.humidity !== null ? Math.round(g.meta.humidity) + ' %' : 'n/d');
+            document.getElementById('mush-forest-pct').textContent = Math.round(g.forestPct * 100) + ' %';
+            const sp = MUSHROOM_SPECIES.find(s => s.id === mushroomSelected);
+            let maxIdx = 0;
+            if (sp) {
+                for (let k = 0; k < g.cells.length; k++) {
+                    const v = mushScoreCell(sp, g.cells[k], g.ctx);
+                    if (v > maxIdx) maxIdx = v;
+                }
+            }
+            document.getElementById('mush-max-index').textContent = maxIdx + '/4';
+            pills.style.display = '';
+        }
+
+        // Dessine la grille d'indices de l'espèce sélectionnée dans un canvas N×N → imageOverlay.
+        function mushRenderOverlay() {
+            if (!mushMap || !mushroomGrid) return;
+            const sp = MUSHROOM_SPECIES.find(s => s.id === mushroomSelected);
+            if (!sp) return;
+            const g = mushroomGrid;
+            const c = document.createElement('canvas');
+            c.width = g.N; c.height = g.N;
+            const cx = c.getContext('2d');
+            cx.clearRect(0, 0, g.N, g.N);
+            const [r, gr, b] = hexToRgb(sp.color);
+            const alphas = [0, 0.30, 0.50, 0.68, 0.88]; // alphas relevés (calibrage 23/09/2026 : 0,20–0,38 étaient quasi invisibles sur les tuiles OSM)
+            for (let k = 0; k < g.cells.length; k++) {
+                const cell = g.cells[k];
+                const idx = mushScoreCell(sp, cell, g.ctx);
+                if (idx < 1) continue; // indice 0 → transparence totale, la tuile OSM reste lisible
+                cx.fillStyle = 'rgba(' + r + ',' + gr + ',' + b + ',' + alphas[idx] + ')';
+                cx.fillRect(cell.j, cell.i, 1, 1);
+            }
+            // Filets de la matrice 3 × 3 (séparations tous les 500 m) : double trait
+            // sombre 2 px + clair 1 px, dessinés par-dessus les cases (y compris là où
+            // l'indice est 0 et la case reste transparente) pour lire le contraste
+            // carré par carré (demande 23/09/2026).
+            const third = Math.round(g.N / 3);
+            const drawGridLines = (strokeStyle, lineWidth) => {
+                cx.strokeStyle = strokeStyle;
+                cx.lineWidth = lineWidth;
+                cx.beginPath();
+                for (let k = 1; k <= 2; k++) {
+                    const p = k * third + 0.5;
+                    cx.moveTo(p, 0); cx.lineTo(p, g.N);
+                    cx.moveTo(0, p); cx.lineTo(g.N, p);
+                }
+                cx.moveTo(0.5, 0.5); cx.lineTo(g.N - 0.5, 0.5);
+                cx.lineTo(g.N - 0.5, g.N - 0.5); cx.lineTo(0.5, g.N - 0.5);
+                cx.closePath();
+                cx.stroke();
+            };
+            drawGridLines('rgba(0,0,0,0.45)', 3);
+            drawGridLines('rgba(255,255,255,0.9)', 1);
+            const url = c.toDataURL();
+            try { mushMap.invalidateSize(); } catch (e) {} // mesure AVANT fitBounds (carte parfois encore cachée)
+            if (!mushOverlay) {
+                mushOverlay = L.imageOverlay(url, g.bounds, { opacity: 0.92, interactive: false }).addTo(mushMap);
+                // Premier rendu seul : recadrage par défaut 5 × 5 km (un switch d'espèce ne
+                // doit pas remettre à zéro le zoom/pan exploré par l'utilisateur).
+                mushFitContext((g.north + g.south) / 2, (g.east + g.west) / 2);
+            } else {
+                try { mushMap.removeLayer(mushOverlay); } catch (e) {}
+                mushOverlay = L.imageOverlay(url, g.bounds, { opacity: 0.92, interactive: false }).addTo(mushMap);
+            }
+        }
+
+        // Recadre la carte en 5 × 5 km centrée sur la grille après un dépli (le premier rendu a
+        // pu se faire pendant que le conteneur était en display:none → zoom/faux bornes faux).
+        function mushRefit() {
+            if (!mushMap || !mushroomGrid) return;
+            const g = mushroomGrid;
+            mushFitContext((g.north + g.south) / 2, (g.east + g.west) / 2);
+        }
+
+        // Chargement complet pour un lieu : MNT + météo 10 j + Overpass + SoilGrids en parallèle,
+        // puis construction de la grille et rendu. Rejoué à chaque nouveau lieu (resetMushroomGate).
+        async function loadMushroomMap(lat, lon) {
+            const mySeq = weatherRequestSeq;
+            mushRenderSpeciesChips();
+            mushUpdateLegendAndMetrics();
+
+            const N = MUSH_N, half = MUSH_HALF_KM;
+            const dLat = half / 111.32;
+            const dLon = half / (111.32 * Math.cos(lat * Math.PI / 180));
+            const north = lat + dLat, south = lat - dLat, east = lon + dLon, west = lon - dLon;
+
+            // La carte OSM de base est créée TOUT DE SUITE, avant les appels réseau : même si
+            // le MNT/Overpass/SoilGrids échouent, l'utilisateur voit au moins la carte (fix
+            // 23/09/2026 — auparavant une erreur d'API empêchait toute carte de s'afficher).
+            mushEnsureMap(lat, lon);
+
+            // ---- 1. MNT : 9 tuiles de 10×10 (une par carré de 500 m, bords partagés) →
+            // grille 28×28 (~55 m de maille) sur les 1,5 × 1,5 km de la matrice.
+            // L'API Elevation plafonne à 100 coordonnées par appel (d'où le morcellement).
+            // Accélération (23/09/2026) : le repli global 10×10 part EN MÊME TEMPS que les
+            // 9 tuiles (plus besoin d'attendre leur échec pour le lancer) et les tuiles
+            // manquantes sont comblées par le point RÉEL le plus proche — fini la séquence
+            // « 9 tuiles (12 s) PUIS repli (12 s) » = 24 s de pire cas. Timeout 9 s.
+            // Si TOUT échoue (réseau coupé), un unique retry 10×10 est tenté ; s'il échoue
+            // aussi, la grille est construite en mode neutre noDem (pente/exposition/
+            // altitude inconnues, note explicite) au lieu de planter la carte — c'était le
+            // « parfois ne fonctionne pas » du 23/09/2026 (throw 'MNT indisponible').
+            const DEM_N_TILED = 28; // 3 × (10 − 1) + 1 (les bords des tuiles sont partagés)
+            const demTilePromises = [];
+            for (let ti = 0; ti < 3; ti++) {
+                for (let tj = 0; tj < 3; tj++) {
+                    const tLats = [], tLons = [];
+                    for (let a = 0; a < 10; a++) {
+                        for (let b = 0; b < 10; b++) {
+                            const gi = ti * 9 + a, gj = tj * 9 + b;
+                            tLats.push((north - (north - south) * gi / (DEM_N_TILED - 1)).toFixed(4));
+                            tLons.push((west + (east - west) * gj / (DEM_N_TILED - 1)).toFixed(4));
+                        }
+                    }
+                    const tu = 'https://api.open-meteo.com/v1/elevation?latitude=' + tLats.join(',') + '&longitude=' + tLons.join(',');
+                    demTilePromises.push(
+                        fetchWithTimeout(tu, { timeout: 9000 })
+                            .then(r => (r && r.ok ? r.json() : null))
+                            .then(j => (j && Array.isArray(j.elevation) && j.elevation.length === 100) ? { ti, tj, elev: j.elevation } : null)
+                            .catch(() => null)
+                    );
+                }
+            }
+            // Repli global 10×10 (~167 m) : lancé immédiatement, en parallèle des 9 tuiles.
+            const fLats = [], fLons = [];
+            for (let i = 0; i < MUSH_DEM; i++) {
+                for (let j = 0; j < MUSH_DEM; j++) {
+                    fLats.push((north - (north - south) * i / (MUSH_DEM - 1)).toFixed(4));
+                    fLons.push((west + (east - west) * j / (MUSH_DEM - 1)).toFixed(4));
+                }
+            }
+            const fu = 'https://api.open-meteo.com/v1/elevation?latitude=' + fLats.join(',') + '&longitude=' + fLons.join(',');
+            const elevFallbackTask = fetchWithTimeout(fu, { timeout: 9000 })
+                .then(r => (r && r.ok ? r.json() : null))
+                .then(j => (j && Array.isArray(j.elevation) && j.elevation.length === MUSH_DEM * MUSH_DEM) ? { elevation: j.elevation, n: MUSH_DEM } : null)
+                .catch(() => null);
+            const buildTiledDem = (okTiles) => {
+                const arr = new Array(DEM_N_TILED * DEM_N_TILED).fill(NaN);
+                okTiles.forEach(t => {
+                    let k = 0;
+                    for (let a = 0; a < 10; a++) {
+                        for (let b = 0; b < 10; b++) {
+                            arr[(t.ti * 9 + a) * DEM_N_TILED + (t.tj * 9 + b)] = t.elev[k++];
+                        }
+                    }
+                });
+                if (okTiles.length < 9) {
+                    // Tuile(s) manquante(s) : comble chaque case vide par le point déjà
+                    // mesuré le plus proche (voisin réel, jamais une altitude fabriquée).
+                    for (let idx = 0; idx < arr.length; idx++) {
+                        if (!isNaN(arr[idx])) continue;
+                        const ii = Math.floor(idx / DEM_N_TILED), jj = idx % DEM_N_TILED;
+                        let best = null, bestD = Infinity;
+                        for (let jdx = 0; jdx < arr.length; jdx++) {
+                            const v = arr[jdx];
+                            if (isNaN(v)) continue;
+                            const di = ii - Math.floor(jdx / DEM_N_TILED), dj = jj - (jdx % DEM_N_TILED);
+                            const d = di * di + dj * dj;
+                            if (d < bestD) { bestD = d; best = v; }
+                        }
+                        arr[idx] = best;
+                    }
+                }
+                return { elevation: arr, n: DEM_N_TILED };
+            };
+            const elevTask = Promise.all(demTilePromises).then(async tiles => {
+                const okTiles = tiles.filter(Boolean);
+                if (okTiles.length >= 4) return buildTiledDem(okTiles); // maille fine, complétée si besoin
+                // 0–3 tuiles : préfère le repli global (résolution homogène) s'il a répondu
+                const fb = await elevFallbackTask;
+                if (fb) return fb;
+                if (okTiles.length > 0) return buildTiledDem(okTiles); // mieux que rien
+                return null;
+            }).then(async r => {
+                if (r && Array.isArray(r.elevation)) return r;
+                // Dernier recours : rejoue l'appel global une fois (défaut transitoire).
+                return fetchWithTimeout(fu, { timeout: 8000 })
+                    .then(r2 => (r2 && r2.ok ? r2.json() : null))
+                    .then(j => (j && Array.isArray(j.elevation) && j.elevation.length === MUSH_DEM * MUSH_DEM) ? { elevation: j.elevation, n: MUSH_DEM } : null)
+                    .catch(() => null);
+            });
+
+            // ---- 2. Mémoire hydrique : 10 j passés + 7 j à venir ----
+            const wxUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat.toFixed(4) + '&longitude=' + lon.toFixed(4) +
+                '&past_days=10&forecast_days=7&daily=precipitation_sum,temperature_2m_max,temperature_2m_min' +
+                '&hourly=relative_humidity_2m,wind_speed_10m,wind_direction_10m&timezone=auto';
+
+            // ---- 3. Overpass : forêts, bois, prairies, landes + géométries pour le point-dans-polygone ----
+            const bb = '(' + south.toFixed(5) + ',' + west.toFixed(5) + ',' + north.toFixed(5) + ',' + east.toFixed(5) + ')';
+            const ovQuery = '[out:json][timeout:15];(' +
+                'way["landuse"="forest"]' + bb + ';' +
+                'way["natural"="wood"]' + bb + ';' +
+                'way["landuse"="meadow"]' + bb + ';' +
+                'way["landuse"="grassland"]' + bb + ';' +
+                'way["landuse"="grass"]' + bb + ';' +   // le vrai tag OSM des pelouses (grassland est très rare)
+                'way["leisure"="park"]' + bb + ';' +    // parcs urbains — indispensables en ville (test 500 m, Grenoble, 23/09/2026)
+                'way["natural"="scrub"]' + bb + ';' +
+                ');out geom 700;';
+            const ovUrl = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(ovQuery);
+            // Miroirs de secours, testés en conditions réelles le 23/09/2026 : overpass-api.de
+            // peut resetter la connexion (WinError 10054), kumi.systems peut timeout, et
+            // maps.mail.ru alterne réponses OK et HTTP 504.
+            const OV_FALLBACK_HOSTS = [
+                'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+                'https://overpass.kumi.systems/api/interpreter',
+                'https://overpass.openstreetmap.ru/api/interpreter'
+            ];
+            // Course estafette (hedged request, accélération 23/09/2026) : le primaire part
+            // immédiatement et les miroirs échelonnent leur départ à +1,2 s / +2,4 s /
+            // +3,6 s — le premier qui répond OK gagne, les réponses suivantes sont ignorées.
+            // Avant : primaire 18 s PUIS 3 miroirs séquentiels de 20 s = jusqu'à 78 s
+            // d'attente (le chargement « interminable ») ; maintenant ~1–3 s si un hôte va
+            // vite, plafond ≈ 13,6 s (tous hôtes confondus, timeouts bornés).
+            const ovTask = new Promise(resolve => {
+                const tryOne = (url) => fetchWithTimeout(url, { timeout: 10000 })
+                    .then(r => (r && r.ok ? r : null))
+                    .catch(() => null);
+                const attempts = [tryOne(ovUrl)];
+                OV_FALLBACK_HOSTS.forEach((host, i) => {
+                    attempts.push(
+                        new Promise(res => setTimeout(res, 1200 * (i + 1)))
+                            .then(() => tryOne(host + '?data=' + encodeURIComponent(ovQuery)))
+                    );
+                });
+                let pending = attempts.length, done = false;
+                attempts.forEach(p => p.then(r => {
+                    if (r && !done) { done = true; resolve(r); return; }
+                    if (--pending === 0 && !done) resolve(null); // tous KO → couvert absent
+                }));
+            });
+
+            // ---- 4. SoilGrids : pH en 9 points (3×3) — interpolé ensuite par IDW ----
+            // Étalement ±0,85 des demi-bords de la matrice 1,5 km (au lieu de ±0,6 pour
+            // l'ancien carré 500 m) : les 9 sondes couvrent presque toute la zone indexée.
+            const soilPts = [];
+            [-0.85, 0, 0.85].forEach(fy => {
+                [-0.85, 0, 0.85].forEach(fx => {
+                    soilPts.push({ lat: lat + fy * dLat, lon: lon + fx * dLon });
+                });
+            });
+            const soilPromises = soilPts.map(p =>
+                fetchWithTimeout('https://rest.isric.org/soilgrids/v2.0/properties/query?lon=' + p.lon.toFixed(5) +
+                    '&lat=' + p.lat.toFixed(5) + '&property=phh2o&depth=0-30cm&value=mean', { timeout: 5000 })
+                    .then(r => (r && r.ok ? r.json() : null))
+                    .then(j => mushExtractPh(j))
+                    .catch(() => null)
+            );
+
+            const [elevSettled, wxSettled, ovSettled, soilSettled] = await Promise.allSettled([
+                elevTask, // 9 tuiles MNT + repli global parallèles + retry → { elevation, n } ou null
+                fetchWithTimeout(wxUrl, { timeout: 8000 }),
+                ovTask, // course estafette primaire+miroirs → Response | null (jamais 78 s)
+                Promise.all(soilPromises)
+            ]);
+            if (mySeq !== weatherRequestSeq) return; // lieu changé pendant le chargement
+
+            // ---- Overpass : course estafette (ovTask) — le premier hôte (primaire ou
+            // miroir) à répondre OK a déjà gagné pendant le allSettled ; ci-dessous on
+            // consomme simplement sa Response. Échec de tous = couvert absent (scores
+            // plus bas), jamais bloquant, jamais de donnée inventée.
+            const ovResolved = ovSettled;
+
+            // ---- MNT : pente/exposition/cuvettes ----
+            // elevTask résout en { elevation, n } (maille 28×28 comblée, repli 10×10 ou
+            // retry) ou null. Plus de throw 'MNT indisponible' : en cas d'échec total la
+            // grille est construite en mode neutre noDem (pente/exposition/altitude
+            // inconnues, flag posé sur la grille + note explicite) — la carte s'affiche
+            // toujours au lieu de tomber sur « Données indisponibles ».
+            let elevArr = null, elevN = 0;
+            if (elevSettled.status === 'fulfilled' && elevSettled.value && Array.isArray(elevSettled.value.elevation)) {
+                elevArr = elevSettled.value.elevation;
+                elevN = elevSettled.value.n;
+            }
+            const noDem = !elevArr;
+
+            // ---- Météo 10 jours : pluie, hygrométrie, vent (direction moyenne vectorielle) ----
+            const meta = { precip10: null, humidity: null, windDirDeg: 0, windSpeed: 0 };
+            let hydro = 0.5; // valeur neutre si l'appel météo échoue — jamais de donnée inventée
+            if (wxSettled.status === 'fulfilled' && wxSettled.value && wxSettled.value.ok) {
+                const wj = await wxSettled.value.json().catch(() => null);
+                if (wj && wj.daily && wj.hourly) {
+                    const p10 = (wj.daily.precipitation_sum || []).slice(0, 10).reduce((a, v) => a + (v || 0), 0);
+                    const p7 = (wj.daily.precipitation_sum || []).slice(10, 17).reduce((a, v) => a + (v || 0), 0);
+                    const tmax = (wj.daily.temperature_2m_max || []).slice(0, 10);
+                    const tmin = (wj.daily.temperature_2m_min || []).slice(0, 10);
+                    let tSum = 0, tN = 0;
+                    for (let i = 0; i < Math.min(tmax.length, tmin.length); i++) {
+                        if (typeof tmax[i] === 'number' && typeof tmin[i] === 'number') { tSum += (tmax[i] + tmin[i]) / 2; tN++; }
+                    }
+                    const tMean = tN ? tSum / tN : null;
+                    const humArr = (wj.hourly.relative_humidity_2m || []).slice(0, 240).filter(v => typeof v === 'number');
+                    const hum = humArr.length ? humArr.reduce((a, v) => a + v, 0) / humArr.length : null;
+                    // Direction du vent : moyenne vectorielle (sinon 359°+1° donnerait 180°…)
+                    const wDir = wj.hourly.wind_direction_10m || [];
+                    const wSpd = wj.hourly.wind_speed_10m || [];
+                    let sx = 0, sy = 0, sw = 0;
+                    for (let i = 0; i < Math.min(240, wDir.length); i++) {
+                        if (typeof wDir[i] !== 'number' || typeof wSpd[i] !== 'number') continue;
+                        const rad = wDir[i] * Math.PI / 180;
+                        sx += Math.sin(rad) * wSpd[i]; sy += Math.cos(rad) * wSpd[i]; sw += wSpd[i];
+                    }
+                    let windDir = 0, windSpd = 0;
+                    if (sw > 0) { windDir = (Math.atan2(sx, sy) * 180 / Math.PI + 360) % 360; windSpd = sw / Math.min(240, wDir.length); }
+                    let tempOk = 0.3;
+                    if (tMean !== null) {
+                        if (tMean >= 8 && tMean <= 18) tempOk = 1;
+                        else if (tMean > 18 && tMean <= 24) tempOk = 1 - (tMean - 18) / 8;
+                        else if (tMean >= 3 && tMean < 8) tempOk = 0.3 + (tMean - 3) / 10;
+                        else tempOk = 0.05;
+                    }
+                    hydro = mushClamp(
+                        0.34 * mushClamp(p10 / 45, 0, 1) +
+                        0.22 * mushClamp(p7 / 30, 0, 1) +
+                        0.22 * tempOk +
+                        0.22 * (hum !== null ? mushClamp((hum - 65) / 25, 0, 1) : 0.5), 0, 1);
+                    meta.precip10 = p10;
+                    meta.humidity = hum;
+                    meta.windDirDeg = windDir;
+                    meta.windSpeed = windSpd;
+                    // Index journalier (date → pluie/T°/hygrométrie) conservé pour recalculer
+                    // l'hydrométrie du JOUR choisi dans l'onglet principal (mushHydroForDay)
+                    // sans aucun re-appel réseau.
+                    meta.days = {};
+                    (wj.daily.time || []).forEach((d, i) => {
+                        meta.days[d] = {
+                            precip: (wj.daily.precipitation_sum || [])[i],
+                            tmax: (wj.daily.temperature_2m_max || [])[i],
+                            tmin: (wj.daily.temperature_2m_min || [])[i]
+                        };
+                    });
+                    try {
+                        const humByDay = {};
+                        (wj.hourly.time || []).forEach((t, i) => {
+                            const d = t.slice(0, 10);
+                            const v = (wj.hourly.relative_humidity_2m || [])[i];
+                            if (typeof v !== 'number') return;
+                            (humByDay[d] = humByDay[d] || []).push(v);
+                        });
+                        Object.keys(humByDay).forEach(d => {
+                            meta.days[d] = meta.days[d] || {};
+                            meta.days[d].hum = humByDay[d].reduce((a, b) => a + b, 0) / humByDay[d].length;
+                        });
+                    } catch (e) {}
+                }
+            }
+            if (meta.days === undefined) meta.days = {}; // fetch météo échoué → base vide
+            meta.hydro = hydro; // hydro de base (relevé 10 j du chargement), repris par mushHydroForDay
+
+            // ---- Overpass : masques de couvert + tags d'essences par parcelle ----
+            const polys = [];
+            if (ovResolved.status === 'fulfilled' && ovResolved.value && ovResolved.value.ok) {
+                const oj = await ovResolved.value.json().catch(() => null);
+                if (oj && Array.isArray(oj.elements)) {
+                    oj.elements.forEach(el => {
+                        if (!el.geometry || !el.tags) return;
+                        const t = el.tags;
+                        const isForest = (t.landuse === 'forest') || (t.natural === 'wood');
+                        const isOpen = (t.landuse === 'meadow') || (t.landuse === 'grassland') ||
+                            (t.landuse === 'grass') || (t.leisure === 'park') || (t.natural === 'scrub');
+                        if (!isForest && !isOpen) return;
+                        const speciesParts = [];
+                        ['species', 'genus', 'species:latin', 'natural:species'].forEach(k => {
+                            if (t[k]) speciesParts.push(String(t[k]).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
+                        });
+                        let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
+                        el.geometry.forEach(p => {
+                            if (p.lat < minLat) minLat = p.lat;
+                            if (p.lat > maxLat) maxLat = p.lat;
+                            if (p.lon < minLon) minLon = p.lon;
+                            if (p.lon > maxLon) maxLon = p.lon;
+                        });
+                        polys.push({ ring: el.geometry, forest: isForest, open: isOpen, speciesStr: speciesParts.join(' '), minLat, maxLat, minLon, maxLon });
+                    });
+                }
+            }
+
+            // ---- pH : IDW sur les 9 points valides (ou inconnu → neutre côté score) ----
+            const phKnown = (soilSettled.status === 'fulfilled' && Array.isArray(soilSettled.value)) ? soilSettled.value : [];
+            const phSamples = [];
+            let phOkCount = 0;
+            phKnown.forEach((ph, k) => {
+                if (typeof ph === 'number') { phOkCount++; phSamples.push(Object.assign({}, soilPts[k], { ph: ph })); }
+            });
+            function phAt(clat, clon) {
+                if (!phSamples.length) return null;
+                if (phSamples.length === 1) return phSamples[0].ph;
+                let wSum = 0, vSum = 0;
+                phSamples.forEach(p => {
+                    const dl = (p.lat - clat) * 111.32, dn = (p.lon - clon) * 111.32 * Math.cos(clat * Math.PI / 180);
+                    const d2 = dl * dl + dn * dn;
+                    const w = 1 / (d2 + 0.01); // IDW, évite la division par zéro au point exact
+                    wSum += w; vSum += w * p.ph;
+                });
+                return wSum ? vSum / wSum : null;
+            }
+
+            // ---- Construction fine de la grille N×N (interpolation bilinéaire du MNT) ----
+            function demBilinear(u, v) { // u: 0→ouest→est, v: 0→nord→sud ; elevN = 28 (tuiles) ou 10 (repli)
+                const gx = u * (elevN - 1), gy = v * (elevN - 1);
+                const x0 = Math.min(elevN - 1, Math.floor(gx)), y0 = Math.min(elevN - 1, Math.floor(gy));
+                const x1 = Math.min(elevN - 1, x0 + 1), y1 = Math.min(elevN - 1, y0 + 1);
+                const fx = gx - x0, fy = gy - y0;
+                const z00 = elevArr[y0 * elevN + x0], z01 = elevArr[y0 * elevN + x1];
+                const z10 = elevArr[y1 * elevN + x0], z11 = elevArr[y1 * elevN + x1];
+                return (z00 * (1 - fx) + z01 * fx) * (1 - fy) + (z10 * (1 - fx) + z11 * fx) * fy;
+            }
+            const z = new Float32Array(N * N);
+            if (!noDem) {
+                for (let i = 0; i < N; i++) {
+                    for (let j = 0; j < N; j++) {
+                        z[i * N + j] = demBilinear((j + 0.5) / N, (i + 0.5) / N);
+                    }
+                }
+            }
+            const cellM = (2 * half * 1000) / N; // taille d'une case en mètres (approx.)
+            const cells = [];
+            let forestCount = 0;
+            for (let i = 0; i < N; i++) {
+                for (let j = 0; j < N; j++) {
+                    const k = i * N + j;
+                    const i0 = Math.max(0, i - 1), i1 = Math.min(N - 1, i + 1);
+                    const j0 = Math.max(0, j - 1), j1 = Math.min(N - 1, j + 1);
+                    // Gradient → pente (°) et exposition (azimut de l'écoulement, 0 = N).
+                    // Sans MNT (noDem) : terrain neutre — pente 0°, exposition indéfinie
+                    // (aspectDeg null → hygrométrie latérale neutre 0,5), TPI 0, altitude
+                    // null (score d'altitude neutre comme un pH inconnu).
+                    let slopeDeg = 0, aspectDeg = null, aspectMoist = 0.5, tpi = 0;
+                    if (!noDem) {
+                        const dzdEast = (z[i * N + j1] - z[i * N + j0]) / ((j1 - j0) * cellM);
+                        const dzdSouth = (z[i1 * N + j] - z[i0 * N + j]) / ((i1 - i0) * cellM);
+                        const dzdNorth = -dzdSouth; // l'index de ligne croît vers le sud
+                        const slopeRad = Math.atan(Math.hypot(dzdEast, dzdNorth));
+                        slopeDeg = slopeRad * 180 / Math.PI;
+                        aspectDeg = (Math.atan2(-dzdEast, -dzdNorth) * 180 / Math.PI + 360) % 360;
+                        aspectMoist = 0.5 + 0.5 * Math.cos(aspectDeg * Math.PI / 180); // 1 = plein nord
+                        // TPI 5×5 : négatif = cuvette (retient l'eau), positif = crête/haut de versant
+                        let sum = 0, cnt = 0;
+                        for (let di = -2; di <= 2; di++) {
+                            for (let dj = -2; dj <= 2; dj++) {
+                                const ii = i + di, jj = j + dj;
+                                if (ii < 0 || jj < 0 || ii >= N || jj >= N) continue;
+                                sum += z[ii * N + jj]; cnt++;
+                            }
+                        }
+                        tpi = z[k] - (cnt ? sum / cnt : z[k]);
+                    }
+                    const cellAlt = noDem ? null : z[k];
+                    const cellLat = north - (north - south) * (i + 0.5) / N;
+                    const cellLon = west + (east - west) * (j + 0.5) / N;
+                    // Couvert OSM (bbox d'abord, puis ray casting)
+                    let forest = 0, open = 0, speciesStr = '';
+                    for (let p = 0; p < polys.length; p++) {
+                        const poly = polys[p];
+                        if (cellLat < poly.minLat || cellLat > poly.maxLat || cellLon < poly.minLon || cellLon > poly.maxLon) continue;
+                        if (!mushPointInRing(cellLat, cellLon, poly.ring)) continue;
+                        if (poly.forest) forest = 1;
+                        if (poly.open) open = 1;
+                        if (poly.speciesStr && !speciesStr) speciesStr = poly.speciesStr;
+                        if (forest && speciesStr) break;
+                    }
+                    if (forest) forestCount++;
+                    // Hydrométrie locale : exposition + drainage (pente) + cuvette − assèchement au vent
+                    const windExp = noDem ? 0 : Math.max(0, Math.cos((aspectDeg - meta.windDirDeg) * Math.PI / 180)) * mushClamp(meta.windSpeed / 8, 0, 1);
+                    let moistRaw = 0.35 * aspectMoist +
+                        0.30 * (1 - mushClamp(slopeDeg / 30, 0, 1)) +
+                        0.35 * mushClamp(0.5 - tpi / 4, 0, 1) -
+                        0.18 * windExp;
+                    const moist = mushClamp(moistRaw * (0.55 + 0.45 * hydro), 0, 1);
+                    cells.push({
+                        i, j, alt: cellAlt, slopeDeg, aspectDeg, aspectMoist, tpi, moist,
+                        moistRaw, // structurel (exposition/pente/cuvette/vent) — humidité du
+                                   // jour choisie : moist = moistRaw × (0.55 + 0.45 × hydro)
+                                   // recalculée par mushRefreshForDay(), sans re-build
+                        lat: cellLat, lon: cellLon, forest: !!forest, open: !!open,
+                        speciesStr, ph: phAt(cellLat, cellLon)
+                    });
+                }
+            }
+
+            const bounds = L.latLngBounds(
+                L.latLng(south, west),
+                L.latLng(north, east)
+            );
+            mushroomGrid = {
+                N, halfKm: half, north, south, east, west, cells, bounds,
+                forestPct: cells.length ? forestCount / cells.length : 0,
+                phKnown: phOkCount > 0,
+                phCount: phOkCount, // affiché dans la note par mushRefreshForDay
+                noDem, // true = MNT totalement indisponible → grille neutre (pente/alt n/d)
+                meta,
+                ctx: { hydro, nowMonth: mushSelectedMonth(typeof selectedDayIndex === 'number' ? selectedDayIndex : 0) },
+                dayHyd: null
+            };
+
+            if (mySeq !== weatherRequestSeq) return;
+            // Premier rendu + contexte du jour sélectionné dans l'onglet principal (le même
+            // que le hero) : saison du jour de prévision, hydrométrie de la fenêtre 10 j/7 j
+            // centrée sur ce jour, humidité spatiale, en-tête date/T°/pictos, pastilles et
+            // note — tout est recalculé pour CE jour (demande 23/09/2026).
+            mushRefreshForDay(typeof selectedDayIndex === 'number' ? selectedDayIndex : 0);
+        }
+
+        // ============================================================================
         // JARDINAGE : "QUOI FAIRE EN CE MOMENT ?" — encart en tête de l'onglet Eau/Jardinage
         // ============================================================================
         // Ajouté le 12/09/2026, juste avant la carte Chauffage. Ce n'est PAS un simple calendrier
@@ -18966,19 +20318,10 @@ async function loadInversionLevels(lat, lon){
             if (hint) hint.style.display = pickingLocation ? 'block' : 'none';
         }
 
-        async function onMapClickForPicking(e) {
-            if (!pickingLocation || !map) return;
-            const lat = e.latlng.lat, lon = e.latlng.lng;
-
-            pickingLocation = false;
-            const btn = document.getElementById('pick-location-btn');
-            const hint = document.getElementById('radar-pick-hint');
-            if (btn) btn.classList.remove('active');
-            if (hint) hint.style.display = 'none';
-
-            // Nom du lieu choisi (best effort, via le géocodage inverse IGN utilisé ailleurs dans
-            // l'app pour la vigilance ; fonctionne pour la France, repli honnête sur les
-            // coordonnées si indisponible plutôt que d'inventer un nom).
+        // Géocodage inverse IGN (France) + rechargement complet de l'app sur le point choisi —
+        // partagé carte radar / carte champignons (ajout 23/09/2026). Repli honnête sur les
+        // coordonnées si le géocodage est indisponible, plutôt que d'inventer un nom.
+        async function applyPickedForecastLocation(lat, lon) {
             let label = `Position choisie (${lat.toFixed(3)}, ${lon.toFixed(3)})`;
             try {
                 const url = `https://data.geopf.fr/geocodage/reverse?lon=${lon}&lat=${lat}&index=address&limit=1`;
@@ -18990,11 +20333,23 @@ async function loadInversionLevels(lat, lon){
                     if (city) label = city;
                 }
             } catch (err) { /* repli sur les coordonnées, déjà défini ci-dessus */ }
-
             // La fonction cible prend le dessus sur toute l'application : recharge tous les champs
-            // (météo maintenant, vigilance, graphiques, tableau 16j, radar, etc.) exactement comme
-            // le ferait une recherche classique de ville.
+            // (météo maintenant, vigilance, graphiques, tableau 16j, radar, grille champignons…)
+            // exactement comme le ferait une recherche classique de ville.
             await fetchWeather(lat, lon, label);
+        }
+
+        async function onMapClickForPicking(e) {
+            if (!pickingLocation || !map) return;
+            const lat = e.latlng.lat, lon = e.latlng.lng;
+
+            pickingLocation = false;
+            const btn = document.getElementById('pick-location-btn');
+            const hint = document.getElementById('radar-pick-hint');
+            if (btn) btn.classList.remove('active');
+            if (hint) hint.style.display = 'none';
+
+            await applyPickedForecastLocation(lat, lon);
             if (radarMode !== 'forecast') await setRadarMode('forecast');
         }
 
