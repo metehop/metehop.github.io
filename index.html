@@ -3682,6 +3682,9 @@
                 </button>
             </div>
             <div class="card-collapsible-body" id="mushroom-card-body">
+                <div class="card-sage-sub" id="mushroom-load-row" style="margin-bottom:8px;">
+                    <button type="button" class="btn-load-data" id="mushroom-load-btn" onclick="loadMushroomMapManual()"><i class="fa-solid fa-tree"></i> Charger la carte champignons (~10 requêtes)</button>
+                </div>
                 <div class="heating-status-row" id="mushroom-pills" style="display:none;">
                     <div class="heating-status-pill">
                         <div class="heating-pill-label">Pluie 10 j</div>
@@ -4671,6 +4674,9 @@
                 <!-- Désaccord entre modèles météo (chantier 2, 12/09/2026) : visible seulement si, sur au
                      moins un des 7 prochains jours, les modèles (prévision affichée / ICON / ECMWF /
                      AROME / ARPEGE) divergent franchement. Voir loadModelDisagreement() / renderModelDisagreementCard(). -->
+                <div class="card-sage-sub" id="model-disagree-load-row" data-groups="general" data-level="expert" style="margin-bottom:8px;">
+                    <button type="button" class="btn-load-data" id="model-disagree-load-btn" onclick="loadModelDisagreementManual()"><i class="fa-solid fa-scale-unbalanced"></i> Comparer les modèles (ICON/ECMWF/AROME/ARPEGE)</button>
+                </div>
                 <div class="model-disagree-card" id="model-disagree-card" data-groups="general" data-level="expert" style="display:none;">
                     <div class="model-disagree-header">
                         <i class="fa-solid fa-scale-unbalanced"></i>
@@ -5825,6 +5831,7 @@
         // Carte des champignons (23/09/2026) : chargée à l'ouverture de l'onglet Eau/Nature,
         // comme le bilan hydrique — voir loadMushroomMap() et resetMushroomGate().
         let mushroomLoaded = false;
+        let modelDisagreementLoaded = false; // Comparaison des modèles : chargement manuel (bouton), 4 requêtes API
         let mushMap = null;               // instance Leaflet de la carte champignons
         let mushOverlay = null;           // L.imageOverlay dessinant la grille d'indices
         let mushMarker = null;            // marqueur du lieu consulté
@@ -7674,17 +7681,9 @@ function applyDisplayMode() {
                     document.getElementById('water-balance-note').innerText = 'Données indisponibles pour le moment.';
                 });
             }
-            // Carte des champignons (ajout 23/09/2026) : même chargement différé à l'ouverture
-            // de l'onglet que le bilan hydrique juste au-dessus (MNT + Overpass + SoilGrids +
-            // mémoire hydrique 10 j, tout en parallèle via allSettled).
-            if (group === 'eau' && !mushroomLoaded && currentLat !== null) {
-                mushroomLoaded = true;
-                document.getElementById('mushroom-note').innerText = 'Chargement du relief, des sols et du couvert forestier...';
-                loadMushroomMap(currentLat, currentLon).catch((err) => {
-                    console.error('Chargement carte champignons :', err);
-                    document.getElementById('mushroom-note').innerText = 'Données indisponibles pour le moment.';
-                });
-            }
+            // Carte des champignons (25/09/2026) : chargement manuel via bouton dédié
+            // (#mushroom-load-btn, ~10 requêtes API) — plus d'auto-chargement à l'ouverture
+            // de l'onglet, voir loadMushroomMapManual().
             if (group === 'eau' && !heatingLoaded && currentLat !== null) {
                 heatingLoaded = true;
                 document.getElementById('heating-note').innerText = 'Chargement de la climatologie locale...';
@@ -7807,6 +7806,29 @@ function applyDisplayMode() {
             if (pills) pills.style.display = 'none';
             if (mushOverlay && mushMap) { try { mushMap.removeLayer(mushOverlay); } catch (e) {} mushOverlay = null; }
             mushroomGrid = null;
+            const row = document.getElementById('mushroom-load-row');
+            const btn = document.getElementById('mushroom-load-btn');
+            if (row) row.style.display = '';
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-tree"></i> Charger la carte champignons (~10 requêtes)'; }
+        }
+        // Chargement manuel de la carte champignons (bouton #mushroom-load-btn, 25/09/2026) :
+        // ~10 requêtes Open-Meteo (9 tuiles MNT + repli élévation) + Overpass + SoilGrids,
+        // trop coûteux pour un chargement automatique à chaque lieu/onglet.
+        function loadMushroomMapManual() {
+            if (mushroomLoaded || currentLat === null) return;
+            mushroomLoaded = true;
+            const btn = document.getElementById('mushroom-load-btn');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Chargement...'; }
+            document.getElementById('mushroom-note').innerText = 'Chargement du relief, des sols et du couvert forestier...';
+            loadMushroomMap(currentLat, currentLon).then(() => {
+                const row = document.getElementById('mushroom-load-row');
+                if (row) row.style.display = 'none';
+            }).catch((err) => {
+                console.error('Chargement carte champignons :', err);
+                document.getElementById('mushroom-note').innerText = 'Données indisponibles pour le moment.';
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Réessayer'; }
+                mushroomLoaded = false;
+            });
         }
 
         // ---- Station météo personnelle à proximité (Tencin, ITENCI3) : Weather Underground PWS ----
@@ -8844,7 +8866,7 @@ function applyDisplayMode() {
 render16DayTable();
                 setTimeout(()=>{ try{ renderCloudProfileChart(); }catch(e){ console.error(e); } }, 500);
                 renderModelDisagreementCard([]);
-                loadModelDisagreement(lat, lon).catch(() => {});
+                resetModelDisagreementGate();
                 saveBenchmarkSnapshot(); // mémoire des prévisions dès que possible (Metehop affiché)
                 safeBenchmarkRun(() => {
                     loadBenchmarkReality(lat, lon).catch(() => {});
@@ -8875,7 +8897,7 @@ render16DayTable();
                 pickingLocation = false;
                 if (typeof setMushPickMode === 'function') setMushPickMode(false);
                 initRadarMap(lat, lon).then(() => loadEvoMetehop()).catch(() => loadEvoMetehop());
-                if (mapLayersState.wind || mapLayersState.temp || mapLayersState.cloud) updateMapOverlayLayers().catch(() => {});
+                resetMapLayersGate(); // nouveau lieu : calques désactivés, à réactiver manuellement (9 requêtes)
                 updateMoonPhase();
 
                 // Chargement différé par groupe (optimisation API) : on ne recharge que les
@@ -8892,18 +8914,7 @@ render16DayTable();
                 if (hydroDataLoaded) loadHydroCard(lat, lon).catch(() => {});
                 resetPlantationGate();
                 resetWaterBalanceGate();
-                resetMushroomGate();
-                // Carte des champignons : si l'onglet Nature est déjà actif, on recharge tout de
-                // suite pour le nouveau lieu (sinon l'ancienne grille resterait affichée jusqu'au
-                // prochain passage sur un autre onglet puis retour — cf. gardenCalendar ci-dessous).
-                mushroomLoaded = (currentGroup === 'eau');
-                if (mushroomLoaded && typeof lat === 'number') {
-                    document.getElementById('mushroom-note').innerText = 'Chargement du relief, des sols et du couvert forestier...';
-                    loadMushroomMap(lat, lon).catch((err) => {
-                        console.error('Chargement carte champignons :', err);
-                        document.getElementById('mushroom-note').innerText = 'Données indisponibles pour le moment.';
-                    });
-                }
+                resetMushroomGate(); // nouveau lieu : le bouton #mushroom-load-btn réapparaît, à recliquer
                 resetSeasonalTrendsGate();
                 resetHeatingGate();
                 resetGardenGate();
@@ -13574,6 +13585,30 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
             return new Date(y, m - 1, d).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
         }
 
+        // ---- Comparaison des modèles (bouton "Charger les données", 25/09/2026) : 4 requêtes
+        // Open-Meteo séparées (ICON/ECMWF/AROME/ARPEGE) à chaque lieu — trop coûteux pour un
+        // chargement automatique systématique, voir demande utilisateur du 25/09/2026. ----
+        function resetModelDisagreementGate() {
+            modelDisagreementLoaded = false;
+            const row = document.getElementById('model-disagree-load-row');
+            const btn = document.getElementById('model-disagree-load-btn');
+            if (row) row.style.display = '';
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-scale-unbalanced"></i> Comparer les modèles (ICON/ECMWF/AROME/ARPEGE)'; }
+        }
+        function loadModelDisagreementManual() {
+            if (modelDisagreementLoaded || currentLat === null) return;
+            modelDisagreementLoaded = true;
+            const btn = document.getElementById('model-disagree-load-btn');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Chargement...'; }
+            loadModelDisagreement(currentLat, currentLon).then(() => {
+                const row = document.getElementById('model-disagree-load-row');
+                if (row) row.style.display = 'none';
+            }).catch(() => {
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Réessayer'; }
+                modelDisagreementLoaded = false;
+            });
+        }
+
         async function loadModelDisagreement(lat, lon) {
             const mySeq = weatherRequestSeq;
             const baseline = weatherData && weatherData.daily;
@@ -14213,6 +14248,25 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
         // dessinés sur la grille 4km×4km (getForecastAtPoint, interpolée depuis les 9 points réels
         // Open-Meteo). Chaque couche est indépendante et se cumule avec les autres.
         let mapLayersState = { wind: false, temp: false, cloud: false };
+
+        // ---- Calques carte vent/temp/nuages (25/09/2026) : chaque activation charge une grille
+        // de 9 points Open-Meteo séparés (loadGridForecasts). Un changement de lieu désactive les
+        // calques actifs plutôt que de relancer ces 9 requêtes automatiquement — l'utilisateur
+        // recoche la case voulue (geste explicite) pour recharger sur le nouveau lieu. ----
+        function resetMapLayersGate() {
+            if (!mapLayersState.wind && !mapLayersState.temp && !mapLayersState.cloud) return;
+            mapLayersState = { wind: false, temp: false, cloud: false };
+            ['layer-wind', 'layer-temp', 'layer-cloud'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.checked = false;
+            });
+            if (typeof mapLayersOverlayLayer !== 'undefined' && mapLayersOverlayLayer && typeof map !== 'undefined' && map) {
+                try { map.removeLayer(mapLayersOverlayLayer); } catch (e) {}
+                mapLayersOverlayLayer = null;
+            }
+            const legendEl = document.getElementById('map-layers-legend');
+            if (legendEl) legendEl.innerHTML = '';
+        }
         let mapLayersOverlayLayer = null;
 
         function toggleMapLayersMenu() {
@@ -19006,35 +19060,35 @@ async function loadInversionLevels(lat, lon){
             {
                 id: 'mush-cepe', name: 'Cèpe de Bordeaux', sci: 'Boletus edulis', color: '#8b5e3c',
                 hosts: ['quercus', 'chene', 'fagus', 'hetre', 'picea', 'epicea', 'abies', 'sapin', 'castanea', 'chat'],
-                symbiotic: true, forest: true, soil: [4.5, 6.5], soilTol: 0.9,
+                symbiotic: true, forest: true, soil: [4.5, 6.5], soilTol: 0.9, leafPref: 'mixed',
                 slopeDeg: [5, 30], aspect: 'n', hydro: 'mesic', tpi: 'versant', altM: [0, 1800],
                 months: [8, 9, 10, 11], metrics: 'Symbiose : chênes, hêtres, épicéas, sapins · sol acide bien drainé (pH 4,5–6,5) · versants frais N/NE, pentes 5–30° bien égouttées · 0–1800 m (optimum 400–1200) · poussée 8–14 j après 30–50 mm de pluie (sept.–nov.).'
             },
             {
                 id: 'mush-girolle', name: 'Girolle', sci: 'Cantharellus cibarius', color: '#e9c46a',
                 hosts: ['fagus', 'hetre', 'quercus', 'chene', 'pinus', 'pin', 'abies', 'sapin', 'picea', 'epicea'],
-                symbiotic: true, forest: true, soil: [4.5, 6.5], soilTol: 1.0,
+                symbiotic: true, forest: true, soil: [4.5, 6.5], soilTol: 1.0, leafPref: 'mixed',
                 slopeDeg: [0, 25], aspect: 'any', hydro: 'mesic', tpi: 'any', altM: [0, 1500],
                 months: [7, 8, 9, 10, 11], metrics: 'Symbiose très polyvalente (hêtre, chêne, pin, sapin) · sol acide · sous-bois bien développé, mousse et litière fraîche, mi-ombre · 0–1500 m · juil.–nov., pic sept.–oct.'
             },
             {
                 id: 'mush-trompette', name: 'Trompette des morts', sci: 'Craterellus cornucopioides', color: '#4a3f6b',
                 hosts: ['quercus', 'chene', 'fagus', 'hetre', 'castanea', 'chat'],
-                symbiotic: true, forest: true, soil: [4.5, 6.5], soilTol: 1.0,
+                symbiotic: true, forest: true, soil: [4.5, 6.5], soilTol: 1.0, leafPref: 'broadleaf',
                 slopeDeg: [0, 25], aspect: 'n', hydro: 'wet', tpi: 'cuvette', altM: [0, 1200],
                 months: [10, 11, 12], metrics: 'Symbiose : chênes et hêtres, sous-bois humide · sol acide · cuvettes et bas de versant qui restent frais · après la chute des feuilles (nov.–déc.), jusqu\'aux premières gelées.'
             },
             {
                 id: 'mush-piedmouton', name: 'Pied de mouton', sci: 'Hydnum repandum', color: '#cbb88f',
                 hosts: ['quercus', 'chene', 'fagus', 'hetre', 'pinus', 'pin', 'abies', 'sapin'],
-                symbiotic: true, forest: true, soil: [5.0, 7.2], soilTol: 1.1,
+                symbiotic: true, forest: true, soil: [5.0, 7.2], soilTol: 1.1, leafPref: 'mixed', frostHardy: true,
                 slopeDeg: [0, 20], aspect: 'any', hydro: 'mesic', tpi: 'any', altM: [0, 1200],
                 months: [10, 11, 12, 1], metrics: 'Symbiose : chêne, hêtre, pin · sol acide à légèrement neutre · pentes douces et lisières bien éclairées · très résistant au gel (jusqu\'à −3 °C) · oct.–janv.'
             },
             {
                 id: 'mush-lactaire', name: 'Lactaire délicieux', sci: 'Lactarius deliciosus', color: '#c1440e',
                 hosts: ['pinus', 'pin', 'picea', 'epicea', 'abies', 'sapin'],
-                symbiotic: true, forest: true, soil: [4.5, 6.5], soilTol: 0.9,
+                symbiotic: true, forest: true, soil: [4.5, 6.5], soilTol: 0.9, leafPref: 'conifer',
                 slopeDeg: [5, 30], aspect: 'n', hydro: 'mesic', tpi: 'versant', altM: [200, 1500],
                 months: [8, 9, 10, 11], metrics: 'Symbiose : pins, épicéas, sapins (résineux) · sol acide · versants bien drainés 200–1500 m · poussée après pluies régulières d\'automne (sept.–nov.).'
             },
@@ -19071,7 +19125,7 @@ async function loadInversionLevels(lat, lon){
                 // girolle (Cantharellus cibius) : la « chanterelle » des résineux de montagne.
                 id: 'mush-chanterelle', name: 'Chanterelle en tube', sci: 'Cantharellus tubaeformis', color: '#b07d2b',
                 hosts: ['picea', 'epicea', 'abies', 'sapin', 'pinus', 'pin'],
-                symbiotic: true, forest: true, soil: [3.5, 5.5], soilTol: 1.0,
+                symbiotic: true, forest: true, soil: [3.5, 5.5], soilTol: 1.0, leafPref: 'conifer', frostHardy: true,
                 slopeDeg: [0, 25], aspect: 'n', hydro: 'wet', tpi: 'any', altM: [200, 2000],
                 months: [8, 9, 10, 11, 12, 1], metrics: 'Symbiose : épicéas, sapins, pins (résineux de montagne) · sol acide, mousseux et humide · sous-bois d\'épicéa, cuvettes fraîches, landes à myrtilles · 200–2000 m · août–janvier, pic sept.–nov., fructifie aussi en hiver doux.'
             }
@@ -19177,23 +19231,25 @@ async function loadInversionLevels(lat, lon){
                 if (weatherData && weatherData.daily && weatherData.daily.time && weatherData.daily.time[dayIdx]) date = weatherData.daily.time[dayIdx];
                 else if (weatherData && weatherData.hourly && weatherData.hourly.time && weatherData.hourly.time[dayIdx * 24]) date = weatherData.hourly.time[dayIdx * 24].slice(0, 10);
             } catch (e) {}
-            if (!date) return { hydro: baseHydro, precip10: null, humidity: null };
+            if (!date) return { hydro: baseHydro, precip10: null, humidity: null, frostRecent: false };
             const dayMs = Date.parse(date + 'T12:00:00Z');
             const iso = ms => new Date(ms).toISOString().slice(0, 10);
-            let p10 = 0, n10 = 0, tSum = 0, tN = 0, hSum = 0, hN = 0;
+            const FROST_TMIN_C = -2; // gel dur : au-delà, les fructifications fragiles s'arrêtent
+            let p10 = 0, n10 = 0, tSum = 0, tN = 0, hSum = 0, hN = 0, frostRecent = false;
             for (let k = 9; k >= 0; k--) {
                 const r = recs[iso(dayMs - k * 86400000)];
                 if (!r) continue;
                 if (typeof r.precip === 'number') { p10 += r.precip; n10++; }
                 if (typeof r.tmax === 'number' && typeof r.tmin === 'number') { tSum += (r.tmax + r.tmin) / 2; tN++; }
                 if (typeof r.hum === 'number') { hSum += r.hum; hN++; }
+                if (typeof r.tmin === 'number' && r.tmin <= FROST_TMIN_C) frostRecent = true;
             }
             let p7 = 0, n7 = 0;
             for (let k = 0; k <= 6; k++) {
                 const r = recs[iso(dayMs + k * 86400000)];
                 if (r && typeof r.precip === 'number') { p7 += r.precip; n7++; }
             }
-            if (!n10 && !n7 && !tN && !hN) return { hydro: baseHydro, precip10: null, humidity: null };
+            if (!n10 && !n7 && !tN && !hN) return { hydro: baseHydro, precip10: null, humidity: null, frostRecent: false };
             if (n10 && n10 < 10) p10 = p10 * 10 / n10;   // fenêtre tronquée → taux journalier × 10
             if (n7 && n7 < 7) p7 = p7 * 7 / n7;           // idem pour les 7 j à venir
             const tMean = tN ? tSum / tN : null;
@@ -19210,7 +19266,7 @@ async function loadInversionLevels(lat, lon){
                 0.22 * mushClamp(p7 / 30, 0, 1) +
                 0.22 * tempOk +
                 0.22 * (hum !== null ? mushClamp((hum - 65) / 25, 0, 1) : 0.5), 0, 1);
-            return { hydro, precip10: n10 ? p10 : null, humidity: hum };
+            return { hydro, precip10: n10 ? p10 : null, humidity: hum, frostRecent };
         }
 
         // En-tête au-dessus de la carte : date du jour de prévision (le même que le hero),
@@ -19263,7 +19319,7 @@ async function loadInversionLevels(lat, lon){
             if (!mushroomGrid) return; // carte pas encore chargée (chargement différé à l'onglet)
             const baseHydro = (mushroomGrid.meta && typeof mushroomGrid.meta.hydro === 'number') ? mushroomGrid.meta.hydro : 0.5;
             const dayHyd = mushHydroForDay(dayIdx, baseHydro);
-            const ctx = { hydro: dayHyd.hydro, nowMonth: mushSelectedMonth(dayIdx) };
+            const ctx = { hydro: dayHyd.hydro, nowMonth: mushSelectedMonth(dayIdx), frostRecent: !!dayHyd.frostRecent };
             mushroomGrid.ctx = ctx;
             mushroomGrid.dayHyd = dayHyd;
             // Humidité spatiale : structurel (exposition, pente, cuvette, vent — figé au
@@ -19283,7 +19339,8 @@ async function loadInversionLevels(lat, lon){
                 note.innerText = 'Hydrométrie 10 j (à la date choisie) : ' + Math.round(ctx.hydro * 100) + ' % · couvert boisé : ' +
                     Math.round(g.forestPct * 100) + ' % · sol : ' +
                     (g.phKnown ? 'pH estimé (SoilGrids, ' + (g.phCount || 0) + '/9 pts)' : 'pH indisponible') +
-                    ' · ' + sf.label + (g.noDem ? ' · relief (MNT) indisponible, indices sans pente/exposition' : '') + '.';
+                    ' · ' + sf.label + (ctx.frostRecent ? ' · gel récent (≤ −2 °C) : espèces fragiles pénalisées' : '') +
+                    (g.noDem ? ' · relief (MNT) indisponible, indices sans pente/exposition' : '') + '.';
             }
         }
 
@@ -19313,6 +19370,12 @@ async function loadInversionLevels(lat, lon){
         // Score 0..1 d'une case pour une espèce (pondérations identiques pour toutes les
         // espèces : seules les préférences changent — plus lisible et plus honnête).
         function mushScoreCell(sp, cell, ctx) {
+            // Route/voie ferrée/bâti (25/09/2026) : exclusion dure, quelle que soit l'espèce —
+            // avant, une case "route" gardait forest=open=0, ce qui la rendait FAVORABLE aux
+            // espèces de prairie (gate=1 dès que non-forêt) et donc coloriée à tort par-dessus
+            // la route visible sur le fond de carte. Ce n'est plus une question de gate/land,
+            // c'est un habitat impossible pour toute espèce.
+            if (cell.built) return 0;
             const W = { host: 0.24, land: 0.13, hydro: 0.16, slope: 0.10, aspect: 0.08, soil: 0.12, alt: 0.09, tpi: 0.08 };
             // — Hôte / essence : tag species/genus OSM de la parcelle contenante
             let hostS;
@@ -19322,13 +19385,25 @@ async function loadInversionLevels(lat, lon){
                 for (let i = 0; i < sp.hosts.length; i++) {
                     if (cell.speciesStr.indexOf(sp.hosts[i]) !== -1) { hostS = 1; break; }
                 }
+            } else if (cell.leaf && sp.leafPref && sp.leafPref !== 'mixed') {
+                // Repli feuillu/conifère (25/09/2026) : species/genus absent (cas fréquent),
+                // mais leaf_type quasi systématique sur les forêts IGN — signal bien plus fiable
+                // que le "forêt générique" neutre pour une espèce à hôte tranché (résineux
+                // uniquement, ou feuillus uniquement).
+                const wantsConifer = sp.leafPref === 'conifer';
+                if (cell.leaf === 'needleleaved') hostS = wantsConifer ? 0.85 : 0.15;
+                else if (cell.leaf === 'broadleaved') hostS = wantsConifer ? 0.15 : 0.85;
+                else hostS = 0.5; // leaf_type=mixed sur la parcelle : incertain
             } else if (cell.forest) hostS = 0.62;  // forêt oui, essence non renseignée sur OSM
             else hostS = 0.15;
             // — Couvert : espèce forestière / de lisière / de prairie
+            // 'cult' (25/09/2026) : champ labouré, verger, vigne — jamais une prairie non
+            // fertilisée. Pénalisé pour les espèces de prairie/lisière, neutre-bas pour les
+            // forestières (aucun couvert boisé, mais pas non plus un vrai sous-bois).
             let landS;
-            if (sp.forest === true) landS = cell.forest ? 1 : (cell.open ? 0.25 : 0.1);
-            else if (sp.forest === false) landS = cell.forest ? 0.1 : 1;
-            else landS = cell.forest ? 0.45 : (cell.open ? 1 : 0.7); // 'edge' : lisière & milieux ouverts
+            if (sp.forest === true) landS = cell.forest ? 1 : (cell.open ? 0.25 : (cell.cult ? 0.15 : 0.1));
+            else if (sp.forest === false) landS = cell.forest ? 0.1 : (cell.cult ? 0.3 : 1);
+            else landS = cell.forest ? 0.45 : (cell.open ? 1 : (cell.cult ? 0.4 : 0.7)); // 'edge'
             // — Hydrométrie spatiale (exposition, drainage par la pente, cuvette, vent) × mémoire pluie
             const hydroS = mushClamp(1 - Math.abs(cell.moist - ({ dry: 0.28, mesic: 0.55, wet: 0.78 })[sp.hydro]) / 0.4, 0, 1);
             const slopeS = mushSlopeScore(cell.slopeDeg, sp);
@@ -19351,13 +19426,17 @@ async function loadInversionLevels(lat, lon){
             // à 1 sur tout le territoire. Un espèce forestière dans une clairière ouverte ne
             // vaut rien ; un rosé des prés sous couvert dense non plus.
             let gate = 1;
-            if (sp.forest === true) gate = cell.forest ? 1 : (cell.open ? 0.45 : 0.26);
-            else if (sp.forest === false) gate = cell.forest ? 0.30 : 1;
-            else gate = cell.forest ? 0.55 : 1; // 'edge' : lisière/ouvert idéal, sous-bois dense pénalisé
+            if (sp.forest === true) gate = cell.forest ? 1 : (cell.open ? 0.45 : (cell.cult ? 0.2 : 0.26));
+            else if (sp.forest === false) gate = cell.forest ? 0.30 : (cell.cult ? 0.35 : 1);
+            else gate = cell.forest ? 0.55 : (cell.cult ? 0.5 : 1); // 'edge' : lisière/ouvert idéal, sous-bois dense pénalisé
             const gated = raw * gate;
             const sf = mushSeasonFactor(sp, ctx.nowMonth);
             const globalHyd = 0.70 + 0.30 * ctx.hydro; // année sèche → tout descend, zones relatives conservées
-            return mushClamp(Math.round(gated * globalHyd * sf.f * 4), 0, 4);
+            // Gel récent (25/09/2026) : une nuit ≤ −2 °C dans les 10 j arrête la fructification
+            // des espèces fragiles (cèpe, girolle, morille…) — seules celles marquées
+            // frostHardy (pied de mouton, chanterelle en tube) ne sont pas pénalisées.
+            const frostPenalty = (ctx.frostRecent && !sp.frostHardy) ? 0.55 : 1;
+            return mushClamp(Math.round(gated * globalHyd * sf.f * frostPenalty * 4), 0, 4);
         }
 
         // Hôte dans un polygone OSM (ray casting) — anneau déjà fermé par Overpass.
@@ -19722,7 +19801,20 @@ async function loadInversionLevels(lat, lon){
 
             // ---- 3. Overpass : forêts, bois, prairies, landes + géométries pour le point-dans-polygone ----
             const bb = '(' + south.toFixed(5) + ',' + west.toFixed(5) + ',' + north.toFixed(5) + ',' + east.toFixed(5) + ')';
-            const ovQuery = '[out:json][timeout:15];(' +
+            // way + relation (25/09/2026) : les grands massifs forestiers OSM sont souvent
+            // découpés en multipolygones dont le tag landuse=forest est porté par la RELATION,
+            // jamais par ses way membres pris séparément — sans ce 2e jeu de clauses, ces
+            // forêts étaient invisibles (voir traitement des membres outer/inner plus bas).
+            // highway/railway (25/09/2026) : routes carrossables + voies ferrées récupérées pour
+            // EXCLURE la case "route" de la coloration, quelle que soit l'espèce affichée (voir
+            // rastérisation roadCells + exclusion dure dans mushScoreCell plus bas) — corrige les
+            // carrés colorés à tort par-dessus une route/voie ferrée visible sur le fond de carte.
+            // footway/path volontairement exclus (trop nombreux en forêt, hors-sujet).
+            // cultivé/bâti (25/09/2026) : champs labourés (farmland/verger/vigne) et zones
+            // urbanisées (résidentiel/industriel/commercial), jusqu'ici confondus avec "prairie"
+            // faute d'être interrogés — un rosé des prés ne pousse pas dans un champ de maïs
+            // labouré ni sur un parking. Catégories distinctes de "open", voir mushScoreCell.
+            const ovQuery = '[out:json][timeout:20];(' +
                 'way["landuse"="forest"]' + bb + ';' +
                 'way["natural"="wood"]' + bb + ';' +
                 'way["landuse"="meadow"]' + bb + ';' +
@@ -19730,7 +19822,20 @@ async function loadInversionLevels(lat, lon){
                 'way["landuse"="grass"]' + bb + ';' +   // le vrai tag OSM des pelouses (grassland est très rare)
                 'way["leisure"="park"]' + bb + ';' +    // parcs urbains — indispensables en ville (test 500 m, Grenoble, 23/09/2026)
                 'way["natural"="scrub"]' + bb + ';' +
-                ');out geom 700;';
+                'way["landuse"~"^(farmland|orchard|vineyard|allotments)$"]' + bb + ';' +
+                'way["landuse"~"^(residential|industrial|commercial|retail)$"]' + bb + ';' +
+                'relation["landuse"="forest"]' + bb + ';' +
+                'relation["natural"="wood"]' + bb + ';' +
+                'relation["landuse"="meadow"]' + bb + ';' +
+                'relation["landuse"="grassland"]' + bb + ';' +
+                'relation["landuse"="grass"]' + bb + ';' +
+                'relation["leisure"="park"]' + bb + ';' +
+                'relation["natural"="scrub"]' + bb + ';' +
+                'relation["landuse"~"^(farmland|orchard|vineyard|allotments)$"]' + bb + ';' +
+                'relation["landuse"~"^(residential|industrial|commercial|retail)$"]' + bb + ';' +
+                'way["highway"~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|track|service)$"]' + bb + ';' +
+                'way["railway"~"^(rail|light_rail|tram|narrow_gauge)$"]' + bb + ';' +
+                ');out geom 1600;';
             const ovUrl = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(ovQuery);
             // Miroirs de secours, testés en conditions réelles le 23/09/2026 : overpass-api.de
             // peut resetter la connexion (WinError 10054), kumi.systems peut timeout, et
@@ -19747,7 +19852,7 @@ async function loadInversionLevels(lat, lon){
             // d'attente (le chargement « interminable ») ; maintenant ~1–3 s si un hôte va
             // vite, plafond ≈ 13,6 s (tous hôtes confondus, timeouts bornés).
             const ovTask = new Promise(resolve => {
-                const tryOne = (url) => fetchWithTimeout(url, { timeout: 10000 })
+                const tryOne = (url) => fetchWithTimeout(url, { timeout: 15000 }) // 20s côté serveur (requête élargie 25/09/2026) : marge client alignée
                     .then(r => (r && r.ok ? r : null))
                     .catch(() => null);
                 const attempts = [tryOne(ovUrl)];
@@ -19881,30 +19986,70 @@ async function loadInversionLevels(lat, lon){
             if (meta.days === undefined) meta.days = {}; // fetch météo échoué → base vide
             meta.hydro = hydro; // hydro de base (relevé 10 j du chargement), repris par mushHydroForDay
 
-            // ---- Overpass : masques de couvert + tags d'essences par parcelle ----
+            // ---- Overpass : masques de couvert + tags d'essences par parcelle + routes ----
+            // (25/09/2026) 3 catégories d'éléments désormais traitées :
+            //  - way forêt/ouvert : un anneau plein, comme avant.
+            //  - relation forêt/ouvert (multipolygone) : chaque membre "outer" devient un anneau
+            //    plein, chaque membre "inner" un anneau "trou" (clairière/chemin) qui annule
+            //    forest/open à l'intérieur même si un AUTRE anneau plein couvre le même point
+            //    (2e passe dans la boucle de classification, voir hole ci-dessous).
+            //  - way route (highway) : jamais un polygone forêt/ouvert — récupéré à part dans
+            //    roadWays pour être rastérisé sur la grille (roadCells) et exclure ces cases de
+            //    toute coloration, quelle que soit la végétation OSM sous-jacente.
+            // (25/09/2026) 4 catégories de couvert désormais distinguées (kind), au lieu de 2 :
+            // 'forest' / 'open' (prairie non cultivée) comme avant, plus 'cult' (champ labouré,
+            // verger, vigne — jamais une prairie non fertilisée, pénalisé pour le rosé des prés/
+            // coulemelle) et 'built' (résidentiel/industriel/commercial — exclusion dure, comme
+            // une route, voir mushScoreCell). roadWays regroupe aussi les voies ferrées : ni l'un
+            // ni l'autre n'est un polygone de couvert, ils sont rastérisés à part (roadCells) et
+            // toujours exclus de la coloration quelle que soit l'espèce affichée.
             const polys = [];
+            const roadWays = [];
             if (ovResolved.status === 'fulfilled' && ovResolved.value && ovResolved.value.ok) {
                 const oj = await ovResolved.value.json().catch(() => null);
                 if (oj && Array.isArray(oj.elements)) {
-                    oj.elements.forEach(el => {
-                        if (!el.geometry || !el.tags) return;
-                        const t = el.tags;
-                        const isForest = (t.landuse === 'forest') || (t.natural === 'wood');
-                        const isOpen = (t.landuse === 'meadow') || (t.landuse === 'grassland') ||
-                            (t.landuse === 'grass') || (t.leisure === 'park') || (t.natural === 'scrub');
-                        if (!isForest && !isOpen) return;
-                        const speciesParts = [];
-                        ['species', 'genus', 'species:latin', 'natural:species'].forEach(k => {
-                            if (t[k]) speciesParts.push(String(t[k]).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
-                        });
+                    const pushRing = (ring, kind, speciesStr, leaf, hole) => {
                         let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
-                        el.geometry.forEach(p => {
+                        ring.forEach(p => {
                             if (p.lat < minLat) minLat = p.lat;
                             if (p.lat > maxLat) maxLat = p.lat;
                             if (p.lon < minLon) minLon = p.lon;
                             if (p.lon > maxLon) maxLon = p.lon;
                         });
-                        polys.push({ ring: el.geometry, forest: isForest, open: isOpen, speciesStr: speciesParts.join(' '), minLat, maxLat, minLon, maxLon });
+                        polys.push({ ring, kind, speciesStr, leaf, hole: !!hole, minLat, maxLat, minLon, maxLon });
+                    };
+                    oj.elements.forEach(el => {
+                        const t = el.tags || {};
+                        if (el.type === 'way' && (t.highway || t.railway) && Array.isArray(el.geometry) && el.geometry.length > 1) {
+                            const major = t.railway ? true : /^(motorway|trunk|primary|secondary|tertiary)$/.test(t.highway);
+                            roadWays.push({ pts: el.geometry, bufferCells: major ? 2 : 1 });
+                            return;
+                        }
+                        let kind = null;
+                        if ((t.landuse === 'forest') || (t.natural === 'wood')) kind = 'forest';
+                        else if ((t.landuse === 'meadow') || (t.landuse === 'grassland') ||
+                            (t.landuse === 'grass') || (t.leisure === 'park') || (t.natural === 'scrub')) kind = 'open';
+                        else if (/^(farmland|orchard|vineyard|allotments)$/.test(t.landuse || '')) kind = 'cult';
+                        else if (/^(residential|industrial|commercial|retail)$/.test(t.landuse || '')) kind = 'built';
+                        if (!kind) return;
+                        const speciesParts = [];
+                        ['species', 'genus', 'species:latin', 'natural:species'].forEach(k => {
+                            if (t[k]) speciesParts.push(String(t[k]).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
+                        });
+                        const speciesStr = speciesParts.join(' ');
+                        // leaf_type (25/09/2026) : feuillu/conifère/mixte, quasi systématiquement
+                        // renseigné sur les forêts IGN importées dans OSM — signal d'hôte bien
+                        // plus disponible que species/genus (rares), utilisé en repli par
+                        // mushScoreCell quand aucune essence précise n'est taguée.
+                        const leaf = typeof t.leaf_type === 'string' ? t.leaf_type.toLowerCase() : '';
+                        if (el.type === 'way' && Array.isArray(el.geometry)) {
+                            pushRing(el.geometry, kind, speciesStr, leaf, false);
+                        } else if (el.type === 'relation' && Array.isArray(el.members)) {
+                            el.members.forEach(m => {
+                                if (!m.geometry || m.geometry.length < 2) return;
+                                pushRing(m.geometry, kind, speciesStr, leaf, m.role === 'inner');
+                            });
+                        }
                     });
                 }
             }
@@ -19948,6 +20093,37 @@ async function loadInversionLevels(lat, lon){
                 }
             }
             const cellM = (2 * half * 1000) / N; // taille d'une case en mètres (approx.)
+
+            // ---- Routes rastérisées sur la grille (25/09/2026) : chaque segment "highway" est
+            // échantillonné tous les ~cellM/2 mètres, la case obtenue (+ halo de 1 ou 2 cases
+            // selon la classe de route) est marquée "route" — jamais colorée forêt/ouvert plus
+            // bas, quel que soit le polygone OSM en dessous (corrige les carrés affichés à tort
+            // par-dessus une route visible sur le fond de carte). ----
+            const roadCells = new Set();
+            const markRoadCell = (ci, cj, buf) => {
+                for (let di = -buf; di <= buf; di++) {
+                    for (let dj = -buf; dj <= buf; dj++) {
+                        const ii = ci + di, jj = cj + dj;
+                        if (ii >= 0 && jj >= 0 && ii < N && jj < N) roadCells.add(ii * N + jj);
+                    }
+                }
+            };
+            roadWays.forEach(rw => {
+                for (let s = 0; s < rw.pts.length - 1; s++) {
+                    const a = rw.pts[s], b = rw.pts[s + 1];
+                    const distM = Math.hypot((b.lat - a.lat) * 111320, (b.lon - a.lon) * 111320 * Math.cos(a.lat * Math.PI / 180));
+                    const steps = Math.max(1, Math.ceil(distM / (cellM * 0.5)));
+                    for (let st = 0; st <= steps; st++) {
+                        const f = st / steps;
+                        const plat = a.lat + (b.lat - a.lat) * f, plon = a.lon + (b.lon - a.lon) * f;
+                        if (plat < south || plat > north || plon < west || plon > east) continue;
+                        const ci = Math.floor((north - plat) / (north - south) * N);
+                        const cj = Math.floor((plon - west) / (east - west) * N);
+                        if (ci >= 0 && cj >= 0 && ci < N && cj < N) markRoadCell(ci, cj, rw.bufferCells);
+                    }
+                }
+            });
+
             const cells = [];
             let forestCount = 0;
             for (let i = 0; i < N; i++) {
@@ -19982,17 +20158,51 @@ async function loadInversionLevels(lat, lon){
                     const cellAlt = noDem ? null : z[k];
                     const cellLat = north - (north - south) * (i + 0.5) / N;
                     const cellLon = west + (east - west) * (j + 0.5) / N;
-                    // Couvert OSM (bbox d'abord, puis ray casting)
-                    let forest = 0, open = 0, speciesStr = '';
-                    for (let p = 0; p < polys.length; p++) {
-                        const poly = polys[p];
-                        if (cellLat < poly.minLat || cellLat > poly.maxLat || cellLon < poly.minLon || cellLon > poly.maxLon) continue;
-                        if (!mushPointInRing(cellLat, cellLon, poly.ring)) continue;
-                        if (poly.forest) forest = 1;
-                        if (poly.open) open = 1;
-                        if (poly.speciesStr && !speciesStr) speciesStr = poly.speciesStr;
-                        if (forest && speciesStr) break;
+                    // Couvert OSM (bbox d'abord, puis ray casting) — échantillonnage 4 points par
+                    // case (25/09/2026, au lieu du seul centroïde) : lisse l'effet d'escalier sur
+                    // les bords obliques, vote majoritaire (≥2 sur 4). Les anneaux "trou" (member
+                    // "inner" d'une relation multipolygone : clairière, chemin) sont testés en 2e
+                    // sous-passe et annulent forest/open à l'intérieur, même si un AUTRE anneau
+                    // plein couvre le même point.
+                    // Vote par kind (25/09/2026, au lieu de 2 booléens forest/open) : 'forest',
+                    // 'open' (prairie), 'cult' (champ labouré/verger/vigne) ou 'built'
+                    // (résidentiel/industriel) — 4 catégories désormais distinguées, chacune
+                    // avec son propre traitement dans mushScoreCell (route/rail/bâti exclus en
+                    // dur, cultivé pénalisé pour les espèces de prairie).
+                    const votes = { forest: 0, open: 0, cult: 0, built: 0 };
+                    let speciesStr = '', leaf = '';
+                    const dLatSub = (cellM / 4) / 111320;
+                    const dLonSub = (cellM / 4) / (111320 * Math.cos(cellLat * Math.PI / 180));
+                    for (let s = 0; s < 4; s++) {
+                        const sLat = cellLat + (s < 2 ? -1 : 1) * dLatSub;
+                        const sLon = cellLon + (s % 2 === 0 ? -1 : 1) * dLonSub;
+                        let sKind = null;
+                        for (let p = 0; p < polys.length; p++) {
+                            const poly = polys[p];
+                            if (poly.hole) continue;
+                            if (sLat < poly.minLat || sLat > poly.maxLat || sLon < poly.minLon || sLon > poly.maxLon) continue;
+                            if (!mushPointInRing(sLat, sLon, poly.ring)) continue;
+                            if (!sKind) sKind = poly.kind;
+                            if (poly.speciesStr && !speciesStr) speciesStr = poly.speciesStr;
+                            if (poly.leaf && !leaf) leaf = poly.leaf;
+                        }
+                        if (sKind) {
+                            for (let p = 0; p < polys.length; p++) {
+                                const poly = polys[p];
+                                if (!poly.hole) continue;
+                                if (sLat < poly.minLat || sLat > poly.maxLat || sLon < poly.minLon || sLon > poly.maxLon) continue;
+                                if (mushPointInRing(sLat, sLon, poly.ring)) { sKind = null; break; }
+                            }
+                        }
+                        if (sKind) votes[sKind]++;
                     }
+                    let kind = null, kindBest = 1; // seuil : ≥2 votes sur 4 pour trancher
+                    ['forest', 'open', 'cult', 'built'].forEach(kk => { if (votes[kk] > kindBest) { kindBest = votes[kk]; kind = kk; } });
+                    const isRoad = roadCells.has(k); // route/voie ferrée : toujours prioritaire sur le couvert
+                    const forest = (!isRoad && kind === 'forest') ? 1 : 0;
+                    const open = (!isRoad && kind === 'open') ? 1 : 0;
+                    const cult = (!isRoad && kind === 'cult') ? 1 : 0;
+                    const built = isRoad || kind === 'built';
                     if (forest) forestCount++;
                     // Hydrométrie locale : exposition + drainage (pente) + cuvette − assèchement au vent
                     const windExp = noDem ? 0 : Math.max(0, Math.cos((aspectDeg - meta.windDirDeg) * Math.PI / 180)) * mushClamp(meta.windSpeed / 8, 0, 1);
@@ -20006,8 +20216,8 @@ async function loadInversionLevels(lat, lon){
                         moistRaw, // structurel (exposition/pente/cuvette/vent) — humidité du
                                    // jour choisie : moist = moistRaw × (0.55 + 0.45 × hydro)
                                    // recalculée par mushRefreshForDay(), sans re-build
-                        lat: cellLat, lon: cellLon, forest: !!forest, open: !!open,
-                        speciesStr, ph: phAt(cellLat, cellLon)
+                        lat: cellLat, lon: cellLon, forest: !!forest, open: !!open, cult: !!cult, built: !!built,
+                        speciesStr, leaf, ph: phAt(cellLat, cellLon)
                     });
                 }
             }
