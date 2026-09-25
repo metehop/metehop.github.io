@@ -3592,6 +3592,7 @@
                     <span class="astro-legend-item"><span class="legend-dot" style="background:#5a9bd4;"></span> Pluie (mm)</span>
                     <span class="astro-legend-item"><span class="legend-dot" style="background:#8b5cf6;"></span> Neige (cm)</span>
                 </div>
+                <div class="card-sage-sub" id="station-chart-summary" style="margin-top:6px; font-size:0.66rem; line-height:1.5;"></div>
             </div>
 
         </div>
@@ -8030,8 +8031,12 @@ function applyDisplayMode() {
             const vars = model.noLevels
                 ? OM_CURRENT_LEVELS.slice(0, 1).map(l => l.k)
                 : OM_CURRENT_LEVELS.map(l => l.k);
+            // precipitation/weather_code/pressure_msl (25/09/2026) : jusqu'ici absents de cette
+            // requête alors que MET Norway, juste en dessous dans la même carte, donne pression
+            // et nuages — la rubrique ne disait jamais "il pleut" côté Open-Meteo. Même réponse,
+            // aucun appel supplémentaire.
             const hourly = vars
-                .concat(['relative_humidity_2m', 'wind_speed_10m', 'wind_direction_10m', 'is_day'])
+                .concat(['relative_humidity_2m', 'wind_speed_10m', 'wind_direction_10m', 'is_day', 'precipitation', 'weather_code', 'pressure_msl'])
                 .join(',');
             return `https://api.open-meteo.com/v1/forecast?latitude=${Number(lat).toFixed(4)}&longitude=${Number(lon).toFixed(4)}`
                 + `&hourly=${hourly}&past_days=1&forecast_days=2&timezone=auto`
@@ -8108,6 +8113,21 @@ function applyDisplayMode() {
             if (Math.abs(corr) < 0.05) corr = null;
             return { corr: corr, hTarget: hTarget };
         }
+        // Code WMO (weather_code, 25/09/2026) -> libellé court + icône FontAwesome, pour la pill
+        // "condition" de la carte. Catégories WMO standard (mêmes seuils que le reste de l'appli).
+        function omWeatherLabel(code) {
+            if (typeof code !== 'number' || !isFinite(code)) return null;
+            const c = Math.round(code);
+            if (c === 0) return { label: 'Ciel dégagé', icon: 'fa-solid fa-sun' };
+            if (c === 1 || c === 2) return { label: 'Peu nuageux', icon: 'fa-solid fa-cloud-sun' };
+            if (c === 3) return { label: 'Couvert', icon: 'fa-solid fa-cloud' };
+            if (c === 45 || c === 48) return { label: 'Brouillard', icon: 'fa-solid fa-smog' };
+            if (c >= 51 && c <= 57) return { label: 'Bruine', icon: 'fa-solid fa-cloud-rain' };
+            if ((c >= 61 && c <= 67) || (c >= 80 && c <= 82)) return { label: 'Pluie', icon: 'fa-solid fa-cloud-showers-heavy' };
+            if ((c >= 71 && c <= 77) || c === 85 || c === 86) return { label: 'Neige', icon: 'fa-solid fa-snowflake' };
+            if (c >= 95) return { label: 'Orage', icon: 'fa-solid fa-bolt' };
+            return { label: 'Code ' + c, icon: 'fa-solid fa-cloud' };
+        }
         // Construit le bloc affiché à partir de la réponse du modèle choisi.
         function omBuildBlock(data, model, lat, lon) {
             try {
@@ -8145,6 +8165,9 @@ function applyDisplayMode() {
                 const gammaClass = (gammaSurf !== null) ? gammaSurf : gamma;
                 const windSpeed = omNum(h.wind_speed_10m ? h.wind_speed_10m[idx] : null);
                 const windDir = omNum(h.wind_direction_10m ? h.wind_direction_10m[idx] : null);
+                const precipNow = omNum(h.precipitation ? h.precipitation[idx] : null);
+                const codeNow = (Array.isArray(h.weather_code) && typeof h.weather_code[idx] === 'number') ? h.weather_code[idx] : null;
+                const pressureNow = omNum(h.pressure_msl ? h.pressure_msl[idx] : null);
                 return {
                     ts: Date.now(), lat: Number(lat), lon: Number(lon),
                     temp: (corr !== null) ? t2 + corr : t2,
@@ -8156,6 +8179,7 @@ function applyDisplayMode() {
                     windKmh: (windSpeed !== null) ? windSpeed * 3.6 : null,
                     windDirDeg: windDir,
                     windCompass: (windDir !== null && typeof compass16 === 'function') ? compass16(windDir) : null,
+                    precip: precipNow, weatherCode: codeNow, weatherInfo: omWeatherLabel(codeNow), pressureMsl: pressureNow,
                     time: h.time[idx], modelLabel: model.label, modelRes: model.res,
                     // Série horaire complète extraite de la MÊME réponse (aucune requête
                     // supplémentaire) : sert au graphique journalier comparatif de la rubrique.
@@ -8165,6 +8189,7 @@ function applyDisplayMode() {
                     utcOffsetSeconds: (typeof data.utc_offset_seconds === 'number') ? data.utc_offset_seconds : null,
                     hourlyTime: Array.isArray(h.time) ? h.time : null,
                     hourlyTemps: Array.isArray(h.temperature_2m) ? h.temperature_2m : null,
+                    hourlyPrecip: Array.isArray(h.precipitation) ? h.precipitation : null, // cumul pluie (25/09/2026)
                     hourlyLevels: OM_CURRENT_LEVELS.reduce((acc, L) => {
                         acc[L.z] = Array.isArray(h[L.k]) ? h[L.k] : null;
                         return acc;
@@ -8275,9 +8300,12 @@ function applyDisplayMode() {
                 } else {
                     html += `<span class="snow-pill"><i class="fa-solid fa-circle-info"></i> valeur 2 m du modèle, non corrigée</span>`;
                 }
+                if (cache.weatherInfo) html += `<span class="snow-pill"><i class="${cache.weatherInfo.icon}"></i> ${cache.weatherInfo.label}</span>`;
+                if (cache.precip !== null) html += `<span class="snow-pill"><i class="fa-solid fa-cloud-rain"></i> Pluie ${omFmt(cache.precip, 1)} mm/h</span>`;
                 if (cache.rh !== null) html += `<span class="snow-pill"><i class="fa-solid fa-droplet"></i> Hum ${omFmt(cache.rh, 0)} %</span>`;
                 if (cache.windKmh !== null) html += `<span class="snow-pill"><i class="fa-solid fa-wind"></i> Vent ${Math.round(cache.windKmh)} km/h</span>`;
                 if (cache.windDirDeg !== null) html += `<span class="snow-pill"><i class="fa-solid fa-compass"></i> ${cache.windCompass || '—'} ${Math.round(cache.windDirDeg)}°</span>`;
+                if (cache.pressureMsl !== null) html += `<span class="snow-pill"><i class="fa-solid fa-gauge-high"></i> ${Math.round(cache.pressureMsl)} hPa</span>`;
                 html += `<span class="snow-pill"><i class="${cache.regime.icon}"></i> ${cache.regime.label}</span>`;
                 const altTxt = (cache.pointAlt !== null && cache.modelAlt !== null)
                     ? `point ${Math.round(cache.pointAlt)} m · maille ${Math.round(cache.modelAlt)} m`
@@ -8373,25 +8401,48 @@ function applyDisplayMode() {
             metNorwayLoadingSeq = mySeq;
             renderMetNorwayCard();
             try {
-                const res = await fetchWithTimeout(`https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=${lat}&lon=${lon}`, { timeout: 12000, cache: 'no-store' });
+                // altitude (25/09/2026) : sans ce paramètre, MET Norway applique sa propre
+                // correction terrain (AROME-MetCoOp) sur SON altitude de maille interne, qui
+                // peut nettement différer du point réel (vallées encaissées, relief marqué) — la
+                // même problématique déjà traitée avec soin côté Open-Meteo Current, jusqu'ici
+                // absente ici. weatherData.elevation vient du MNT Open-Meteo (90 m), déjà chargé.
+                let altParam = '';
+                try {
+                    if (typeof weatherData !== 'undefined' && weatherData && typeof weatherData.elevation === 'number' && isFinite(weatherData.elevation)) {
+                        altParam = `&altitude=${Math.round(weatherData.elevation)}`;
+                    }
+                } catch (e) {}
+                const res = await fetchWithTimeout(`https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=${lat}&lon=${lon}${altParam}`, { timeout: 12000, cache: 'no-store' });
                 if (!res || !res.ok) throw new Error('http');
                 const data = await res.json();
                 const ts0 = data && data.properties && data.properties.timeseries && data.properties.timeseries[0];
                 const d = ts0 && ts0.data && ts0.data.instant && ts0.data.instant.details;
                 if (!d || typeof d.air_temperature !== 'number') throw new Error('empty');
                 if (mySeq !== weatherRequestSeq) return null;
+                // next_1_hours (25/09/2026) : présent dans la MÊME réponse compact, jusqu'ici
+                // ignoré — donne le symbole météo (pluie/neige/dégagé...) et la précipitation
+                // attendue sur l'heure à venir, seule vraie donnée "est-ce qu'il pleut" côté
+                // MET Norway (les nuages en % n'en disent rien). N'est disponible qu'à horizon
+                // court (~2-3 j en format compact) : absent au-delà, jamais inventé (null).
+                const n1 = ts0.data && ts0.data.next_1_hours;
+                const symbolCode = (n1 && n1.summary && typeof n1.summary.symbol_code === 'string') ? n1.summary.symbol_code : null;
+                const precipNext1h = (n1 && n1.details && typeof n1.details.precipitation_amount === 'number') ? n1.details.precipitation_amount : null;
                 // Série horaire issue de la MÊME réponse (aucune requête supplémentaire) : même
-                // champ air_temperature que metehop-live.html, lu sur toute la timeseries. Un
-                // instant sans température est conservé en null (trou, jamais interpolé) et sera
+                // champ air_temperature que metehop-live.html, lu sur toute la timeseries, plus
+                // la précipitation next_1_hours de chaque heure (cumul pluie de la rubrique). Un
+                // instant sans donnée est conservé en null (trou, jamais interpolé) et sera
                 // aligné sur l'heure locale du graphique par stationHourKeyFromUtc().
                 const tsList = (data.properties && Array.isArray(data.properties.timeseries)) ? data.properties.timeseries : [];
                 const seriesTime = [];
                 const seriesTemp = [];
+                const seriesPrecip = [];
                 for (const item of tsList) {
                     if (!item || typeof item.time !== 'string') continue;
                     const det = item.data && item.data.instant && item.data.instant.details;
+                    const itemN1 = item.data && item.data.next_1_hours && item.data.next_1_hours.details;
                     seriesTime.push(item.time);
                     seriesTemp.push((det && typeof det.air_temperature === 'number') ? det.air_temperature : null);
+                    seriesPrecip.push((itemN1 && typeof itemN1.precipitation_amount === 'number') ? itemN1.precipitation_amount : null);
                 }
                 metNorwayCache = {
                     t: d.air_temperature,
@@ -8400,10 +8451,12 @@ function applyDisplayMode() {
                     dir: d.wind_from_direction,
                     press: d.air_pressure_at_sea_level,
                     cloud: d.cloud_area_fraction,
+                    symbolCode: symbolCode, precipNext1h: precipNext1h,
                     time: ts0.time || null,
                     ts: Date.now(), lat: Number(lat), lon: Number(lon),
                     hourlyTime: seriesTime,
-                    hourlyTemps: seriesTemp
+                    hourlyTemps: seriesTemp,
+                    hourlyPrecip: seriesPrecip
                 };
                 renderMetNorwayCard();
                 try { syncStationCompareChart(); } catch (e) {}
@@ -8416,6 +8469,22 @@ function applyDisplayMode() {
             } finally {
                 if (metNorwayLoadingSeq === mySeq) metNorwayLoading = false;
             }
+        }
+        // symbol_code MET Norway (ex. "partlycloudy_day", "rainshowers_night", 25/09/2026) :
+        // préfixe texte avant le suffixe jour/nuit — libellé court en français.
+        function metNoSymbolLabel(code) {
+            if (typeof code !== 'string' || !code) return null;
+            const c = code.toLowerCase();
+            if (c.indexOf('thunder') !== -1) return { label: 'Orage', icon: 'fa-solid fa-bolt' };
+            if (c.indexOf('sleet') !== -1) return { label: 'Neige fondue', icon: 'fa-solid fa-cloud-meatball' };
+            if (c.indexOf('snow') !== -1) return { label: 'Neige', icon: 'fa-solid fa-snowflake' };
+            if (c.indexOf('rain') !== -1) return { label: 'Pluie', icon: 'fa-solid fa-cloud-showers-heavy' };
+            if (c.indexOf('fog') !== -1) return { label: 'Brouillard', icon: 'fa-solid fa-smog' };
+            if (c.indexOf('clearsky') !== -1) return { label: 'Ciel dégagé', icon: 'fa-solid fa-sun' };
+            if (c.indexOf('fair') !== -1) return { label: 'Beau temps', icon: 'fa-solid fa-cloud-sun' };
+            if (c.indexOf('partlycloudy') !== -1) return { label: 'Partiellement nuageux', icon: 'fa-solid fa-cloud-sun' };
+            if (c.indexOf('cloudy') !== -1) return { label: 'Nuageux', icon: 'fa-solid fa-cloud' };
+            return { label: code, icon: 'fa-solid fa-cloud' };
         }
         function renderMetNorwayCard() {
             const loadingEl = document.getElementById('met-norway-loading');
@@ -8436,6 +8505,11 @@ function applyDisplayMode() {
                 const cloud = (typeof d.cloud === 'number' && isFinite(d.cloud)) ? d.cloud.toFixed(0) : '—';
                 const press = (typeof d.press === 'number' && isFinite(d.press)) ? Math.round(d.press) : '—';
                 let html = `<span class="snow-pill" style="background: rgba(14,116,144,0.10);"><i class="fa-solid fa-temperature-half"></i> ${omFmt(d.t, 1)} °C</span>`;
+                const symInfo = metNoSymbolLabel(d.symbolCode);
+                if (symInfo) html += `<span class="snow-pill"><i class="${symInfo.icon}"></i> ${symInfo.label}</span>`;
+                if (typeof d.precipNext1h === 'number' && isFinite(d.precipNext1h)) {
+                    html += `<span class="snow-pill"><i class="fa-solid fa-cloud-rain"></i> Pluie (1 h) ${omFmt(d.precipNext1h, 1)} mm</span>`;
+                }
                 html += `<span class="snow-pill"><i class="fa-solid fa-droplet"></i> Hum ${rh} %</span>`;
                 if (windKmh !== null) html += `<span class="snow-pill"><i class="fa-solid fa-wind"></i> Vent ${windKmh} km/h</span>`;
                 html += `<span class="snow-pill"><i class="fa-solid fa-compass"></i> ${dirDeg !== null ? (compass16(d.dir) || '—') : '—'} ${dirDeg !== null ? dirDeg : '—'}°</span>`;
@@ -8545,19 +8619,25 @@ function applyDisplayMode() {
             const tz = stationChartTimeZone();
 
             const omTempsByKey = new Map();
+            const omPrecipByKey = new Map();
             if (omBlock && Array.isArray(omBlock.hourlyTime)) {
                 const omSeries = omHourlyCorrectedTemps(omBlock);
                 for (let i = 0; i < omBlock.hourlyTime.length; i++) {
                     const t = omBlock.hourlyTime[i];
                     if (typeof t !== 'string') continue;
-                    omTempsByKey.set(t.substring(0, 13), omNum(omSeries[i]));
+                    const key = t.substring(0, 13);
+                    omTempsByKey.set(key, omNum(omSeries[i]));
+                    if (Array.isArray(omBlock.hourlyPrecip)) omPrecipByKey.set(key, omNum(omBlock.hourlyPrecip[i]));
                 }
             }
             const mnTempsByKey = new Map();
+            const mnPrecipByKey = new Map();
             if (mnBlock && Array.isArray(mnBlock.hourlyTime) && Array.isArray(mnBlock.hourlyTemps)) {
                 for (let i = 0; i < mnBlock.hourlyTime.length; i++) {
                     const k = stationHourKeyFromUtc(mnBlock.hourlyTime[i], tz);
-                    if (k) mnTempsByKey.set(k, omNum(mnBlock.hourlyTemps[i]));
+                    if (!k) continue;
+                    mnTempsByKey.set(k, omNum(mnBlock.hourlyTemps[i]));
+                    if (Array.isArray(mnBlock.hourlyPrecip)) mnPrecipByKey.set(k, omNum(mnBlock.hourlyPrecip[i]));
                 }
             }
             // Une heure sans donnée pour une source reste null : Chart.js trace alors un trou
@@ -8593,6 +8673,28 @@ function applyDisplayMode() {
                 if (!mnTemps.some(v => typeof v === 'number')) missing.push('MET Norway');
                 if (missing.length) sub += ` · ${missing.join(' et ')} indisponible${missing.length > 1 ? 's' : ''} (trous conservés)`;
                 subEl.innerText = sub;
+            }
+
+            // ---- Cumul de pluie + min/max par source (25/09/2026) : chaque source a sa propre
+            // série de précipitation horaire (omPrecipByKey/mnPrecipByKey, ci-dessus) — le cumul
+            // et les extrêmes sont donc calculés séparément pour Open-Meteo et MET Norway plutôt
+            // que de partager les barreaux "Pluie (mm)" du graphique (qui restent la prévision
+            // générale de l'app, commune aux deux lignes de température). Une source sans donnée
+            // sur ce jour affiche "—", jamais un cumul partiel présenté comme complet.
+            const summaryEl = document.getElementById('station-chart-summary');
+            if (summaryEl) {
+                const mnVals = mnTemps.filter(v => typeof v === 'number');
+                const omPrecipVals = keys.map(k => (k !== null && omPrecipByKey.has(k)) ? omPrecipByKey.get(k) : null).filter(v => typeof v === 'number');
+                const mnPrecipVals = keys.map(k => (k !== null && mnPrecipByKey.has(k)) ? mnPrecipByKey.get(k) : null).filter(v => typeof v === 'number');
+                const sum = arr => arr.reduce((a, b) => a + b, 0);
+                const fmt1 = v => v.toFixed(1).replace('.', ',');
+                const omMinMax = omVals.length ? `${Math.round(Math.min.apply(null, omVals))}° / ${Math.round(Math.max.apply(null, omVals))}°` : '—';
+                const mnMinMax = mnVals.length ? `${Math.round(Math.min.apply(null, mnVals))}° / ${Math.round(Math.max.apply(null, mnVals))}°` : '—';
+                const omCumul = omPrecipVals.length ? `${fmt1(sum(omPrecipVals))} mm` : '—';
+                const mnCumul = mnPrecipVals.length ? `${fmt1(sum(mnPrecipVals))} mm` : '—';
+                summaryEl.innerHTML =
+                    `<b>Open-Meteo</b> — min/max ${omMinMax} · cumul pluie ${omCumul}` +
+                    `&nbsp;&nbsp;·&nbsp;&nbsp;<b>MET Norway</b> — min/max ${mnMinMax} · cumul pluie ${mnCumul}`;
             }
         }
 
