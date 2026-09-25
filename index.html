@@ -216,9 +216,10 @@
             flex-shrink: 0;
         }
         /* Favoris : bouton étoile (ajout/retrait du lieu courant) + rangée de chips pour basculer
-           rapidement entre les lieux enregistrés. Étoile grisée/non cliquable sur "Ma position"
-           (voir toggleFavoriteCurrentLocation), pour la même raison que LAST_LOCATION_KEY exclut
-           déjà la géolocalisation GPS : un libellé générique figé n'aurait pas de sens à rappeler. */
+           rapidement entre les lieux enregistrés. L'étoile ouvre le popup #favorite-modal-overlay
+           (voir toggleFavoriteCurrentLocation) : saisie du nom, retrait si déjà favori, message de
+           limite à FAVORITES_MAX. "Ma position" (GPS) n'est plus exclue depuis le 25/09/2026 : le
+           nom est pré-rempli par géocodage inverse (IGN) plutôt que par le libellé générique. */
         .btn-favorite {
             background: #ffffff;
             border: none;
@@ -275,6 +276,38 @@
             flex-shrink: 0;
         }
         .favorite-chip.active .fav-remove { background: rgba(255,255,255,0.25); }
+
+        /* Popup favori (⭐ du Hero) : champ de saisie du nom, messages (dont "limite de 10
+           favoris atteinte") et barre de boutons — tout le reste vient de .install-modal. */
+        .fav-name-input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px 12px;
+            border: 1px solid rgba(0,0,0,0.12);
+            border-radius: var(--radius-small, 10px);
+            background: var(--card-inner-bg);
+            color: var(--primary-dark);
+            font-family: inherit;
+            font-size: 0.85rem;
+        }
+        .fav-name-input:focus { outline: none; border-color: var(--accent-orange); }
+        .fav-modal-msg {
+            display: none;
+            margin-top: 12px;
+            padding: 10px 12px;
+            border-radius: var(--radius-small, 10px);
+            background: rgba(0,0,0,0.05);
+            font-size: 0.75rem;
+            line-height: 1.5;
+            color: var(--text-muted);
+        }
+        .fav-modal-msg.warn {
+            background: rgba(230, 126, 34, 0.12);
+            border-left: 3px solid var(--accent-orange);
+            color: var(--primary-dark);
+        }
+        .fav-modal-actions { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+        .fav-modal-actions button { flex: 1 1 130px; width: auto; justify-content: center; }
 
         /* Banner Principale */
         .hero-banner {
@@ -3428,12 +3461,18 @@
         </div>
 
 
-        <!-- Stations météo à proximité (relevés réels, pas des prévisions), 2 sources
-              indépendantes — placée en premier dans l'onglet Nature sur demande :
-              1) Station personnelle Weather Underground (ITENCI3, Tencin) : n'apparaît que si le
+        <!-- Stations météo à proximité — 4 sources indépendantes (25/09/2026 : les relevés
+              METAR NOAA et SYNOP Météo-France ont été retirés de cette carte) — placée en
+              premier dans l'onglet Nature sur demande, dans cet ordre :
+              1) Open-Meteo Current — 2 m : modèle haute résolution (AROME ~1,5/2,5 km en
+                 cascade, repli seamless puis best_match) relevé "maintenant", AVEC le profil
+                 vertical réel 20→200 m de l'heure courante (voir loadOpenMeteoCurrent()).
+              2) MET Norway (locationforecast 2.0) : modèle indépendant norvégien — voir
+                 loadMetNorway().
+              3) Station personnelle Weather Underground (ITENCI3, Tencin) : n'apparaît que si le
                  lieu affiché est à moins de NEARBY_STATION.maxDistanceKm de Tencin — voir
                  loadNearbyStation() et le calcul nearbyStationInRange dans fetchWeather().
-              2) Balise de vent Pioupiou/OpenWindMap la plus proche (≤30 km, mesure <3 h),
+              4) Balise de vent Pioupiou/OpenWindMap la plus proche (≤30 km, mesure <3 h),
                  toujours recherchée quel que soit le lieu — voir loadPioupiouStation().
               Carte entière gatée par data-groups="eau" (fusion Eau+Jardinage du 09/09/2026 ; seulement chargée/visible sur cet
               onglet, chargement différé via setGroup()/fetchWeather() comme les autres onglets). -->
@@ -3441,12 +3480,55 @@
             <div class="chart-header">
                 <div>
                     <div class="card-sage-title"><i class="fa-solid fa-house-signal" style="color: var(--accent-blue); margin-right: 6px;"></i> Stations météo à proximité</div>
-                    <div class="card-sage-sub">Relevés réels de terrain (pas des prévisions)</div>
+                    <div class="card-sage-sub">Relevés "maintenant" : modèles haute résolution + mesures de terrain</div>
                 </div>
             </div>
 
-            <!-- Sous-section 1 : station personnelle Tencin (masquée si hors zone, voir JS) -->
-            <div id="nearby-station-card" style="display:none;">
+            <!-- Sous-section 1 : Open-Meteo Current — 2 m (gradient vertical AROME réel) -->
+            <div id="mf-synop-temp-section" style="margin-top:14px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; margin-bottom:6px;">
+                    <div class="card-sage-sub" style="font-weight:700;"><i class="fa-solid fa-temperature-half" style="color: var(--accent-green);"></i> Open-Meteo Current — 2 m</div>
+                    <div class="card-sage-sub" style="font-size:0.6rem;" id="mf-synop-temp-model">AROME • maille haute résolution</div>
+                </div>
+                <div id="mf-synop-temp-loading" style="text-align:center; padding: 10px; color: var(--text-muted); font-size: 0.8rem;">
+                    Chargement du modèle le plus fin disponible...
+                </div>
+                <div id="mf-synop-temp-error" style="display:none; text-align:center; padding: 10px; color: var(--text-muted); font-size: 0.78rem;">
+                    <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-orange); display:block; margin-bottom:6px; font-size:1.1rem;"></i>
+                    <span id="mf-synop-temp-error-text">Relevés indisponibles pour le moment.</span>
+                </div>
+                <div id="mf-synop-temp-content" style="display:none;">
+                    <div class="snow-details-row" id="mf-synop-temp-pills"></div>
+                    <!-- Profil vertical de l'heure courante : températures des niveaux 2 m→200 m,
+                         altitudes de référence du modèle, gradient mesuré et régime horaire.
+                         C'est ce profil (et non un gradient imposé de 0,7 °C/100 m) qui corrige
+                         la valeur 2 m jusqu'à l'altitude réelle du point demandé. -->
+                    <div class="card-sage-sub" id="mf-synop-temp-profile" style="margin-top:8px; font-size:0.64rem; line-height:1.55; display:none;"></div>
+                    <div class="card-sage-sub" id="mf-synop-temp-updated" style="margin-top:6px; font-size:0.62rem;"></div>
+                </div>
+            </div>
+
+            <!-- Sous-section 2 : MET Norway (locationforecast 2.0) — modèle indépendant -->
+            <div id="met-norway-section" style="margin-top:14px; padding-top:12px; border-top:1px solid rgba(0,0,0,0.06);">
+                <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; margin-bottom:6px;">
+                    <div class="card-sage-sub" style="font-weight:700;"><i class="fa-solid fa-cloud" style="color: var(--accent-blue);"></i> MET Norway — modèle indépendant</div>
+                    <div class="card-sage-sub" style="font-size:0.6rem;">api.met.no • locationforecast 2.0</div>
+                </div>
+                <div id="met-norway-loading" style="text-align:center; padding: 10px; color: var(--text-muted); font-size: 0.8rem;">
+                    Chargement de la prévision locale...
+                </div>
+                <div id="met-norway-error" style="display:none; text-align:center; padding: 10px; color: var(--text-muted); font-size: 0.78rem;">
+                    <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-orange); display:block; margin-bottom:6px; font-size:1.1rem;"></i>
+                    <span id="met-norway-error-text">Relevés indisponibles pour le moment.</span>
+                </div>
+                <div id="met-norway-content" style="display:none;">
+                    <div class="snow-details-row" id="met-norway-pills"></div>
+                    <div class="card-sage-sub" id="met-norway-updated" style="margin-top:6px; font-size:0.62rem;"></div>
+                </div>
+            </div>
+
+            <!-- Sous-section 3 : station personnelle Tencin (masquée si hors zone, voir JS) -->
+            <div id="nearby-station-card" style="margin-top:14px; padding-top:12px; border-top:1px solid rgba(0,0,0,0.06); display:none;">
                 <div class="card-sage-sub" style="font-weight:700; margin-bottom:6px;">Station personnelle — ITENCI3, Tencin</div>
 
                 <div id="nearby-station-loading" style="text-align:center; padding: 10px; color: var(--text-muted); font-size: 0.8rem;">
@@ -3461,13 +3543,10 @@
                 <div id="nearby-station-content" style="display:none;">
                     <div class="snow-details-row" id="nearby-station-pills"></div>
                     <div class="card-sage-sub" id="nearby-station-updated" style="margin-top:6px; font-size:0.62rem;"></div>
-                    <!-- Biais moyen affiché−observé (voir logItenci3Calibration) : aide au
-                         réglage des coefficients micro-climat sur des mesures réelles. -->
-                    <div class="card-sage-sub" id="nearby-station-calib" style="margin-top:4px; font-size:0.62rem; font-style:italic; display:none;"></div>
                 </div>
             </div>
 
-            <!-- Sous-section 2 : vent réel Pioupiou/OpenWindMap (toujours affiché) -->
+            <!-- Sous-section 4 : vent réel Pioupiou/OpenWindMap (toujours affiché) -->
             <div id="synop-station-section" style="margin-top:14px; padding-top:12px; border-top:1px solid rgba(0,0,0,0.06);">
                 <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; margin-bottom:6px;">
                     <div class="card-sage-sub" id="synop-station-sub" style="font-weight:700;">Pioupiou / OpenWindMap — vent réel</div>
@@ -3489,24 +3568,32 @@
                 </div>
             </div>
 
-            <!-- Sous-section 3 : température réelle SYNOP Météo-France (v137 - source pure officielle) -->
-            <div id="mf-synop-temp-section" style="margin-top:14px; padding-top:12px; border-top:1px solid rgba(0,0,0,0.06);">
-                <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; margin-bottom:6px;">
-                    <div class="card-sage-sub" style="font-weight:700;"><i class="fa-solid fa-temperature-half" style="color: var(--accent-green);"></i> Météo-France SYNOP — température réelle</div>
-                    <div class="card-sage-sub" style="font-size:0.6rem;">data.gouv.fr • obs horaire officielle</div>
+            <!-- Sous-section 5 : graphique journalier comparatif (dernier élément de la rubrique).
+                 Même structure que le graphique principal "Température heure par heure &
+                 précipitations" : mêmes classes, mêmes axes, même conteneur de 160px. -->
+            <div id="station-compare-section" style="margin-top:14px; padding-top:12px; border-top:1px solid rgba(0,0,0,0.06);">
+                <div class="chart-header">
+                    <div>
+                        <div class="card-sage-title">
+                            <i class="fa-solid fa-chart-line" style="color: var(--accent-blue); margin-right: 6px;"></i>
+                            Température heure par heure &amp; précipitations — sources
+                        </div>
+                        <div class="card-sage-sub" id="station-chart-sub">Évolution thermique (Open-Meteo / MET Norway), histogramme de pluie (mm) et neige (cm)</div>
+                    </div>
+                    <div style="font-size: 0.8rem; font-weight: 700; color: var(--accent-orange);" id="station-chart-max-label">--°</div>
                 </div>
-                <div id="mf-synop-temp-loading" style="text-align:center; padding: 10px; color: var(--text-muted); font-size: 0.8rem;">
-                    Chargement de la station la plus proche...
+
+                <div class="chart-container">
+                    <canvas id="stationCompareChart"></canvas>
                 </div>
-                <div id="mf-synop-temp-error" style="display:none; text-align:center; padding: 10px; color: var(--text-muted); font-size: 0.78rem;">
-                    <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-orange); display:block; margin-bottom:6px; font-size:1.1rem;"></i>
-                    <span id="mf-synop-temp-error-text">Relevés SYNOP indisponibles pour le moment.</span>
-                </div>
-                <div id="mf-synop-temp-content" style="display:none;">
-                    <div class="snow-details-row" id="mf-synop-temp-pills"></div>
-                    <div class="card-sage-sub" id="mf-synop-temp-updated" style="margin-top:6px; font-size:0.62rem;"></div>
+                <div class="astro-legend" style="margin-top:6px;">
+                    <span class="astro-legend-item"><span class="legend-dot" style="background:#d97736;"></span> Open-Meteo (°C)</span>
+                    <span class="astro-legend-item"><span class="legend-dot" style="background:#0e7490;"></span> MET Norway (°C)</span>
+                    <span class="astro-legend-item"><span class="legend-dot" style="background:#5a9bd4;"></span> Pluie (mm)</span>
+                    <span class="astro-legend-item"><span class="legend-dot" style="background:#8b5cf6;"></span> Neige (cm)</span>
                 </div>
             </div>
+
         </div>
 
                 <!-- Graphique : Températures air & sol sur 16 jours, orienté plantations -->
@@ -4908,7 +4995,7 @@
             <div class="footer-support-row">
                 <a class="footer-support-link" href="https://buymeacoffee.com/stridemetric" target="_blank" rel="noopener">🐸 Aide-moi à nourrir la grenouille Metehop</a>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 23/09/2026 - 137</div>
+            <div class="footer-last-update">Dernière mise à jour : 25/09/2026 - 139</div>
         </footer>
 
     </div>
@@ -4971,6 +5058,31 @@
                 <p id="weather-news-loading" style="text-align:center; padding:10px 0;">Préparation des actualités du jour...</p>
             </div>
             <div class="install-note" id="weather-news-updated"></div>
+        </div>
+    </div>
+
+    <!-- Popup "favoris" (⭐ du Hero) : enregistrement du lieu sélectionné sur la carte ou obtenu
+         par géolocalisation, renommage, retrait d'un favori déjà enregistré et message explicite
+         quand la limite FAVORITES_MAX est atteinte. Réutilise le système de favoris existant
+         (favorites / saveFavorites / renderFavoritesChips) et le gabarit .install-modal. -->
+    <div class="install-modal-overlay" id="favorite-modal-overlay" onclick="if(event.target===this) closeFavoriteModal()">
+        <div class="install-modal">
+            <h3>
+                <span class="install-modal-title">⭐ <span id="favorite-modal-title-text">Ajouter aux favoris</span></span>
+                <button type="button" class="install-close" onclick="closeFavoriteModal()">✕</button>
+            </h3>
+            <div id="favorite-modal-intro" style="font-size:0.78rem; color:var(--text-muted); line-height:1.5; margin-bottom:14px;"></div>
+            <div id="favorite-modal-input-row">
+                <input type="text" class="fav-name-input" id="favorite-modal-name" maxlength="64"
+                       placeholder="Nom du lieu"
+                       oninput="this.dataset.touched='1'"
+                       onkeydown="if(event.key==='Enter'){event.preventDefault(); confirmFavoriteModal();}">
+            </div>
+            <div class="fav-modal-msg" id="favorite-modal-msg"></div>
+            <div class="fav-modal-actions">
+                <button type="button" class="mode-choice-btn" id="favorite-modal-confirm" onclick="confirmFavoriteModal()"><strong>✅ Enregistrer</strong></button>
+                <button type="button" class="mode-choice-btn" id="favorite-modal-remove" onclick="removeFavoriteModalPlace()" style="display:none;"><strong>🗑 Retirer des favoris</strong></button>
+            </div>
         </div>
     </div>
 
@@ -5330,6 +5442,7 @@
         let weatherRequestSeq = 0; // anti-course : incrémenté à chaque nouveau lieu demandé (voir fetchWeather)
         let lastWeatherRequest = null; // dernière demande effectuée, réutilisée par le bouton "Réessayer"
         let weatherChart = null;
+        let stationCompareChart = null;  // graphique comparatif de la rubrique "Stations météo à proximité"
         let astroChart = null;
 
         // ---- Encarts rétractables (Pollution & pollens, Astronomie — réorganisation du 09/09/2026) ----
@@ -5461,11 +5574,11 @@
         }
 
         // ---- Lieux favoris multiples (localStorage), pour basculer rapidement entre plusieurs
-        // lieux suivis régulièrement, en plus du simple "dernier lieu consulté" ci-dessus. "Ma
-        // position" (GPS) est exclue de la mise en favori pour la même raison que LAST_LOCATION_KEY
-        // l'exclut déjà : un libellé générique figé n'aurait pas de sens à rappeler plus tard.
+        // lieux suivis régulièrement, en plus du simple "dernier lieu consulté" ci-dessus. L'ajout
+        // passe par le popup #favorite-modal-overlay (nom pré-rempli, doublons refusés, limite
+        // FAVORITES_MAX) ; voir toggleFavoriteCurrentLocation() et confirmFavoriteModal().
         const FAVORITES_KEY = 'metehop_favorites_v1';
-        const FAVORITES_MAX = 5;
+        const FAVORITES_MAX = 10; // 5 → 10 le 25/09/2026 ; les favoris déjà enregistrés sont conservés
         let favorites = [];
         let currentLocationName = null;
 
@@ -5501,32 +5614,166 @@
             return favorites.findIndex(f => Math.abs(f.lat - lat) < 0.0005 && Math.abs(f.lon - lon) < 0.0005);
         }
 
-        function toggleFavoriteCurrentLocation() {
-            if (currentLocationName === 'Ma position') return; // exclu, voir note ci-dessus
-            const idx = findFavoriteIndex(currentLat, currentLon);
-            if (idx >= 0) {
-                favorites.splice(idx, 1);
-            } else {
-                if (favorites.length >= FAVORITES_MAX) {
-                    alert(`Vous pouvez enregistrer au maximum ${FAVORITES_MAX} favoris. Retirez-en un avant d'en ajouter un nouveau.`);
-                    return;
+        // Un libellé "Ma position" / "Position choisie (...)" n'est pas un nom de lieu exploitable
+        // pour un favori : dans ce cas le nom est obtenu par géocodage inverse au moment de
+        // l'enregistrement (voir suggestFavoriteName), jamais enregistré tel quel.
+        function isGenericLocationName(name) {
+            const n = (name || '').trim();
+            return !n || n === 'Ma position' || /^Ma position \(/.test(n) || /^Position choisie \(/.test(n);
+        }
+
+        // Pré-remplissage du nom du favori : le nom affiché dans le Hero quand il est parlant,
+        // sinon géocodage inverse IGN (même appel que applyPickedForecastLocation / locateTrajetPoint).
+        // Repli final sur les coordonnées — aucun nom n'est jamais inventé.
+        async function suggestFavoriteName(lat, lon) {
+            if (!isGenericLocationName(currentLocationName)) return currentLocationName.trim();
+            try {
+                const url = `https://data.geopf.fr/geocodage/reverse?lon=${lon}&lat=${lat}&index=address&limit=1`;
+                const res = await fetchWithTimeout(url, { timeout: 5000 });
+                if (res.ok) {
+                    const data = await res.json();
+                    const feat = data.features && data.features[0];
+                    const city = feat && feat.properties && (feat.properties.city || feat.properties.label);
+                    if (city) return city;
                 }
-                favorites.push({ lat: currentLat, lon: currentLon, name: currentLocationName, population: currentPopulation });
+            } catch (e) { /* repli ci-dessous */ }
+            return `${lat.toFixed(3)}, ${lon.toFixed(3)}`;
+        }
+
+        // Etat du popup favori : le lieu visé est figé à l'ouverture (le modal bloque l'app).
+        let favoriteModalLat = null;
+        let favoriteModalLon = null;
+        let favoriteModalPopulation = null;
+
+        function favoriteModalEls() {
+            return {
+                overlay: document.getElementById('favorite-modal-overlay'),
+                title: document.getElementById('favorite-modal-title-text'),
+                intro: document.getElementById('favorite-modal-intro'),
+                row: document.getElementById('favorite-modal-input-row'),
+                input: document.getElementById('favorite-modal-name'),
+                msg: document.getElementById('favorite-modal-msg'),
+                confirm: document.getElementById('favorite-modal-confirm'),
+                remove: document.getElementById('favorite-modal-remove')
+            };
+        }
+
+        function showFavoriteModalMsg(text, warn) {
+            const msg = document.getElementById('favorite-modal-msg');
+            if (!msg) return;
+            msg.className = 'fav-modal-msg' + (warn ? ' warn' : '');
+            msg.style.display = 'block';
+            msg.innerText = text;
+        }
+
+        function closeFavoriteModal() {
+            const els = favoriteModalEls();
+            if (els.overlay) els.overlay.classList.remove('visible');
+            if (els.input) els.input.dataset.touched = '';
+        }
+
+        // Ouvre le popup "favoris" : nom pré-rempli (Hero si parlant, sinon géocodage inverse),
+        // retrait possible si le lieu est déjà favori, message explicite si la limite est atteinte.
+        function openFavoriteModal() {
+            const els = favoriteModalEls();
+            if (!els.overlay) return;
+            favoriteModalLat = currentLat;
+            favoriteModalLon = currentLon;
+            favoriteModalPopulation = currentPopulation;
+            const idx = findFavoriteIndex(favoriteModalLat, favoriteModalLon);
+
+            els.msg.className = 'fav-modal-msg';
+            els.msg.style.display = 'none';
+            els.msg.innerText = '';
+            els.input.dataset.touched = '';
+            els.remove.style.display = idx >= 0 ? '' : 'none';
+
+            if (idx >= 0) {
+                // Déjà favori : pas de doublon possible, on propose le renommage et le retrait.
+                els.title.innerText = 'Lieu déjà enregistré';
+                els.intro.innerText = 'Ce lieu figure déjà dans vos favoris. Vous pouvez modifier son nom ou le retirer.';
+                els.row.style.display = '';
+                els.input.value = favorites[idx].name;
+                els.input.placeholder = 'Nom du lieu';
+                els.confirm.style.display = '';
+                els.confirm.innerText = '✅ Enregistrer';
+            } else if (favorites.length >= FAVORITES_MAX) {
+                // Limite atteinte : aucun favori n'est écrasé ni supprimé, le message est explicite.
+                els.title.innerText = `Limite de ${FAVORITES_MAX} favoris atteinte`;
+                els.intro.innerText = '';
+                els.row.style.display = 'none';
+                els.confirm.style.display = 'none';
+                showFavoriteModalMsg(`Vous avez déjà ${FAVORITES_MAX} favoris enregistrés, ce qui est le maximum autorisé. Ce lieu n'a pas été ajouté : retirez d'abord un favori (bouton ✕ sur sa puce) pour libérer un emplacement.`, true);
+            } else {
+                els.title.innerText = 'Ajouter aux favoris';
+                els.intro.innerText = 'Nom du lieu à enregistrer :';
+                els.row.style.display = '';
+                els.input.value = '';
+                els.input.placeholder = 'Recherche du nom du lieu...';
+                els.confirm.style.display = '';
+                els.confirm.innerText = '✅ Enregistrer';
+                suggestFavoriteName(favoriteModalLat, favoriteModalLon).then(name => {
+                    if (!els.overlay.classList.contains('visible')) return;
+                    if (els.input.dataset.touched === '1') return; // l'utilisateur a déjà tapé
+                    els.input.placeholder = '';
+                    els.input.value = name;
+                    try { els.input.select(); } catch (e) {}
+                });
+            }
+            els.overlay.classList.add('visible');
+            if (els.row.style.display !== 'none') {
+                setTimeout(() => { try { els.input.focus(); } catch (e) {} }, 60);
+            }
+        }
+
+        // Validation : contrôle du nom puis écriture via le système de favoris existant.
+        function confirmFavoriteModal() {
+            const els = favoriteModalEls();
+            const name = (els.input.value || '').trim();
+            if (!name) { showFavoriteModalMsg('Saisissez un nom pour enregistrer ce favori.', true); try { els.input.focus(); } catch (e) {} return; }
+            let idx = findFavoriteIndex(favoriteModalLat, favoriteModalLon);
+            if (idx < 0 && favorites.length >= FAVORITES_MAX) {
+                showFavoriteModalMsg(`Limite de ${FAVORITES_MAX} favoris atteinte : ce lieu n'a pas été ajouté. Retirez d'abord un favori existant.`, true);
+                return;
+            }
+            if (idx >= 0) {
+                favorites[idx].name = name; // renommage, jamais de doublon
+                if (typeof favoriteModalPopulation === 'number') favorites[idx].population = favoriteModalPopulation;
+            } else {
+                favorites.push({ lat: favoriteModalLat, lon: favoriteModalLon, name: name, population: favoriteModalPopulation });
             }
             saveFavorites(favorites);
             updateFavoriteButtonUI();
             renderFavoritesChips();
+            closeFavoriteModal();
+        }
+
+        // Retrait depuis le même popup (lieu déjà favori).
+        function removeFavoriteModalPlace() {
+            const idx = findFavoriteIndex(favoriteModalLat, favoriteModalLon);
+            if (idx >= 0) favorites.splice(idx, 1);
+            saveFavorites(favorites);
+            updateFavoriteButtonUI();
+            renderFavoritesChips();
+            closeFavoriteModal();
+        }
+
+        // Clic sur l'étoile du Hero : ouvre le popup (ajout, renommage, retrait ou limite).
+        function toggleFavoriteCurrentLocation() {
+            openFavoriteModal();
         }
 
         function updateFavoriteButtonUI() {
             const btn = document.getElementById('favorite-btn');
             const icon = document.getElementById('favorite-btn-icon');
-            const isGpsLocation = currentLocationName === 'Ma position';
-            btn.disabled = isGpsLocation;
-            btn.title = isGpsLocation ? "Recherchez une ville pour l'ajouter aux favoris" : (findFavoriteIndex(currentLat, currentLon) >= 0 ? 'Retirer des favoris' : 'Ajouter aux favoris');
-            const fav = !isGpsLocation && findFavoriteIndex(currentLat, currentLon) >= 0;
+            if (!btn || !icon) return;
+            const fav = findFavoriteIndex(currentLat, currentLon) >= 0;
+            btn.disabled = false;
             btn.classList.toggle('is-favorite', fav);
             icon.className = fav ? 'fa-solid fa-star' : 'fa-regular fa-star';
+            if (fav) btn.title = 'Retirer des favoris';
+            else if (favorites.length >= FAVORITES_MAX) btn.title = `Favoris : ${favorites.length}/${FAVORITES_MAX} — limite atteinte`;
+            else btn.title = 'Ajouter aux favoris';
         }
 
         function switchToFavorite(idx) {
@@ -5555,8 +5802,9 @@
                 </button>`;
             }).join('');
         }
-        // (Bloc SYNOP/Opendatasoft retiré le 11/09/2026 : source figée au 15/01/2026 — voir loadPioupiouStation,
-        // seule source restante avec ITENCI3.)
+        // (Blocs SYNOP/Opendatasoft puis METAR/SYNOP live retirés de la rubrique "Stations
+        // météo à proximité" — voir loadOpenMeteoCurrent() et loadMetNorway() qui les ont
+        // remplacés, avec ITENCI3 (loadNearbyStation) et Pioupiou (loadPioupiouStation).)
         let gridForecastData = null;
         let isLoadingGrid = false;
         // ---- Sélecteur de groupe (Général / Été / Hiver / Astronomie / Jardinage) ----
@@ -5619,7 +5867,7 @@
         let nearbyStationRefreshInterval = null; // interval de rafraîchissement auto
         let nearbyStationLoaded = false;  // chargée une seule fois par lieu, à la première activation de l'onglet Nature (ex-Hobby)
         let pioupiouStationLoaded = false;  // idem pour la balise Pioupiou la plus proche (même carte, même onglet)
-        // idem pour la balise Pioupiou la plus proche (même carte, même onglet)
+        let metNorwayLoaded = false;  // idem pour la source MET Norway de la même carte (4e source)
         let gridCenterLat = null;
         let gridCenterLon = null;
 
@@ -6067,7 +6315,7 @@
         let lastSeasonalForecastMonths = null;
         let weatherNewsSentences = { alerts: null, forecast16: null, seasonal: null, nextMonth: null, feteDuJour: null };
         // v149.5 - FIX définitif : le proxy CORS pour la fête du jour restait très peu fiable en usage
-        // réel (comme pour METAR ensuite). Solution plus robuste : le calendrier traditionnel des
+        // réel (comme pour le calendrier des prénoms ensuite). Solution plus robuste : le calendrier traditionnel des
         // prénoms est une donnée FIXE (même prénom(s) à la même date civile chaque année, ce n'est pas
         // une fête mobile comme Pâques) - on l'embarque donc directement dans l'app. Zéro appel
         // réseau, zéro dépendance à un proxy, disponible instantanément et hors-ligne. Source :
@@ -6448,7 +6696,7 @@
             const controller = new AbortController();
             const id = setTimeout(() => controller.abort(), timeout);
             // v143 - en file:// on évite les requêtes qui produisent des erreurs CORS visibles
-            if (isFileOrigin() && typeof resource === 'string' && (resource.includes('allorigins.win') || resource.includes('corsproxy.io') || resource.includes('thingproxy') || resource.includes('vigicrues.gouv.fr') || resource.includes('opendatasoft.com') || resource.includes('weather.gov') || resource.includes('aviationweather.gov'))) {
+            if (isFileOrigin() && typeof resource === 'string' && (resource.includes('allorigins.win') || resource.includes('corsproxy.io') || resource.includes('thingproxy') || resource.includes('vigicrues.gouv.fr') || resource.includes('opendatasoft.com') || resource.includes('weather.gov'))) {
                 clearTimeout(id);
                 return { ok: false, status: 0, json: async () => null, text: async () => '' };
             }
@@ -6528,8 +6776,9 @@
         // data-groups="general" : il reste visible en mode Simple depuis le 12/09/2026.
         
         // ---- Temp live ITENCI3 dans le Hero (mode Expert, <20km + <100m alt) - ajout 16/09/2026 ----
-                // v149.6 - Formate l'heure d'un relevé (obsTime ITENCI3/SYNOP/METAR, formats variés
-                // selon la source) en "HHhMM" court pour affichage "en petit" à côté de la température.
+                // v149.6 - Formate l'heure d'un relevé (obsTime ITENCI3, time horaire
+                // Open-Meteo Current, formats variés selon la source) en "HHhMM" court pour
+                // affichage "en petit" à côté de la température.
                 // Retourne '' si rien d'exploitable (jamais bloquant, jamais d'exception visible).
                 function formatObsTimeShort(raw) {
                     if (raw === null || raw === undefined || raw === '') return '';
@@ -6572,32 +6821,20 @@
                     return;
                 }
             }
-            // Cas 2 v137 : SYNOP Météo-France pure (officielle, horaire, sans clé)
+            // Cas 2 : Open-Meteo Current — 2 m (modèle haute résolution de la rubrique
+            // "Stations météo à proximité"), température déjà corrigée jusqu'à l'altitude du
+            // point via le profil vertical réel de l'heure courante si celui-ci a pu être lu.
             try {
-                if (typeof synopLiveCache !== 'undefined' && synopLiveCache && typeof synopLiveCache.temp === 'number' && isFinite(synopLiveCache.temp)) {
-                    // v149 - Garde-fou : si la station la plus proche (SYNOP ou METAR, ce cas 2)
-                    // s'écarte de plus de 3°C d'Open-Meteo current, elle est jugée peu fiable pour
-                    // ce lieu (mauvaise station, mesure aberrante...) et on préfère Open-Meteo
-                    // current - on laisse alors tomber jusqu'au Cas 3 ci-dessous. Ne s'applique
-                    // jamais au Cas 1 (ITENCI3), déjà retourné plus haut le cas échéant.
-                    let stationTooFarFromOM = false;
-                    try {
-                        if (typeof benchmarkRealityNow !== 'undefined' && benchmarkRealityNow && typeof benchmarkRealityNow.temp === 'number' && isFinite(benchmarkRealityNow.temp)) {
-                            if (Math.abs(synopLiveCache.temp - benchmarkRealityNow.temp) > 3) stationTooFarFromOM = true;
-                        }
-                    } catch(e2) {}
-                    if (!stationTooFarFromOM) {
-                        const d = synopLiveCache.distKm;
-                        const distLabel = d <= 40 ? '~25km' : `(${Math.round(d)} km)`;
-                        const t2 = formatObsTimeShort(synopLiveCache.obsTime);
-                        el.innerHTML = `Temp. live ${distLabel} : ${Math.round(synopLiveCache.temp)}°C${t2 ? ` <span style="opacity:0.72; font-weight:500;">· ${t2}</span>` : ''}`;
-                        el.title = `SYNOP ${synopLiveCache.station || ''} à ${d.toFixed(1)} km - ${synopLiveCache.obsTime || ''} - data.gouv.fr`;
-                        el.style.display = '';
-                        return;
-                    }
+                if (typeof openMeteoCurrentCache !== 'undefined' && openMeteoCurrentCache && typeof openMeteoCurrentCache.temp === 'number' && isFinite(openMeteoCurrentCache.temp)) {
+                    const omC = openMeteoCurrentCache;
+                    const t2 = formatObsTimeShort(omC.time);
+                    el.innerHTML = `Temp. live ~5km : ${Math.round(omC.temp)}°C${t2 ? ` <span style="opacity:0.72; font-weight:500;">· ${t2}</span>` : ''}`;
+                    el.title = `${omC.modelLabel} (${omC.modelRes})${omC.corrected ? ' — altitude corrigée via le profil du modèle' : ' — valeur 2 m non corrigée'}${omC.modelAlt !== null ? ` - maille à ${Math.round(omC.modelAlt)} m` : ''}`;
+                    el.style.display = '';
+                    return;
                 }
             } catch(e) {}
-            // Cas 3 fallback benchmark (si SYNOP temporairement indispo)
+            // Cas 3 fallback benchmark (si les modèles haute résolution sont temporairement indispos)
             try {
                 if (typeof benchmarkRealityNow !== 'undefined' && benchmarkRealityNow && typeof benchmarkRealityNow.temp === 'number' && isFinite(benchmarkRealityNow.temp)) {
                     let rNowCorr = benchmarkRealityNow.temp;
@@ -6609,8 +6846,8 @@
                         }
                     } catch(e2) {}
                     const t3 = formatObsTimeShort(benchmarkRealityNow.ts);
-                    el.innerHTML = `Temp. live ~25km : ${Math.round(rNowCorr)}°C${t3 ? ` <span style="opacity:0.72; font-weight:500;">· ${t3}</span>` : ''}`;
-                    el.title = 'Fallback Open-Meteo current (SYNOP indisponible)';
+                    el.innerHTML = `Temp. live ~5km : ${Math.round(rNowCorr)}°C${t3 ? ` <span style="opacity:0.72; font-weight:500;">· ${t3}</span>` : ''}`;
+                    el.title = 'Fallback Open-Meteo current (modèles haute résolution indisponibles)';
                     el.style.display = '';
                     return;
                 }
@@ -7408,11 +7645,16 @@ function applyDisplayMode() {
             // Fusion Eau + Jardinage du 09/09/2026 : ces 4 chargements (autrefois gatés sur l'ex-onglet
             // "astrogarden") tournent désormais sur le même identifiant de groupe "eau" que le reste de
             // l'onglet fusionné — Astronomie, elle, est partie sur "general" (voir plus bas).
-            if (group === 'eau' && currentLat !== null) { try { loadSynopLiveTemp(currentLat, currentLon).catch(()=>{}); renderMfSynopTempCard(); } catch(e) {} }
+            if (group === 'eau' && currentLat !== null) { try { loadOpenMeteoCurrent(currentLat, currentLon).catch(()=>{}); renderOpenMeteoCurrentCard(); } catch(e) {} }
+            if (group === 'eau' && !metNorwayLoaded && currentLat !== null) {
+                metNorwayLoaded = true;
+                loadMetNorway(currentLat, currentLon).catch(()=>{});
+            }
+            // Graphique comparatif de la rubrique : dessiné ici (l'onglet vient de devenir
+            // visible) pour que les caches déjà chargés s'affichent immédiatement, puis
+            // redessiné par loadOpenMeteoCurrent / loadMetNorway quand les données arrivent.
+            if (group === 'eau' && currentLat !== null) { try { syncStationCompareChart(); } catch(e) {} }
             if (group === 'eau' && !nearbyStationLoaded && nearbyStationInRange && currentLat !== null) {
-                // v137 : même hors portée ITENCI3 on veut SYNOP
-                try { if (currentLat !== null) { loadSynopLiveTemp(currentLat, currentLon).catch(()=>{}); renderMfSynopTempCard(); } } catch(e) {}
-                
                 nearbyStationLoaded = true;
                 loadNearbyStation();
             }
@@ -7489,6 +7731,7 @@ function applyDisplayMode() {
                 if (group === 'eau' && hydroChart) hydroChart.resize();
                 if (group === 'eau' && tempEauChart) tempEauChart.resize();
                 if (group === 'eau' && nappesChart) nappesChart.resize();
+                if (group === 'eau' && stationCompareChart) stationCompareChart.resize();
                 if (group === 'general') {
                     if (weatherChart) weatherChart.resize();
                     if (pollenChart) pollenChart.resize();
@@ -7678,384 +7921,675 @@ function applyDisplayMode() {
             el.style.display = '';
         }
 
-        // ---- Observation pure SYNOP Météo-France temps réel (v137 - 16/09/2026) ----
-        // Source officielle, gratuite, sans clé, MAJ horaire : https://object.files.data.gouv.fr/meteofrance/data/synop/
-        // URL pattern : synop.YYYYMMDDHH00.csv.gz - Champ t = température Kelvin, conversion t-273.15
-        // Vérifié : CORS * ok sur object.files.data.gouv.fr, DecompressionStream('gzip') natif Chrome/Firefox/Edge
-        let synopLiveCache = null; // {ts, temp, station, distKm, obsTime, lat, lon}
-        let synopLiveLoading = false;
-                // ---- Source fiable alternative METAR (v137 - plus fiable que SYNOP, pas de 404) ----
-        const METAR_AIRPORTS = [
-            {icao:'LFLS', name:'Grenoble-Le Versoud', lat:45.220, lon:5.849},
-            {icao:'LFLV', name:'Grenoble-Isère / St-Geoirs', lat:45.363, lon:5.329},
-            {icao:'LFLB', name:'Chambéry', lat:45.638, lon:5.880},
-            {icao:'LFLL', name:'Lyon-St-Ex', lat:45.725, lon:5.081},
-            {icao:'LFLY', name:'Lyon-Bron', lat:45.724, lon:4.944},
-            {icao:'LFLP', name:'Annecy', lat:45.929, lon:6.098}
+        // ═════════════════════════════════════════════════════════════════════════════
+        // RUBRIQUE "STATIONS MÉTÉO À PROXIMITÉ" — source 1 : Open-Meteo Current — 2 m
+        // ═════════════════════════════════════════════════════════════════════════════
+        // (Les relevés METAR NOAA et SYNOP Météo-France qui occupaient cette sous-section
+        // ont été retirés le 25/09/2026 ; voir la liste des 4 sources en haut de la carte.)
+        //
+        // La requête part en "elevation=nan" : le downscaling Open-Meteo (gradient fixe de
+        // l'ordre de 0,7 °C/100 m) est donc DÉSACTIVÉ, et l'on récupère la valeur brute du
+        // modèle. Les températures aux niveaux 20/50/100/150/200 m servent ensuite à
+        // mesurer, heure par heure, le gradient vertical réellement présent dans
+        // l'atmosphère (inversion, stabilité, refroidissement nocturne, mélange convectif,
+        // réchauffement diurne) — on ne l'invente jamais, on le relit sur le profil.
+        //
+        // NIVEAUX DE RÉFÉRENCE — à distinguer strictement (jamais d'extrapolation
+        // mécanique avec un gradient constant imposé) :
+        //   • altitude du point demandé .......... weatherData.elevation (MNT 90 m)
+        //   • altitude de référence du modèle .... data.elevation de la requête (hauteur
+        //                                          de la maille, downscaling désactivé)
+        //   • température 2 m .................... au-dessus du sol de la MAILLE
+        //   • niveaux 20 → 200 m ................. au-dessus du même sol de la maille
+        // La seule correction appliquée est donc T_point = T_2m + γ × (h_cible − 2 m),
+        // avec h_cible = alt_point − alt_maille et γ mesuré sur le profil de l'heure
+        // courante (régression moindres carrés, γ borné à [−1,5 ; +4,0] °C/100 m et la
+        // correction bornée à ±12 °C). Si le profil est inexploitable, AUCUNE correction
+        // n'est inventée : la valeur brute est affichée, signalée comme telle.
+        // Voir methode_opt_releve.txt (spécification de départ de ce calcul).
+        const OM_CURRENT_LEVELS = [
+            { z: 2,   k: 'temperature_2m' },
+            { z: 20,  k: 'temperature_20m' },
+            { z: 50,  k: 'temperature_50m' },
+            { z: 100, k: 'temperature_100m' },
+            { z: 150, k: 'temperature_150m' },
+            { z: 200, k: 'temperature_200m' }
         ];
-        let metarLiveCache = null; let metarLiveLoading = false;
-        function findNearestMetarAirports(lat, lon) {
-            try {
-                return METAR_AIRPORTS.map(a=>({...a, dist: calculateDistance(lat, lon, a.lat, a.lon)})).filter(a=>a.dist<=120).sort((a,b)=>a.dist-b.dist).slice(0,3);
-            } catch(e) { return []; }
-        }
-        async function fetchMetarNearestTemp(lat, lon) {
-            if (typeof isFileOrigin==='function' && isFileOrigin()) return null;
-            if (metarLiveLoading) return metarLiveCache;
-            // v148 - cache 15min : retour instantané au démarrage
-            try {
-                if (metarLiveCache && metarLiveCache.ts && (Date.now()-metarLiveCache.ts) < 15*60*1000 && metarLiveCache.lat && metarLiveCache.lon) {
-                    const d = calculateDistance(lat, lon, metarLiveCache.lat, metarLiveCache.lon);
-                    if (d < 30) return metarLiveCache;
-                }
-            } catch(e) {}
-            metarLiveLoading = true;
-            try {
-                const cands = findNearestMetarAirports(lat, lon);
-                if (!cands.length) return null;
-                // v148 - lancement en parallèle des 3 aéroports, et pour chaque aéroport course parallèle des proxies (rapide)
-                const tryOneAirport = async (apt) => {
-                    const metarUrl = `https://aviationweather.gov/api/data/metar?ids=${apt.icao}&format=json`;
-                    // v149.5 - FIX : le format corsproxy.io avait changé (paramètre "url=" désormais
-                    // obligatoire : https://corsproxy.io/?url=<cible>, l'ancien format
-                    // "https://corsproxy.io/?<cible>" sans "url=" ne fonctionne plus et échouait
-                    // silencieusement à chaque fois). Proxies réordonnés par fiabilité constatée
-                    // (thingproxy.freeboard.io, service démo historiquement le moins stable, en tout
-                    // dernier recours) ; direct en premier au cas où aviationweather.gov autoriserait
-                    // un jour le CORS.
-                    const proxyUrls = [
-                        metarUrl,
-                        `https://api.allorigins.win/raw?url=${encodeURIComponent(metarUrl)}`,
-                        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(metarUrl)}`,
-                        `https://corsproxy.io/?url=${encodeURIComponent(metarUrl)}`,
-                        `https://api.allorigins.win/get?url=${encodeURIComponent(metarUrl)}`,
-                        `https://thingproxy.freeboard.io/fetch/${metarUrl}`
-                    ];
-                    // v149.5 - timeout remonté à 8s (aligné sur les autres appels proxy-dépendants de
-                    // l'app, ex loadSecheresseVigilance) ; toujours en course parallèle (Promise.any),
-                    // donc ça ne ralentit pas le cas nominal, ça évite juste de déclarer l'échec trop
-                    // vite pour des proxies gratuits parfois lents sous charge.
-                    const tryProxy = async (proxyUrl) => {
-                        const res = await fetchWithTimeout(proxyUrl, {timeout: 8000, cache:'no-store'});
-                        if (!res || !res.ok) throw new Error('proxy fail');
-                        let data;
-                        try { data = await res.json(); } catch(e) {
-                            const t2 = await res.text();
-                            data = JSON.parse(t2);
-                        }
-                        if (data && typeof data.contents === 'string') data = JSON.parse(data.contents);
-                        let metar = Array.isArray(data) && data.length ? data[0] : data;
-                        if (metar && metar[0]) metar = metar[0];
-                        if (Array.isArray(metar) && metar.length) metar = metar[0];
-                        if (!metar) throw new Error('no metar');
-                        let t = null;
-                        if (typeof metar.temp === 'number') t = metar.temp;
-                        else if (typeof metar.temperature === 'number') t = metar.temperature;
-                        else if (typeof metar.temp === 'string') t = parseFloat(metar.temp);
-                        if (t===null || !isFinite(t) || t<-60 || t>60) throw new Error('bad temp');
-                        let obs = metar.reportTime || metar.obsTime || metar.receiptTime || '';
-                        if (typeof obs === 'number') { try { obs = new Date(obs*1000).toISOString(); } catch(e) {} }
-                        // v148 - extraction complète : vent, pression, pluie, min/max si présents
-                        const windDir = (typeof metar.wdir === 'number' ? metar.wdir : (typeof metar.wdir === 'string' ? parseFloat(metar.wdir) : null));
-                        const windSpd = (typeof metar.wspd === 'number' ? metar.wspd : (typeof metar.wspd === 'string' ? parseFloat(metar.wspd) : null)); // kt
-                        const windGust = (typeof metar.wgst === 'number' ? metar.wgst : (typeof metar.wgst === 'string' ? parseFloat(metar.wgst) : null));
-                        const press = (typeof metar.altim === 'number' ? metar.altim : (typeof metar.slp === 'number' ? metar.slp : null)); // hPa si altim déjà en hPa, sinon inch->hPa conversion approx
-                        let pressHpa = press;
-                        if (press && press < 100) pressHpa = press * 33.8639; // inch Hg -> hPa
-                        const precip = (typeof metar.precip === 'number' ? metar.precip : null);
-                        const visib = metar.visib || null;
-                        return {ts:Date.now(), temp:t, station:`${apt.name} (${apt.icao})`, distKm:apt.dist, obsTime: obs, lat:apt.lat, lon:apt.lon, source:'METAR NOAA', icao:apt.icao, windDir: windDir, windSpeedKt: windSpd, windGustKt: windGust, pressureHpa: pressHpa, precipMm: precip, visib: visib, raw: metar};
-                    };
-                    // course parallèle des proxies, premier qui réussit gagne
-                    const promises = proxyUrls.map(u => tryProxy(u));
-                    // on attend le premier succès, les autres sont ignorés
-                    if (typeof Promise.any === 'function') {
-                        return await Promise.any(promises);
-                    } else {
-                        // fallback Promise.any polyfill via race
-                        return await Promise.race(promises);
-                    }
-                };
-                // On lance les 3 aéroports en parallèle, on prend le premier qui répond (le plus proche d'abord mais vitesse prime)
-                const airportPromises = cands.map(apt => tryOneAirport(apt));
-                let result = null;
-                if (typeof Promise.any === 'function') {
-                    try { result = await Promise.any(airportPromises); } catch(e) { result = null; }
-                } else {
-                    // si Promise.any pas dispo, on tente séquentiel rapide
-                    for (const p of airportPromises) { try { result = await p; if (result) break; } catch(e) {} }
-                }
-                if (result) {
-                    metarLiveCache = result;
-                    return result;
-                }
-                // v149 - échec total de la course (proxies indisponibles au même moment) : on
-                // retombe sur le dernier relevé METAR connu (même daté) plutôt que de laisser
-                // la carte vide - le rendu (renderMfSynopTempCard) reste basé sur cache.temp.
-                if (metarLiveCache) return metarLiveCache;
-                return null;
-            } catch(e) { return null; }
-            finally { metarLiveLoading=false; }
-        }
+        // Cascade de modèles : AROME France HD (0,01° ~1,5 km), AROME France (0,025°
+        // ~2,5 km), puis replis Météo-France seamless et best_match (hors de France).
+        const OM_CURRENT_MODELS = [
+            { q: 'models=meteofrance_arome_france_hd', label: 'AROME France HD', res: 'maille ~1,5 km' },
+            { q: 'models=meteofrance_arome_france',    label: 'AROME France',    res: 'maille ~2,5 km' },
+            { q: 'models=meteofrance_seamless',        label: 'Météo-France seamless', res: 'AROME puis ARPEGE' },
+            { q: '',                                   label: 'Open-Meteo best_match', res: 'maille ~11 km' },
+            // Dernier recours avant le repli "benchmark" : même best_match mais SANS les
+            // niveaux verticaux, pour isoler un éventuel refus de l'API sur 20→200 m.
+            // Le profil est alors annoncé absent et AUCUNE correction n'est appliquée.
+            { q: '',                                   label: 'Open-Meteo Current', res: 'maille ~11 km, niveaux 20→200 m absents', noLevels: true }
+        ];
+        const OM_CURRENT_CACHE_MS = 10 * 60 * 1000;   // 10 min entre deux relevés du même lieu
+        const OM_CURRENT_RETRY_MS = 2 * 60 * 1000;    // on ne martèle pas l'API après un échec
+        let openMeteoCurrentCache = null;   // bloc construit par omBuildBlock() (voir plus bas)
+        let openMeteoCurrentLoading = false;
+        let openMeteoCurrentLoadingSeq = -1;   // lieu de la requête en vol (anti-course)
+        let openMeteoCurrentFailedAt = 0;
 
-        async function fetchSynopNearestTemp(lat, lon) {
-            if (synopLiveLoading) return synopLiveCache;
-            synopLiveLoading = true;
-            try {
-                const nowUtc = new Date();
-                for (let hOff = 0; hOff < 6; hOff++) {
-                    const d = new Date(nowUtc.getTime() - hOff * 3600000);
-                    d.setUTCMinutes(0,0,0);
-                    const yyyy = d.getUTCFullYear();
-                    const mm = String(d.getUTCMonth()+1).padStart(2,'0');
-                    const dd = String(d.getUTCDate()).padStart(2,'0');
-                    const hh = String(d.getUTCHours()).padStart(2,'0');
-                    const urlsToTry = [
-                        `https://object.files.data.gouv.fr/meteofrance/data/synop/synop.${yyyy}${mm}${dd}${hh}00.csv.gz`,
-                        `https://object.files.data.gouv.fr/meteofrance/data/synop/synop.${yyyy}${mm}${dd}${hh}.csv.gz`,
-                        `https://object.files.data.gouv.fr/meteofrance/data/synop/synop.${yyyy}${mm}${dd}${hh}00.csv`,
-                        `https://object.files.data.gouv.fr/meteofrance/data/synop/synop.${yyyy}${mm}${dd}${hh}.csv`
-                    ];
-                    let csvText = '';
-                    let usedUrl = '';
-                    for (const url of urlsToTry) {
-                        try {
-                            const res = await fetchWithTimeout(url, {timeout: 5000, cache:'no-store'});
-                            if (!res || !res.ok) continue;
-                            if (url.endsWith('.gz')) {
-                                const buf = await res.arrayBuffer();
-                                if (!buf || buf.byteLength < 100) continue;
-                                try {
-                                    if (typeof DecompressionStream === 'undefined') throw new Error('no DecompressionStream');
-                                    const ds = new DecompressionStream('gzip');
-                                    const stream = new Blob([buf]).stream().pipeThrough(ds);
-                                    csvText = await new Response(stream).text();
-                                } catch(e) { continue; }
-                            } else {
-                                csvText = await res.text();
-                            }
-                            if (csvText && csvText.length > 100) { usedUrl = url; break; }
-                        } catch(e) { continue; }
-                    }
-                    if (!csvText) continue;
-                    try {
-                        const lines = csvText.split(/\r?\n/);
-                        if (lines.length < 2) continue;
-                        const header = lines[0].trim().split(';');
-                        const idx = (name) => header.indexOf(name);
-                        const idxLat = idx('lat');
-                        const idxLon = idx('lon');
-                        const idxT = idx('t');
-                        const idxNom = idx('nom');
-                        const idxDate = idx('date');
-                        const idxPmer = idx('pmer');
-                        const idxPm = idx('pres');
-                        const idxPa = idx('pmer'); // pression mer
-                        const idxFf = idx('ff');
-                        const idxDd = idx('dd');
-                        const idxGust = idx('raf10')!==-1 ? idx('raf10') : idx('gust');
-                        const idxRr1 = idx('rr1');
-                        const idxRr3 = idx('rr3');
-                        const idxRr24 = idx('rr24');
-                        const idxU = idx('u');
-                        const idxTn = idx('tn12')!==-1 ? idx('tn12') : idx('tn');
-                        const idxTx = idx('tx12')!==-1 ? idx('tx12') : idx('tx');
-                        if (idxLat===-1 || idxLon===-1 || idxT===-1) continue;
-                        let best=null; let bestDist=Infinity;
-                        for (let i=1;i<lines.length;i++) {
-                            const line=lines[i].trim(); if(!line) continue;
-                            const cols=line.split(';');
-                            if (cols.length <= Math.max(idxLat, idxLon, idxT)) continue;
-                            const tK=parseFloat((cols[idxT]||'').replace(',', '.'));
-                            if (!isFinite(tK) || tK < 223 || tK > 323) continue;
-                            const plat=parseFloat((cols[idxLat]||'').replace(',', '.'));
-                            const plon=parseFloat((cols[idxLon]||'').replace(',', '.'));
-                            if (!isFinite(plat)||!isFinite(plon)) continue;
-                            const dist=calculateDistance(lat, lon, plat, plon);
-                            if (dist>120) continue;
-                            if (dist<bestDist) {
-                                bestDist=dist;
-                                const getF = (ii) => {
-                                    if (ii===-1) return null;
-                                    const v = (cols[ii]||'').replace(',', '.').trim();
-                                    if (v==='' || v==='mq') return null;
-                                    const n = parseFloat(v);
-                                    return isFinite(n) ? n : null;
-                                };
-                                let p = getF(idxPmer);
-                                if (p===null) p = getF(idxPm);
-                                // pmer est en Pa, conversion hPa = /100
-                                let pHpa = p;
-                                if (pHpa!==null && pHpa>10000) pHpa = pHpa/100;
-                                const ff = getF(idxFf); // m/s
-                                const dd = getF(idxDd);
-                                const gust = getF(idxGust);
-                                let rr = getF(idxRr1);
-                                if (rr===null) rr = getF(idxRr3);
-                                if (rr===null) rr = getF(idxRr24);
-                                const u = getF(idxU);
-                                let tn = getF(idxTn);
-                                let tx = getF(idxTx);
-                                if (tn!==null && tn>100) tn = tn-273.15;
-                                if (tx!==null && tx>100) tx = tx-273.15;
-                                best={temp:tK-273.15, lat:plat, lon:plon, dist:dist, station: idxNom!==-1?cols[idxNom]:'', obsTime: idxDate!==-1?cols[idxDate]:`${yyyy}-${mm}-${dd} ${hh}h UTC`, pressureHpa: pHpa, windSpeedMs: ff, windDir: dd, windGustMs: gust, precipMm: rr, humidity: u, minTemp: tn, maxTemp: tx, source:'SYNOP Météo-France', sourceUrl: usedUrl};
-                            }
-                        }
-                        if (best) {
-                            synopLiveCache={ts:Date.now(), ...best, source:'SYNOP Météo-France', sourceUrl: usedUrl};
-                            return synopLiveCache;
-                        }
-                    } catch(e) { continue; }
+        function omNum(v) {
+            const n = (typeof v === 'string') ? parseFloat(v) : v;
+            return (typeof n === 'number' && isFinite(n)) ? n : null;
+        }
+        // Nombre -> "14,2" (français) ; null si non exploitable
+        function omFmt(v, digits) {
+            if (v === null || v === undefined || !isFinite(v)) return '—';
+            return v.toFixed(digits).replace('.', ',');
+        }
+        function omSigned(v, digits) {
+            if (v === null || v === undefined || !isFinite(v)) return '—';
+            return (v >= 0 ? '+' : '') + omFmt(v, digits);
+        }
+        // Réponse Open-Meteo : objet unique, ou tableau quand "models=" liste plusieurs
+        // modèles, ou objet indexé par clé de modèle — les 3 formes sont normalisées ici.
+        function omPickResponse(json) {
+            if (!json || typeof json !== 'object') return null;
+            if (json.hourly && Array.isArray(json.hourly.time)) return json;
+            if (Array.isArray(json)) {
+                for (const item of json) {
+                    if (item && item.hourly && Array.isArray(item.hourly.time)) return item;
                 }
                 return null;
-            } finally { synopLiveLoading=false; }
-        }
-                        async function loadSynopLiveTemp(lat, lon) {
-            // v148.1 : fix ville changée = données anciennes qui restent
-            try {
-                // Si on change de ville à plus de 20km, on purge tout de suite l'ancien affichage
-                if (synopLiveCache && isCacheStaleForLocation(synopLiveCache, lat, lon, 20)) {
-                    synopLiveCache=null; metarLiveCache=null;
-                    try {
-                        const loadingEl=document.getElementById('mf-synop-temp-loading');
-                        const contentEl=document.getElementById('mf-synop-temp-content');
-                        const pillsEl=document.getElementById('mf-synop-temp-pills');
-                        if (loadingEl) loadingEl.style.display='';
-                        if (contentEl) contentEl.style.display='none';
-                        if (pillsEl) pillsEl.innerHTML='';
-                    } catch(e){}
-                }
-            } catch(e){}
-            try {
-                const ls = localStorage.getItem('metehop_metar_cache_v1');
-                if (ls) {
-                    const cached = JSON.parse(ls);
-                    // v148.1 - on ne réutilise le localStorage que si c'est la même zone (<30km)
-                    if (cached && (Date.now()-cached.ts) < 30*60*1000 && !isCacheStaleForLocation(cached, lat, lon, 30)) {
-                        synopLiveCache = cached; metarLiveCache = cached;
-                        try { updateHeroLiveTemp(); renderMfSynopTempCard(); } catch(e){}
-                    } else if (cached && isCacheStaleForLocation(cached, lat, lon, 30)) {
-                        // cache d'une autre ville : on le supprime pour ne pas le réafficher au prochain démarrage
-                        try { localStorage.removeItem('metehop_metar_cache_v1'); } catch(e){}
-                    }
-                }
-            } catch(e){}
-            if (!synopLiveCache) {
-                try {
-                    if (typeof benchmarkRealityNow !== 'undefined' && benchmarkRealityNow && typeof benchmarkRealityNow.temp === 'number') {
-                        const fb = {ts:Date.now(), temp:benchmarkRealityNow.temp, station:'Open-Meteo current', distKm:25, obsTime:'maintenant', lat:lat, lon:lon, source:'Open-Meteo'};
-                        synopLiveCache = fb;
-                        try { updateHeroLiveTemp(); renderMfSynopTempCard(); } catch(e){}
-                    }
-                } catch(e){}
-            } else {
-                try { updateHeroLiveTemp(); renderMfSynopTempCard(); } catch(e){}
             }
-            // v148 - METAR et SYNOP en parallèle immédiat (plus de setTimeout 100ms qui délayait)
-            // On lance les deux, le premier qui revient écrase l'autre si plus précis
-            const launch = async () => {
-                try {
-                    const metarP = fetchMetarNearestTemp(lat, lon).then(metar=>{
-                        if (metar) {
-                            synopLiveCache = metar;
-                            metarLiveCache = metar;
-                            try { localStorage.setItem('metehop_metar_cache_v1', JSON.stringify(metar)); } catch(e){}
-                            try { updateHeroLiveTemp(); renderMfSynopTempCard(); } catch(e){}
-                        }
-                        return metar;
-                    });
-                    const synopP = fetchSynopNearestTemp(lat, lon).then(synop=>{
-                        if (synop) {
-                            // Si METAR déjà arrivé et plus proche, on garde METAR, sinon SYNOP
-                            if (!metarLiveCache || (synop.distKm < (metarLiveCache.distKm||999))) {
-                                synopLiveCache = synop;
-                            }
-                            try { localStorage.setItem('metehop_metar_cache_v1', JSON.stringify(synopLiveCache)); } catch(e){}
-                            try { updateHeroLiveTemp(); renderMfSynopTempCard(); } catch(e){}
-                        }
-                        return synop;
-                    });
-                    await Promise.allSettled([metarP, synopP]);
-                } catch(e) {}
-            };
-            launch();
-            return synopLiveCache;
+            for (const key of Object.keys(json)) {
+                const item = json[key];
+                if (item && typeof item === 'object' && item.hourly && Array.isArray(item.hourly.time)) return item;
+            }
+            return null;
         }
-                        function renderMfSynopTempCard() {
-            const loadingEl=document.getElementById('mf-synop-temp-loading');
-            const errorEl=document.getElementById('mf-synop-temp-error');
-            const errorTextEl=document.getElementById('mf-synop-temp-error-text');
-            const contentEl=document.getElementById('mf-synop-temp-content');
-            const pillsEl=document.getElementById('mf-synop-temp-pills');
-            const updatedEl=document.getElementById('mf-synop-temp-updated');
-            if (!loadingEl || !contentEl) return;
-            const cache = (typeof synopLiveCache !== 'undefined' && synopLiveCache) ? synopLiveCache : (typeof metarLiveCache !== 'undefined' ? metarLiveCache : null);
-            if (cache && typeof cache.temp === 'number' && isFinite(cache.temp)) {
-                loadingEl.style.display='none'; if(errorEl) errorEl.style.display='none'; contentEl.style.display='';
-                const d=cache.distKm; const tempRounded=Math.round(cache.temp*10)/10; const distTxt=d.toFixed(1); const stationName=cache.station || cache.source || 'Station';
-                const isMetar = (cache.source||'').includes('METAR');
-                const badge = isMetar ? 'METAR aéroport - NOAA (fiable)' : ((cache.source||'').includes('SYNOP') ? 'Météo-France SYNOP' : 'Open-Meteo current');
-                const bg = isMetar ? 'rgba(59,110,97,0.12)' : 'rgba(43,108,176,0.10)';
-                if (pillsEl) {
-                    let html = `<span class="snow-pill" style="background: ${bg};"><i class="fa-solid fa-temperature-half"></i> ${tempRounded}°C — ${stationName} à ${distTxt} km</span><span class="snow-pill">${badge}</span>`;
-                    // v148 - nouvelles données : vent, pression, pluie, min/max si dispo
+        function omBuildUrl(lat, lon, model) {
+            const vars = model.noLevels
+                ? OM_CURRENT_LEVELS.slice(0, 1).map(l => l.k)
+                : OM_CURRENT_LEVELS.map(l => l.k);
+            const hourly = vars
+                .concat(['relative_humidity_2m', 'wind_speed_10m', 'wind_direction_10m', 'is_day'])
+                .join(',');
+            return `https://api.open-meteo.com/v1/forecast?latitude=${Number(lat).toFixed(4)}&longitude=${Number(lon).toFixed(4)}`
+                + `&hourly=${hourly}&past_days=1&forecast_days=2&timezone=auto`
+                + `&cell_selection=nearest&elevation=nan${model.q ? '&' + model.q : ''}`;
+        }
+        // Index horaire "maintenant". Les heures de la réponse sont locales au lieu demandé
+        // (timezone=auto) : on les reconvertit en instants UTC via utc_offset_seconds avant
+        // de comparer à Date.now(), pour ne pas décaler d'une zone horaire si le navigateur
+        // n'est pas sur le même fuseau que le lieu affiché.
+        function omNowIndex(times, utcOffsetSeconds) {
+            if (!Array.isArray(times) || !times.length) return -1;
+            const offMs = (typeof utcOffsetSeconds === 'number' && isFinite(utcOffsetSeconds)) ? utcOffsetSeconds * 1000 : null;
+            const now = Date.now();
+            let best = -1;
+            for (let i = 0; i < times.length; i++) {
+                const str = times[i];
+                if (typeof str !== 'string') continue;
+                let t = NaN;
+                if (offMs !== null) {
+                    const naive = Date.parse(str + 'Z');   // chaîne locale lue comme si UTC
+                    if (!isNaN(naive)) t = naive - offMs;
+                }
+                if (isNaN(t)) t = new Date(str).getTime();  // repli : interprétation locale navigateur
+                if (isNaN(t)) continue;
+                if (t <= now) best = i; else break;
+            }
+            return best;
+        }
+        // Régression moindres carrés T(h) = a + b·h sur les niveaux fournis.
+        // Garde-fous : ≥3 points et étalement vertical ≥80 m (sinon pente non significative).
+        function omFit(points) {
+            if (!Array.isArray(points) || points.length < 3) return null;
+            const zs = points.map(p => p.z);
+            const span = Math.max.apply(null, zs) - Math.min.apply(null, zs);
+            if (span < 80) return null;
+            const n = points.length;
+            const mz = zs.reduce((a, b) => a + b, 0) / n;
+            const mt = points.reduce((a, p) => a + p.t, 0) / n;
+            let num = 0, den = 0;
+            for (const p of points) { num += (p.z - mz) * (p.t - mt); den += (p.z - mz) * (p.z - mz); }
+            if (!den) return null;
+            return { gamma: (num / den) * 100 };   // pente en °C/100 m
+        }
+        // Régime horaire de l'atmosphère, déduit du profil et de la tendance horaire —
+        // l'inversion l'emporte toujours sur les autres diagnostics.
+        function omRegime(gammaClass, dTdt, isDay) {
+            if (gammaClass === null) return { label: 'Profil vertical indisponible', icon: 'fa-solid fa-circle-info' };
+            if (gammaClass > 0.15)  return { label: 'Inversion de température', icon: 'fa-solid fa-arrow-trend-up' };
+            if (isDay === false && dTdt !== null && dTdt <= -0.3) return { label: 'Refroidissement nocturne', icon: 'fa-solid fa-moon' };
+            if (isDay === true && dTdt !== null && dTdt >= 0.4) return { label: 'Réchauffement diurne', icon: 'fa-solid fa-sun' };
+            if (gammaClass <= -0.8) return { label: 'Mélange convectif', icon: 'fa-solid fa-arrows-up-down' };
+            if (gammaClass >= -0.3) return { label: 'Atmosphère stable', icon: 'fa-solid fa-minus' };
+            return { label: 'Gradient standard', icon: 'fa-solid fa-layer-group' };
+        }
+        // Correction d'altitude de la température de surface : la régression T(h) du profil
+        // vertical est extrapolée depuis l'altitude de la maille (modelAlt, si elle est fournie)
+        // vers l'altitude réelle du point (pointAlt). Mêmes garde-fous que l'affichage de la
+        // rubrique : γ borné à [-1,5 ; +4,0] °C/100 m, correction bornée à ±12 °C et considérée
+        // comme nulle en dessous de 0,05 °C (pas de fausse précision affichée).
+        // Fonction unique utilisée à la fois pour l'instant "maintenant" (omBuildBlock) et pour
+        // toute la série horaire (omHourlyCorrectedTemps), pour garantir que la courbe affichée
+        // est exactement la valeur affichée dans la carte de la rubrique.
+        // Retourne { corr, hTarget } : corr === null si la correction n'est pas applicable
+        // (pas de profil exploitable ou correction négligeable).
+        function omHourCorrection(fit, modelAlt, pointAlt) {
+            if (!fit || modelAlt === null || pointAlt === null) return { corr: null, hTarget: null };
+            const hTarget = pointAlt - modelAlt;
+            let g = fit.gamma;
+            if (g > 4.0) g = 4.0;
+            if (g < -1.5) g = -1.5;
+            let corr = (g / 100) * (hTarget - 2);
+            if (corr > 12) corr = 12;
+            if (corr < -12) corr = -12;
+            if (Math.abs(corr) < 0.05) corr = null;
+            return { corr: corr, hTarget: hTarget };
+        }
+        // Construit le bloc affiché à partir de la réponse du modèle choisi.
+        function omBuildBlock(data, model, lat, lon) {
+            try {
+                const h = data.hourly;
+                const idx = omNowIndex(h.time, data.utc_offset_seconds);
+                if (idx < 0) return null;
+                const t2 = omNum(h.temperature_2m ? h.temperature_2m[idx] : null);
+                if (t2 === null) return null;
+                const levels = [];
+                for (const L of OM_CURRENT_LEVELS) {
+                    const v = omNum(h[L.k] ? h[L.k][idx] : null);
+                    if (v !== null) levels.push({ z: L.z, t: v });
+                }
+                const modelAlt = omNum(data.elevation);
+                let pointAlt = null;
+                try {
+                    if (weatherData && typeof weatherData.elevation === 'number' && isFinite(weatherData.elevation)) pointAlt = weatherData.elevation;
+                } catch (e) {}
+                // Pente sur toute la hauteur du profil : sert à la correction d'altitude.
+                const fit = omFit(levels);
+                // Pente de la couche de surface (niveaux ≤100 m) : sert au diagnostic de régime.
+                const fitSurf = omFit(levels.filter(p => p.z <= 100));
+                const gamma = fit ? fit.gamma : null;
+                const gammaSurf = fitSurf ? fitSurf.gamma : null;
+                const corrBlock = omHourCorrection(fit, modelAlt, pointAlt);
+                const corr = corrBlock.corr;
+                const hTarget = corrBlock.hTarget;
+                const isDayArr = h.is_day;
+                const isDay = (Array.isArray(isDayArr) && isDayArr[idx] !== undefined) ? (Number(isDayArr[idx]) === 1) : null;
+                let dTdt = null;
+                if (idx > 0) {
+                    const prev = omNum(h.temperature_2m[idx - 1]);
+                    if (prev !== null) dTdt = t2 - prev;
+                }
+                const gammaClass = (gammaSurf !== null) ? gammaSurf : gamma;
+                const windSpeed = omNum(h.wind_speed_10m ? h.wind_speed_10m[idx] : null);
+                const windDir = omNum(h.wind_direction_10m ? h.wind_direction_10m[idx] : null);
+                return {
+                    ts: Date.now(), lat: Number(lat), lon: Number(lon),
+                    temp: (corr !== null) ? t2 + corr : t2,
+                    temp2m: t2, corrected: corr !== null,
+                    pointAlt: pointAlt, modelAlt: modelAlt, hTarget: hTarget,
+                    levels: levels, gamma: gamma,
+                    regime: omRegime(gammaClass, dTdt, isDay),
+                    rh: omNum(h.relative_humidity_2m ? h.relative_humidity_2m[idx] : null),
+                    windKmh: (windSpeed !== null) ? windSpeed * 3.6 : null,
+                    windDirDeg: windDir,
+                    windCompass: (windDir !== null && typeof compass16 === 'function') ? compass16(windDir) : null,
+                    time: h.time[idx], modelLabel: model.label, modelRes: model.res,
+                    // Série horaire complète extraite de la MÊME réponse (aucune requête
+                    // supplémentaire) : sert au graphique journalier comparatif de la rubrique.
+                    // timezone/utcOffset servent à aligner les instants MET Norway (UTC) sur les
+                    // heures locales ci-dessous (heure = heure).
+                    timezone: (typeof data.timezone === 'string' && data.timezone) ? data.timezone : null,
+                    utcOffsetSeconds: (typeof data.utc_offset_seconds === 'number') ? data.utc_offset_seconds : null,
+                    hourlyTime: Array.isArray(h.time) ? h.time : null,
+                    hourlyTemps: Array.isArray(h.temperature_2m) ? h.temperature_2m : null,
+                    hourlyLevels: OM_CURRENT_LEVELS.reduce((acc, L) => {
+                        acc[L.z] = Array.isArray(h[L.k]) ? h[L.k] : null;
+                        return acc;
+                    }, {})
+                };
+            } catch (e) { return null; }
+        }
+        // Température de surface corrigée de l'altitude pour TOUTES les heures de la réponse
+        // Open-Meteo : exactement le même traitement que la valeur affichée dans la carte de la
+        // rubrique (régression du profil vertical de chaque heure, mêmes garde-fous, mêmes bornes)
+        // — donc la courbe du graphique est bien la température "mesurée" par la rubrique et non
+        // la température brute de la maille. Un heure sans profil exploitable retombe sur la
+        // valeur brute affichée par la carte (jamais d'invention). Retourne un tableau indexé
+        // comme block.hourlyTime, avec null aux heures où la température manque (trou conservé).
+        function omHourlyCorrectedTemps(block) {
+            const out = [];
+            if (!block || !Array.isArray(block.hourlyTime) || !Array.isArray(block.hourlyTemps)) return out;
+            const modelAlt = (typeof block.modelAlt === 'number') ? block.modelAlt : null;
+            const pointAlt = (typeof block.pointAlt === 'number') ? block.pointAlt : null;
+            for (let i = 0; i < block.hourlyTime.length; i++) {
+                const t2 = omNum(block.hourlyTemps[i]);
+                if (t2 === null) { out.push(null); continue; }
+                const pts = [];
+                const levels = block.hourlyLevels || {};
+                for (const L of OM_CURRENT_LEVELS) {
+                    const arr = levels[L.z];
+                    const v = (Array.isArray(arr)) ? omNum(arr[i]) : null;
+                    if (v !== null) pts.push({ z: L.z, t: v });
+                }
+                const c = omHourCorrection(omFit(pts), modelAlt, pointAlt);
+                out.push((c.corr !== null) ? t2 + c.corr : t2);
+            }
+            return out;
+        }
+        // Charge le relevé "maintenant" : cascade AROME HD → AROME → seamless → best_match,
+        // premier modèle répondant gagne. Toujours protégé par weatherRequestSeq (anti-course
+        // si l'utilisateur change de lieu pendant la requête).
+        async function loadOpenMeteoCurrent(lat, lon) {
+            // Un chargement déjà en vol ne bloque l'appelant QUE s'il porte sur le même lieu :
+            // sinon (changement de lieu pendant la requête) on relance, la requête abandonnée
+            // se neutralisant seule via mySeq sans jamais écrire à l'écran.
+            if (openMeteoCurrentLoading && openMeteoCurrentLoadingSeq === weatherRequestSeq) return openMeteoCurrentCache;
+            try {
+                if (openMeteoCurrentCache && isCacheStaleForLocation(openMeteoCurrentCache, lat, lon, 30)) openMeteoCurrentCache = null;
+            } catch (e) {}
+            if (openMeteoCurrentCache && (Date.now() - openMeteoCurrentCache.ts) < OM_CURRENT_CACHE_MS) {
+                renderOpenMeteoCurrentCard();
+                try { syncStationCompareChart(); } catch (e) {}
+                return openMeteoCurrentCache;
+            }
+            if (openMeteoCurrentFailedAt && (Date.now() - openMeteoCurrentFailedAt) < OM_CURRENT_RETRY_MS) {
+                renderOpenMeteoCurrentCard();
+                return openMeteoCurrentCache;
+            }
+            const mySeq = weatherRequestSeq;
+            openMeteoCurrentLoading = true;
+            openMeteoCurrentLoadingSeq = mySeq;
+            renderOpenMeteoCurrentCard();
+            try {
+                for (const model of OM_CURRENT_MODELS) {
                     try {
-                        // Vent
-                        let windTxt = null;
-                        if (typeof cache.windSpeedMs === 'number' && isFinite(cache.windSpeedMs)) {
-                            windTxt = `${Math.round(cache.windSpeedMs*3.6)} km/h`;
-                            if (typeof cache.windDir === 'number') windTxt += ` ${Math.round(cache.windDir)}°`;
-                            if (typeof cache.windGustMs === 'number' && cache.windGustMs>0) windTxt += ` (raf ${Math.round(cache.windGustMs*3.6)})`;
-                            html += `<span class="snow-pill"><i class="fa-solid fa-wind"></i> ${windTxt}</span>`;
-                        } else if (typeof cache.windSpeedKt === 'number' && isFinite(cache.windSpeedKt)) {
-                            windTxt = `${Math.round(cache.windSpeedKt*1.852)} km/h`;
-                            if (typeof cache.windDir === 'number') windTxt += ` ${Math.round(cache.windDir)}°`;
-                            if (typeof cache.windGustKt === 'number' && cache.windGustKt>0) windTxt += ` (raf ${Math.round(cache.windGustKt*1.852)})`;
-                            html += `<span class="snow-pill"><i class="fa-solid fa-wind"></i> ${windTxt}</span>`;
-                        }
-                        // Pression
-                        if (typeof cache.pressureHpa === 'number' && isFinite(cache.pressureHpa) && cache.pressureHpa>800 && cache.pressureHpa<1100) {
-                            html += `<span class="snow-pill"><i class="fa-solid fa-gauge-high"></i> ${Math.round(cache.pressureHpa)} hPa</span>`;
-                        }
-                        // Pluie
-                        if (typeof cache.precipMm === 'number' && isFinite(cache.precipMm)) {
-                            if (cache.precipMm>0) html += `<span class="snow-pill"><i class="fa-solid fa-droplet"></i> ${cache.precipMm} mm</span>`;
-                            else if (cache.precipMm===0) html += `<span class="snow-pill"><i class="fa-solid fa-droplet-slash"></i> 0 mm</span>`;
-                        }
-                        // Humidité
-                        if (typeof cache.humidity === 'number' && isFinite(cache.humidity)) {
-                            html += `<span class="snow-pill"><i class="fa-solid fa-droplet"></i> ${Math.round(cache.humidity)}% HR</span>`;
-                        }
-                        // Min/Max
-                        if (typeof cache.minTemp === 'number' && isFinite(cache.minTemp) && typeof cache.maxTemp === 'number' && isFinite(cache.maxTemp)) {
-                            html += `<span class="snow-pill"><i class="fa-solid fa-temperature-arrow-down"></i> min ${Math.round(cache.minTemp*10)/10}° / <i class="fa-solid fa-temperature-arrow-up"></i> max ${Math.round(cache.maxTemp*10)/10}°</span>`;
-                        } else {
-                            if (typeof cache.minTemp === 'number' && isFinite(cache.minTemp)) html += `<span class="snow-pill"><i class="fa-solid fa-temperature-arrow-down"></i> min ${Math.round(cache.minTemp*10)/10}°</span>`;
-                            if (typeof cache.maxTemp === 'number' && isFinite(cache.maxTemp)) html += `<span class="snow-pill"><i class="fa-solid fa-temperature-arrow-up"></i> max ${Math.round(cache.maxTemp*10)/10}°</span>`;
-                        }
-                        // Visibilité (METAR)
-                        if (cache.visib) {
-                            html += `<span class="snow-pill"><i class="fa-solid fa-eye"></i> visib ${cache.visib}</span>`;
-                        }
-                    } catch(e) {}
-                    pillsEl.innerHTML=html;
+                        const res = await fetchWithTimeout(omBuildUrl(lat, lon, model), { timeout: 8000, cache: 'no-store' });
+                        if (!res || !res.ok) continue;
+                        const json = await res.json();
+                        const data = omPickResponse(json);
+                        if (!data || !data.hourly || !Array.isArray(data.hourly.time) || !Array.isArray(data.hourly.temperature_2m)) continue;
+                        const block = omBuildBlock(data, model, lat, lon);
+                        if (!block) continue;
+                        if (mySeq !== weatherRequestSeq) return null;   // lieu changé en cours de route
+                        openMeteoCurrentCache = block;
+                        openMeteoCurrentFailedAt = 0;
+                        try { updateHeroLiveTemp(); } catch (e) {}
+                        renderOpenMeteoCurrentCard();
+                        try { syncStationCompareChart(); } catch (e) {}
+                        return block;
+                    } catch (e) { continue; }
+                }
+                if (mySeq !== weatherRequestSeq) return null;
+                openMeteoCurrentFailedAt = Date.now();
+                renderOpenMeteoCurrentCard();
+                return null;
+            } finally {
+                if (openMeteoCurrentLoadingSeq === mySeq) openMeteoCurrentLoading = false;
+            }
+        }
+        function renderOpenMeteoCurrentCard() {
+            const loadingEl = document.getElementById('mf-synop-temp-loading');
+            const errorEl = document.getElementById('mf-synop-temp-error');
+            const errorTextEl = document.getElementById('mf-synop-temp-error-text');
+            const contentEl = document.getElementById('mf-synop-temp-content');
+            const pillsEl = document.getElementById('mf-synop-temp-pills');
+            const updatedEl = document.getElementById('mf-synop-temp-updated');
+            const profileEl = document.getElementById('mf-synop-temp-profile');
+            const modelEl = document.getElementById('mf-synop-temp-model');
+            if (!loadingEl || !contentEl) return;
+            const cache = openMeteoCurrentCache;
+            if (cache && typeof cache.temp === 'number' && isFinite(cache.temp)) {
+                loadingEl.style.display = 'none';
+                if (errorEl) errorEl.style.display = 'none';
+                contentEl.style.display = '';
+                if (modelEl) modelEl.innerText = `${cache.modelLabel} • ${cache.modelRes}`;
+                let html = `<span class="snow-pill" style="background: rgba(59,110,97,0.12);"><i class="fa-solid fa-temperature-half"></i> ${omFmt(cache.temp, 1)} °C${cache.corrected ? ' (au point)' : ''}</span>`;
+                html += `<span class="snow-pill"><i class="fa-solid fa-layer-group"></i> ${cache.modelLabel}</span>`;
+                if (cache.corrected) {
+                    html += `<span class="snow-pill"><i class="fa-solid fa-temperature-arrow-up"></i> modèle 2 m : ${omFmt(cache.temp2m, 1)} °</span>`;
+                    html += `<span class="snow-pill"><i class="fa-solid fa-mountain"></i> Δz ${omSigned(cache.hTarget, 0)} m</span>`;
+                    html += `<span class="snow-pill"><i class="fa-solid fa-arrow-trend-up"></i> γ ${omSigned(cache.gamma, 2)} °C/100 m</span>`;
+                } else {
+                    html += `<span class="snow-pill"><i class="fa-solid fa-circle-info"></i> valeur 2 m du modèle, non corrigée</span>`;
+                }
+                if (cache.rh !== null) html += `<span class="snow-pill"><i class="fa-solid fa-droplet"></i> Hum ${omFmt(cache.rh, 0)} %</span>`;
+                if (cache.windKmh !== null) html += `<span class="snow-pill"><i class="fa-solid fa-wind"></i> Vent ${Math.round(cache.windKmh)} km/h</span>`;
+                if (cache.windDirDeg !== null) html += `<span class="snow-pill"><i class="fa-solid fa-compass"></i> ${cache.windCompass || '—'} ${Math.round(cache.windDirDeg)}°</span>`;
+                html += `<span class="snow-pill"><i class="${cache.regime.icon}"></i> ${cache.regime.label}</span>`;
+                const altTxt = (cache.pointAlt !== null && cache.modelAlt !== null)
+                    ? `point ${Math.round(cache.pointAlt)} m · maille ${Math.round(cache.modelAlt)} m`
+                    : (cache.modelAlt !== null ? `maille ${Math.round(cache.modelAlt)} m` : null);
+                if (altTxt) html += `<span class="snow-pill"><i class="fa-solid fa-mountain"></i> ${altTxt}</span>`;
+                if (pillsEl) pillsEl.innerHTML = html;
+                if (profileEl) {
+                    if (cache.gamma !== null && cache.levels && cache.levels.length > 1) {
+                        const parts = cache.levels.map(p => {
+                            const alt = (cache.modelAlt !== null) ? `alt ${Math.round(cache.modelAlt + p.z)} m` : `+${p.z} m`;
+                            return `${p.z} m : ${omFmt(p.t, 1)} °C (${alt})`;
+                        });
+                        profileEl.innerText = `Profil du modèle — ${parts.join(' · ')} — γ mesuré ${omSigned(cache.gamma, 2)} °C/100 m sur ${cache.levels.length} niveaux`;
+                        profileEl.style.display = '';
+                    } else {
+                        profileEl.innerText = 'Profil vertical 20→200 m non mesuré dans la réponse : aucune correction d\'altitude appliquée, aucun gradient imposé.';
+                        profileEl.style.display = '';
+                    }
                 }
                 if (updatedEl) {
-                    updatedEl.innerText=`Source : ${cache.source||'METAR'} — ${cache.obsTime||''} — ${stationName} — distance ${distTxt} km`;
+                    let when = '';
+                    try { if (cache.time) when = new Date(cache.time).toLocaleString('fr-FR'); } catch (e) {}
+                    updatedEl.innerText = `Source : Open-Meteo — ${cache.modelLabel} (${cache.modelRes}) — relevé horaire ${when}${cache.corrected ? ' — altitude corrigée via le profil vertical du modèle' : ''}`;
                 }
                 return;
             }
-            if ((typeof synopLiveLoading !== 'undefined' && synopLiveLoading) || (typeof metarLiveLoading !== 'undefined' && metarLiveLoading)) {
-                loadingEl.style.display=''; if(errorEl) errorEl.style.display='none'; contentEl.style.display='none'; return;
+            if (openMeteoCurrentLoading) {
+                loadingEl.style.display = '';
+                if (errorEl) errorEl.style.display = 'none';
+                if (profileEl) profileEl.style.display = 'none';
+                if (updatedEl) updatedEl.innerText = '';
+                contentEl.style.display = 'none';
+                return;
             }
-            loadingEl.style.display='none'; if(errorEl) { errorEl.style.display=''; if(errorTextEl) errorTextEl.innerText='Relevés temps réel en cours de chargement...'; } contentEl.style.display='none';
+            // Repli honnête : si les modèles haute résolution sont inaccessibles, on retombe
+            // sur Open-Meteo current (maille ~11 km, déjà chargé pour le Benchmark) en
+            // affichant clairement qu'il n'y a NI profil vertical NI correction d'altitude.
+            let fb = null;
+            try {
+                if (typeof benchmarkRealityNow !== 'undefined' && benchmarkRealityNow && typeof benchmarkRealityNow.temp === 'number' && isFinite(benchmarkRealityNow.temp)) fb = benchmarkRealityNow;
+            } catch (e) {}
+            if (fb) {
+                loadingEl.style.display = 'none';
+                if (errorEl) errorEl.style.display = 'none';
+                contentEl.style.display = '';
+                if (modelEl) modelEl.innerText = 'repli • maille ~11 km';
+                if (pillsEl) {
+                    pillsEl.innerHTML = `<span class="snow-pill" style="background: rgba(59,110,97,0.12);"><i class="fa-solid fa-temperature-half"></i> ${omFmt(fb.temp, 1)} °C</span>`
+                        + `<span class="snow-pill"><i class="fa-solid fa-circle-question"></i> Repli — modèles haute résolution indisponibles</span>`
+                        + `<span class="snow-pill"><i class="fa-solid fa-circle-info"></i> profil vertical non mesuré, altitude non corrigée</span>`;
+                }
+                if (profileEl) {
+                    profileEl.innerText = 'Repli : le profil vertical 20→200 m n\'a pas pu être lu, donc aucune correction d\'altitude n\'a été appliquée (aucun gradient imposé).';
+                    profileEl.style.display = '';
+                }
+                if (updatedEl) updatedEl.innerText = `Source : Open-Meteo current (repli, maille ~11 km) — ${new Date(fb.ts).toLocaleString('fr-FR')}`;
+                return;
+            }
+            loadingEl.style.display = 'none';
+            if (errorEl) {
+                errorEl.style.display = '';
+                if (errorTextEl) errorTextEl.innerText = 'Modèles haute résolution Open-Meteo indisponibles pour le moment.';
+            }
+            if (profileEl) profileEl.style.display = 'none';
+            if (updatedEl) updatedEl.innerText = '';
+            contentEl.style.display = 'none';
+        }
+
+
+        // ═════════════════════════════════════════════════════════════════════════════
+        // RUBRIQUE "STATIONS MÉTÉO À PROXIMITÉ" — source 2 : MET Norway
+        // ═════════════════════════════════════════════════════════════════════════════
+        // Porté tel quel de metehop-live.html : même API, même endpoint compact, mêmes
+        // variables, même traitement et mêmes unités (km/h arrondis, pression en hPa
+        // arrondie, nuages en %, heure du relevé en fr-FR). Modèle indépendant de
+        // Open-Meteo, il sert de contre-vérification dans la même carte.
+        // Réponse mise en cache 10 min (même discipline que les autres sources de la carte).
+        let metNorwayCache = null;  // {t, rh, wind, dir, press, cloud, time, ts, lat, lon}
+        let metNorwayLoading = false;
+        let metNorwayLoadingSeq = -1;  // lieu de la requête en vol (anti-course)
+        async function loadMetNorway(lat, lon) {
+            const mySeq = weatherRequestSeq;
+            if (metNorwayLoading && metNorwayLoadingSeq === mySeq) return metNorwayCache;
+            try {
+                if (metNorwayCache && isCacheStaleForLocation(metNorwayCache, lat, lon, 30)) metNorwayCache = null;
+            } catch (e) {}
+            if (metNorwayCache && (Date.now() - metNorwayCache.ts) < 10 * 60 * 1000) {
+                renderMetNorwayCard();
+                try { syncStationCompareChart(); } catch (e) {}
+                return metNorwayCache;
+            }
+            metNorwayLoading = true;
+            metNorwayLoadingSeq = mySeq;
+            renderMetNorwayCard();
+            try {
+                const res = await fetchWithTimeout(`https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=${lat}&lon=${lon}`, { timeout: 12000, cache: 'no-store' });
+                if (!res || !res.ok) throw new Error('http');
+                const data = await res.json();
+                const ts0 = data && data.properties && data.properties.timeseries && data.properties.timeseries[0];
+                const d = ts0 && ts0.data && ts0.data.instant && ts0.data.instant.details;
+                if (!d || typeof d.air_temperature !== 'number') throw new Error('empty');
+                if (mySeq !== weatherRequestSeq) return null;
+                // Série horaire issue de la MÊME réponse (aucune requête supplémentaire) : même
+                // champ air_temperature que metehop-live.html, lu sur toute la timeseries. Un
+                // instant sans température est conservé en null (trou, jamais interpolé) et sera
+                // aligné sur l'heure locale du graphique par stationHourKeyFromUtc().
+                const tsList = (data.properties && Array.isArray(data.properties.timeseries)) ? data.properties.timeseries : [];
+                const seriesTime = [];
+                const seriesTemp = [];
+                for (const item of tsList) {
+                    if (!item || typeof item.time !== 'string') continue;
+                    const det = item.data && item.data.instant && item.data.instant.details;
+                    seriesTime.push(item.time);
+                    seriesTemp.push((det && typeof det.air_temperature === 'number') ? det.air_temperature : null);
+                }
+                metNorwayCache = {
+                    t: d.air_temperature,
+                    rh: d.relative_humidity,
+                    wind: d.wind_speed,
+                    dir: d.wind_from_direction,
+                    press: d.air_pressure_at_sea_level,
+                    cloud: d.cloud_area_fraction,
+                    time: ts0.time || null,
+                    ts: Date.now(), lat: Number(lat), lon: Number(lon),
+                    hourlyTime: seriesTime,
+                    hourlyTemps: seriesTemp
+                };
+                renderMetNorwayCard();
+                try { syncStationCompareChart(); } catch (e) {}
+                return metNorwayCache;
+            } catch (e) {
+                if (mySeq !== weatherRequestSeq) return null;
+                metNorwayCache = null;
+                renderMetNorwayCard();
+                return null;
+            } finally {
+                if (metNorwayLoadingSeq === mySeq) metNorwayLoading = false;
+            }
+        }
+        function renderMetNorwayCard() {
+            const loadingEl = document.getElementById('met-norway-loading');
+            const errorEl = document.getElementById('met-norway-error');
+            const errorTextEl = document.getElementById('met-norway-error-text');
+            const contentEl = document.getElementById('met-norway-content');
+            const pillsEl = document.getElementById('met-norway-pills');
+            const updatedEl = document.getElementById('met-norway-updated');
+            if (!loadingEl || !contentEl) return;
+            const d = metNorwayCache;
+            if (d && typeof d.t === 'number' && isFinite(d.t)) {
+                loadingEl.style.display = 'none';
+                if (errorEl) errorEl.style.display = 'none';
+                contentEl.style.display = '';
+                const rh = (typeof d.rh === 'number' && isFinite(d.rh)) ? d.rh.toFixed(0) : '—';
+                const windKmh = (typeof d.wind === 'number' && isFinite(d.wind)) ? Math.round(d.wind * 3.6) : null;
+                const dirDeg = (typeof d.dir === 'number' && isFinite(d.dir)) ? Math.round(d.dir) : null;
+                const cloud = (typeof d.cloud === 'number' && isFinite(d.cloud)) ? d.cloud.toFixed(0) : '—';
+                const press = (typeof d.press === 'number' && isFinite(d.press)) ? Math.round(d.press) : '—';
+                let html = `<span class="snow-pill" style="background: rgba(14,116,144,0.10);"><i class="fa-solid fa-temperature-half"></i> ${omFmt(d.t, 1)} °C</span>`;
+                html += `<span class="snow-pill"><i class="fa-solid fa-droplet"></i> Hum ${rh} %</span>`;
+                if (windKmh !== null) html += `<span class="snow-pill"><i class="fa-solid fa-wind"></i> Vent ${windKmh} km/h</span>`;
+                html += `<span class="snow-pill"><i class="fa-solid fa-compass"></i> ${dirDeg !== null ? (compass16(d.dir) || '—') : '—'} ${dirDeg !== null ? dirDeg : '—'}°</span>`;
+                html += `<span class="snow-pill"><i class="fa-solid fa-cloud"></i> Nuages ${cloud} %</span>`;
+                html += `<span class="snow-pill"><i class="fa-solid fa-gauge-high"></i> ${press} hPa</span>`;
+                if (pillsEl) pillsEl.innerHTML = html;
+                if (updatedEl) {
+                    let when = '';
+                    try { if (d.time) when = new Date(d.time).toLocaleString('fr-FR'); } catch (e) {}
+                    updatedEl.innerText = `Source : MET Norway (api.met.no)${when ? ` — relevé du ${when}` : ''}`;
+                }
+                return;
+            }
+            if (metNorwayLoading) {
+                loadingEl.style.display = '';
+                if (errorEl) errorEl.style.display = 'none';
+                if (updatedEl) updatedEl.innerText = '';
+                contentEl.style.display = 'none';
+                return;
+            }
+            loadingEl.style.display = 'none';
+            if (errorEl) {
+                errorEl.style.display = '';
+                if (errorTextEl) errorTextEl.innerText = 'Relevé MET Norway indisponible pour le moment.';
+            }
+            if (updatedEl) updatedEl.innerText = '';
+            contentEl.style.display = 'none';
+        }
+
+        // ---- Graphique journalier comparatif de la rubrique (25/09/2026) ----
+        // "Température heure par heure & précipitations" (dernier élément de la carte
+        // "Stations météo à proximité") : reprend exactement la représentation du graphique
+        // principal — mêmes axes (°C à gauche, mm/cm à droite), mêmes ticks, mêmes barreaux,
+        // même dégradé, même légende HTML — en superposant les températures Open-Meteo
+        // (corrigées d'altitude, cf. omHourlyCorrectedTemps) et MET Norway. Aucune requête
+        // supplémentaire : tout provient des caches de la rubrique et de weatherData.
+
+        // Fuseau d'alignement : celui de weatherData (timezone=auto de la requête principale)
+        // fait foi, puisque weatherData.hourly.time est exprimé dedans. Repli sur le fuseau
+        // renvoyé par Open-Meteo pour la rubrique, puis sur celui du navigateur — la conversion
+        // reste exacte, aucune valeur n'est inventée.
+        function stationChartTimeZone() {
+            try {
+                if (weatherData && typeof weatherData.timezone === 'string' && weatherData.timezone) return weatherData.timezone;
+            } catch (e) {}
+            try {
+                if (openMeteoCurrentCache && openMeteoCurrentCache.timezone) return openMeteoCurrentCache.timezone;
+            } catch (e) {}
+            try {
+                const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                if (typeof tz === 'string' && tz) return tz;
+            } catch (e) {}
+            return null;
+        }
+
+        // Clé d'heure locale "YYYY-MM-DDTHH" à partir d'un instant ISO UTC (MET Norway renvoie
+        // des timestamps UTC, weatherData des chaînes locales naïves). hourCycle 'h23' garantit
+        // des heures 00..23. Retourne null si l'instant est illisible : l'heure sera alors
+        // simplement absente du graphique (trou conservé, jamais interpolé).
+        function stationHourKeyFromUtc(isoUtc, timeZone) {
+            try {
+                const d = new Date(isoUtc);
+                if (isNaN(d.getTime())) return null;
+                let day = null, hour = null;
+                if (timeZone) {
+                    const parts = new Intl.DateTimeFormat('en-CA', {
+                        timeZone: timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+                        hour: '2-digit', hourCycle: 'h23'
+                    }).formatToParts(d);
+                    const get = t => { const p = parts.find(x => x.type === t); return p ? p.value : null; };
+                    const y = get('year'), m = get('month'), dd = get('day'), hh = get('hour');
+                    if (!y || !m || !dd || hh === null) return null;
+                    day = `${y}-${m}-${dd}`;
+                    hour = parseInt(hh, 10);
+                } else {
+                    day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                    hour = d.getHours();
+                }
+                if (hour === null || isNaN(hour)) return null;
+                return `${day}T${String(hour).padStart(2, '0')}`;
+            } catch (e) { return null; }
+        }
+
+        // Redessine le graphique comparatif pour le jour demandé (0 = aujourd'hui).
+        function updateStationCompareChart(dayIdx) {
+            const canvas = document.getElementById('stationCompareChart');
+            if (!canvas) return;
+            if (typeof weatherData === 'undefined' || !weatherData || !weatherData.hourly || !Array.isArray(weatherData.hourly.time)) return;
+
+            const idx = (typeof dayIdx === 'number' && isFinite(dayIdx) && dayIdx >= 0) ? Math.floor(dayIdx) : 0;
+            const start = idx * 24;
+            const end = start + 24;
+            const times = weatherData.hourly.time.slice(start, end);
+            if (!times.length) return;
+            const labels = times.map(t => (typeof t === 'string' && t.indexOf('T') > 0) ? t.split('T')[1].substring(0, 2) + 'h' : '');
+            const keys = times.map(t => (typeof t === 'string' ? t.substring(0, 13) : null));
+
+            // Précipitations : mêmes tableaux et même règle que le graphique principal
+            // (rain, sinon precipitation ; snowfall) — donc même unité et même présentation.
+            // Un tableau absent donne simplement aucun barreau (jamais de zéro inventé).
+            const rainSrc = weatherData.hourly.rain ? weatherData.hourly.rain : weatherData.hourly.precipitation;
+            const rain = Array.isArray(rainSrc) ? rainSrc.slice(start, end) : [];
+            const snowfall = Array.isArray(weatherData.hourly.snowfall) ? weatherData.hourly.snowfall.slice(start, end) : [];
+
+            const omBlock = (typeof openMeteoCurrentCache !== 'undefined') ? openMeteoCurrentCache : null;
+            const mnBlock = (typeof metNorwayCache !== 'undefined') ? metNorwayCache : null;
+            const tz = stationChartTimeZone();
+
+            const omTempsByKey = new Map();
+            if (omBlock && Array.isArray(omBlock.hourlyTime)) {
+                const omSeries = omHourlyCorrectedTemps(omBlock);
+                for (let i = 0; i < omBlock.hourlyTime.length; i++) {
+                    const t = omBlock.hourlyTime[i];
+                    if (typeof t !== 'string') continue;
+                    omTempsByKey.set(t.substring(0, 13), omNum(omSeries[i]));
+                }
+            }
+            const mnTempsByKey = new Map();
+            if (mnBlock && Array.isArray(mnBlock.hourlyTime) && Array.isArray(mnBlock.hourlyTemps)) {
+                for (let i = 0; i < mnBlock.hourlyTime.length; i++) {
+                    const k = stationHourKeyFromUtc(mnBlock.hourlyTime[i], tz);
+                    if (k) mnTempsByKey.set(k, omNum(mnBlock.hourlyTemps[i]));
+                }
+            }
+            // Une heure sans donnée pour une source reste null : Chart.js trace alors un trou
+            // (spanGaps désactivé par défaut) au lieu d'une valeur fabriquée.
+            const omTemps = keys.map(k => (k !== null && omTempsByKey.has(k)) ? omTempsByKey.get(k) : null);
+            const mnTemps = keys.map(k => (k !== null && mnTempsByKey.has(k)) ? mnTempsByKey.get(k) : null);
+
+            const hasRain = rain.some(v => (v || 0) > 0);
+            const hasSnow = snowfall.some(v => (v || 0) > 0);
+            const precipUnit = (hasRain && hasSnow) ? 'mm/cm' : (hasSnow ? 'cm' : 'mm');
+            const precipAxisColor = (hasSnow && !hasRain) ? '#8b5cf6' : '#5a9bd4';
+
+            if (stationCompareChart) {
+                try { stationCompareChart.destroy(); } catch (e) {}
+                stationCompareChart = null;
+            }
+            stationCompareChart = buildHourlyWeatherChart('stationCompareChart', labels, (tempGradient) => [
+                { type: 'line', label: 'Open-Meteo (°C)', data: omTemps, borderColor: '#d97736', borderWidth: 2, fill: true, backgroundColor: tempGradient, tension: 0.4, pointRadius: 0, yAxisID: 'yTemp' },
+                { type: 'line', label: 'MET Norway (°C)', data: mnTemps, borderColor: '#0e7490', borderWidth: 2, fill: false, tension: 0.4, pointRadius: 0, yAxisID: 'yTemp' },
+                { type: 'bar', label: 'Pluie (mm)', data: rain, backgroundColor: 'rgba(94, 156, 204, 0.65)', borderRadius: 4, barThickness: 4, yAxisID: 'yPrecip' },
+                { type: 'bar', label: 'Neige (cm)', data: snowfall, backgroundColor: 'rgba(139, 92, 246, 0.75)', borderRadius: 4, barThickness: 4, yAxisID: 'yPrecip' }
+            ], precipUnit, precipAxisColor);
+
+            const omVals = omTemps.filter(v => typeof v === 'number');
+            const maxEl = document.getElementById('station-chart-max-label');
+            if (maxEl) maxEl.innerText = omVals.length ? `${Math.round(Math.max.apply(null, omVals))}° pic Open-Meteo` : '--°';
+
+            const subEl = document.getElementById('station-chart-sub');
+            if (subEl) {
+                let sub = 'Évolution thermique (Open-Meteo / MET Norway), histogramme de pluie (mm) et neige (cm)';
+                const missing = [];
+                if (!omVals.length) missing.push('Open-Meteo');
+                if (!mnTemps.some(v => typeof v === 'number')) missing.push('MET Norway');
+                if (missing.length) sub += ` · ${missing.join(' et ')} indisponible${missing.length > 1 ? 's' : ''} (trous conservés)`;
+                subEl.innerText = sub;
+            }
+        }
+
+        // Rafraîchit le graphique comparatif s'il est sur un onglet affiché : un canvas sous
+        // display:none a une taille nulle, Chart.js le dessinerait mal (cf. resizeGroupCharts).
+        // Simple redessin depuis les caches, zéro requête réseau.
+        function syncStationCompareChart(dayIdx) {
+            try {
+                const section = document.getElementById('station-compare-section');
+                if (!section || section.offsetParent === null) return;
+                updateStationCompareChart(typeof dayIdx === 'number' ? dayIdx : selectedDayIndex);
+            } catch (e) {}
         }
 
 
                 // ---- Balise de vent Pioupiou/OpenWindMap la plus proche (11/09/2026) ----
-        // Seule source "stations à proximité" restante avec ITENCI3 (voir loadNearbyStation) :
-        // les relevés SYNOP/Opendatasoft (figés au 15/01/2026), Météo-France live (token horaire
-        // à recoller sans cesse), Bright Sky et les liens Infoclimat ont été retirés.
+        // 4e source de la carte "Stations météo à proximité" (voir loadOpenMeteoCurrent,
+        // loadMetNorway et loadNearbyStation) : les relevés METAR NOAA et SYNOP Météo-France
+        // ont été retirés le 25/09/2026.
         // Anémomètres réels, CORS explicitement autorisé par leur doc, sans clé. Données
         // vent uniquement (pas de température/pression sur ce réseau v1) — étiqueté tel quel.
         // Réponse mise en cache 10 min (limite API : 1 appel/60 s).
@@ -8254,6 +8788,16 @@ function applyDisplayMode() {
             currentLon = lon;
             currentPopulation = population;
             currentLocationName = locationName;
+            // Portée de la station ITENCI3 (Tencin) : testée DÈS À PRESENT, avant toute requête,
+            // car elle ne dépend que du lieu affiché (≤20 km) et jamais du réseau. Ainsi une
+            // erreur sur la prévision principale ne peut plus masquer cette ligne alors que les
+            // 3 autres sources de la même carte (gatées uniquement sur currentLat) continuent de
+            // s'afficher. Le test d'altitude (≤100 m) reste appliqué plus bas, dès que weatherData
+            // est disponible — voir juste avant l'ouverture de la ligne ITENCI3.
+            try {
+                nearbyStationInRange = calculateDistance(lat, lon, NEARBY_STATION.lat, NEARBY_STATION.lon) <= NEARBY_STATION.maxDistanceKm;
+                document.getElementById('nearby-station-card').style.display = nearbyStationInRange ? '' : 'none';
+            } catch (e) {}
             // Les signaux géo micro-climat (relief/bâti/cours d'eau) sont propres à un LIEU : un
             // changement de lieu doit les invalider, sinon une réactivation ultérieure du toggle
             // pourrait réutiliser par erreur les signaux de l'ancien lieu (voir onMicroClimateToggleChange).
@@ -8265,6 +8809,13 @@ function applyDisplayMode() {
             modelDisagreementByDay = null; // nouveau lieu : on recalcule les désaccords entre modèles
             benchmarkReality = null; // benchmark : les relèves du lieu précédent n'ont plus de sens ici
             benchmarkRealityNow = null;
+            // Les 4 sources de la rubrique "Stations météo à proximité" ne valent que pour le
+            // lieu demandé : on purge celles qui restent d'un autre endroit (garde-fou 30 km,
+            // même helper que les autres caches de la carte) avant tout réaffichage.
+            try {
+                if (openMeteoCurrentCache && isCacheStaleForLocation(openMeteoCurrentCache, lat, lon, 30)) openMeteoCurrentCache = null;
+                if (metNorwayCache && isCacheStaleForLocation(metNorwayCache, lat, lon, 30)) metNorwayCache = null;
+            } catch (e) {}
             document.getElementById('title').innerText = locationName;
             document.getElementById('radar-sub-location').innerText = `${locationName} et alentours`;
             updateFavoriteButtonUI();
@@ -8381,17 +8932,15 @@ render16DayTable();
                     stopNearbyStationAutoRefresh();
                 }
                 document.getElementById('nearby-station-card').style.display = nearbyStationInRange ? '' : 'none';
-                // v137 - FIX rafraichissement : on force Temp.live + SYNOP + benchmark quelle que soit la zone
+                // v137 - FIX rafraichissement : on force Temp.live + benchmark quelle que soit la zone,
+                // et on recharge (même si ITENCI3 est à portée ou non) les deux premières sources
+                // de la rubrique "Stations météo à proximité" — Open-Meteo Current et MET Norway.
                 try { updateHeroLiveTemp(); } catch(e) {}
-                try { renderMfSynopTempCard(); } catch(e) {}
                 if (typeof currentLat === 'number' && typeof currentLon === 'number') {
                     try { if (!benchmarkRealityNow && !benchmarkRealityNowLoading) loadBenchmarkRealityNow(currentLat, currentLon).catch(()=>{}); } catch(e) {}
-                    try { loadSynopLiveTemp(currentLat, currentLon).catch(()=>{}); } catch(e) {}
+                    try { loadOpenMeteoCurrent(currentLat, currentLon).catch(()=>{}); } catch(e) {}
                 }
-                // Toujours charger SYNOP même si ITENCI3 est à portée, pour la rubrique Stations météo
-                if (typeof currentLat === 'number' && typeof currentLon === 'number') {
-                    try { loadSynopLiveTemp(currentLat, currentLon).catch(()=>{}); } catch(e) {}
-                }
+                try { renderOpenMeteoCurrentCard(); } catch(e) {}
                 if (nearbyStationInRange) {
                     const loadingEl = document.getElementById('nearby-station-loading');
                     const errEl = document.getElementById('nearby-station-error');
@@ -8413,6 +8962,10 @@ render16DayTable();
                 // loadPioupiouStation() elle-même).
                 pioupiouStationLoaded = (currentGroup === 'eau');
                 if (pioupiouStationLoaded) loadPioupiouStation(lat, lon).catch(() => {});
+                // MET Norway, 2e source de la même carte : même logique de chargement/distance
+                // que Pioupiou ci-dessus (une fois par lieu, purgé si le lieu change de plus de 30 km).
+                metNorwayLoaded = (currentGroup === 'eau');
+                if (metNorwayLoaded) loadMetNorway(lat, lon).catch(() => {});
                 // Classement des meilleures nuits : purement calculé (pas d'appel réseau), donc
                 // recalculé immédiatement si l'onglet Général (qui héberge désormais Astronomie, voir
                 // #astro-card) est déjà actif au changement de lieu.
@@ -8435,6 +8988,22 @@ render16DayTable();
             } catch (e) {
                 console.error(e);
                 if (mySeq !== weatherRequestSeq) return; // erreur obsolète d'un lieu abandonné
+                // La prévision principale a échoué : la ligne ITENCI3 de la rubrique ne doit pas en
+                // pâtir. Son test de portée (posé en tête de fetchWeather) ne dépend pas du réseau et
+                // les 3 autres sources de la même carte se chargent indépendamment via setGroup() —
+                // on recharge donc aussi celle-ci pour ne pas la laisser bloquée sur "Chargement...".
+                try {
+                    if (nearbyStationInRange && typeof currentLat === 'number' && typeof currentLon === 'number') {
+                        const loadEl = document.getElementById('nearby-station-loading');
+                        const errEl = document.getElementById('nearby-station-error');
+                        const contEl = document.getElementById('nearby-station-content');
+                        if (loadEl) loadEl.style.display = '';
+                        if (errEl) errEl.style.display = 'none';
+                        if (contEl) contEl.style.display = 'none';
+                        loadNearbyStation({silent: currentGroup !== 'eau'}).catch(()=>{});
+                        startNearbyStationAutoRefresh();
+                    }
+                } catch (e2) {}
                 showWeatherError(locationName);
             }
         }
@@ -13428,7 +13997,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                     };
                     renderBenchmark();
                     try { updateHeroLiveTemp(); } catch(e) {}
-                    try { renderMfSynopTempCard(); } catch(e) {}
+                    try { renderOpenMeteoCurrentCard(); } catch(e) {}
                 }
             } catch (e) {
             } finally {
@@ -14619,6 +15188,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
             document.getElementById('sw-wind').innerText = `${avgWind} - ${maxGust} km/h`;
 
             updateChart(dayIdx);
+            try { syncStationCompareChart(dayIdx); } catch (e) {}
             updateAstroChart(dayIdx);
             updatePressureChart(dayIdx);
             updateSnowLimitChart(dayIdx);
@@ -14660,12 +15230,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
             }
 
             if (typeof Chart === 'undefined') return;
-            const ctx = document.getElementById('weatherChart').getContext('2d');
             if (weatherChart) weatherChart.destroy();
-
-            const tempGradient = ctx.createLinearGradient(0, 0, 0, 140);
-            tempGradient.addColorStop(0, 'rgba(217, 119, 54, 0.35)');
-            tempGradient.addColorStop(1, 'rgba(217, 119, 54, 0.0)');
 
             // Un seul axe droit pour la hauteur de précipitations : en mm de pluie (bleu) par défaut,
             // ou en cm de neige (violet) si de la neige est effectivement prévue ce jour-là — jamais
@@ -14682,30 +15247,52 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
             // dispose que d'une moyenne JOURNALIÈRE historique, pas d'un profil horaire par le passé.
             const dateStrForNormal = weatherData.daily && weatherData.daily.time ? weatherData.daily.time[dayIdx] : null;
             const normalForDay = dateStrForNormal ? dailyTempNormals[dateStrForNormal] : null;
-            const datasets = [
-                { type: 'line', label: 'Température (°C)', data: temps, borderColor: '#d97736', borderWidth: 2, fill: true, backgroundColor: tempGradient, tension: 0.4, pointRadius: 0, yAxisID: 'yTemp' },
-                { type: 'bar', label: precipLabel, data: precipValues, backgroundColor: precipColor, borderRadius: 4, barThickness: 5, yAxisID: 'yPrecip' }
-            ];
-            if (typeof normalForDay === 'number') {
-                datasets.push({
-                    type: 'line',
-                    label: 'Normale de saison (15 ans)',
-                    data: new Array(temps.length).fill(normalForDay),
-                    borderColor: 'rgba(28, 56, 50, 0.55)',
-                    borderWidth: 1.5,
-                    borderDash: [5, 4],
-                    pointRadius: 0,
-                    fill: false,
-                    tension: 0,
-                    yAxisID: 'yTemp'
-                });
-            }
             const normalLegendEl = document.getElementById('chart-normal-legend-item');
             if (normalLegendEl) normalLegendEl.style.display = typeof normalForDay === 'number' ? '' : 'none';
 
-            weatherChart = new Chart(ctx, {
+            weatherChart = buildHourlyWeatherChart('weatherChart', hours, (tempGradient) => {
+                const datasets = [
+                    { type: 'line', label: 'Température (°C)', data: temps, borderColor: '#d97736', borderWidth: 2, fill: true, backgroundColor: tempGradient, tension: 0.4, pointRadius: 0, yAxisID: 'yTemp' },
+                    { type: 'bar', label: precipLabel, data: precipValues, backgroundColor: precipColor, borderRadius: 4, barThickness: 5, yAxisID: 'yPrecip' }
+                ];
+                if (typeof normalForDay === 'number') {
+                    datasets.push({
+                        type: 'line',
+                        label: 'Normale de saison (15 ans)',
+                        data: new Array(temps.length).fill(normalForDay),
+                        borderColor: 'rgba(28, 56, 50, 0.55)',
+                        borderWidth: 1.5,
+                        borderDash: [5, 4],
+                        pointRadius: 0,
+                        fill: false,
+                        tension: 0,
+                        yAxisID: 'yTemp'
+                    });
+                }
+                return datasets;
+            }, precipUnit, precipAxisColor);
+        }
+
+        // Composant graphique horaire partagé entre le graphique principal "Température heure
+        // par heure & précipitations" et le graphique comparatif de la rubrique "Stations météo
+        // à proximité" : mêmes options Chart.js, mêmes axes (°C à gauche, mm/cm à droite), mêmes
+        // ticks, même responsive, légende HTML externe (plugins.legend désactivé). Le dégradé de
+        // température est créé ici à partir du contexte du canvas visé — un CanvasGradient est
+        // rattaché au canvas qui l'a créé et ne doit jamais être partagé entre deux graphiques.
+        // datasetFactory(tempGradient) construit les jeux de données. Retourne l'instance, ou
+        // null si Chart.js ou le canvas sont indisponibles.
+        function buildHourlyWeatherChart(canvasId, labels, datasetFactory, precipUnit, precipAxisColor) {
+            if (typeof Chart === 'undefined') return null;
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return null;
+            const ctx = canvas.getContext('2d');
+            const tempGradient = ctx.createLinearGradient(0, 0, 0, 140);
+            tempGradient.addColorStop(0, 'rgba(217, 119, 54, 0.35)');
+            tempGradient.addColorStop(1, 'rgba(217, 119, 54, 0.0)');
+            const datasets = datasetFactory(tempGradient);
+            return new Chart(ctx, {
                 data: {
-                    labels: hours,
+                    labels: labels,
                     datasets: datasets
                 },
                 options: {
