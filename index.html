@@ -21785,8 +21785,40 @@ async function loadInversionLevels(lat, lon){
             }, 400);
         })();
 
+        // Mise à jour automatique du Service Worker (26/09/2026) : avant ce correctif, un
+        // nouveau SW installé restait "en attente" (skipWaiting/clients.claim absents côté
+        // service-worker.js) tant que cet onglet restait ouvert — l'app continuait de tourner
+        // avec l'ANCIEN code (vieux bugs, ancien calcul micro-climat) jusqu'à ce que l'utilisateur
+        // ferme tous les onglets puis rouvre, ou recharge plusieurs fois de suite. Ici : dès
+        // qu'un nouveau SW prend le contrôle, on recharge la page UNE SEULE FOIS
+        // automatiquement (garde-fou reloadedForSW pour ne jamais boucler).
         if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
-            navigator.serviceWorker.register('service-worker.js').catch(() => { /* PWA indisponible : la page reste utilisable normalement */ });
+            let reloadedForSW = false;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (reloadedForSW) return;
+                reloadedForSW = true;
+                window.location.reload();
+            });
+            navigator.serviceWorker.register('service-worker.js').then((reg) => {
+                // Un SW était déjà en attente au moment de l'enregistrement (page ouverte
+                // pendant qu'une mise à jour a été déployée) : on le fait passer actif tout
+                // de suite plutôt que d'attendre une fermeture manuelle de l'onglet.
+                if (reg.waiting) reg.waiting.postMessage('SKIP_WAITING');
+                reg.addEventListener('updatefound', () => {
+                    const newSW = reg.installing;
+                    if (!newSW) return;
+                    newSW.addEventListener('statechange', () => {
+                        if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+                            newSW.postMessage('SKIP_WAITING');
+                        }
+                    });
+                });
+                // Vérifie s'il existe une mise à jour à chaque chargement de page (pas
+                // seulement au premier enregistrement) : c'est ce qui évite d'attendre
+                // jusqu'à 24h (délai par défaut du navigateur) avant qu'une nouvelle version
+                // déployée soit détectée.
+                reg.update().catch(() => {});
+            }).catch(() => { /* PWA indisponible : la page reste utilisable normalement */ });
         }
     </script>
 </body>

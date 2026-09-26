@@ -1,13 +1,14 @@
-// Service worker Metehop (chantier 3, 12/09/2026) — hors-ligne de plus en plus complet :
-// - App shell (index.html, about.html, manifest, icônes, og-image) mis en cache à l'installation.
-// - Bibliothèques CDN (Chart.js, SunCalc, Leaflet) : cache-first puis actualisation en arrière-plan.
-// - Données (météo Open-Meteo, radar, hydrologie, webcams…) : réseau EN PRIORITÉ — jamais de
-//   donnée périmée tant qu'on est connecté — avec repli sur la dernière version vue si hors-ligne.
-// Incrémenter le nom du cache à chaque nouvelle version du contenu (v8, 13/09/2026 :
-// bandeau hors-ligne, calibration ITENCI3, partage 16 jours, palette sombre noir/bleu/corail).
-// v7 : retrait du bandeau meteo-grenoble du benchmark.
-// v5 : benchmark T° min / pluie / médailles. v4 : nom court "Metehop" + icônes.
-const CACHE = 'metehop-v8';
+// Metehop — Service Worker
+// v152 - 26/09/2026 : passage à un cache VERSIONNÉ + prise de contrôle immédiate, pour que
+// les mises à jour de l'app s'appliquent en UN SEUL rechargement (auto, voir index.html) au
+// lieu d'exiger plusieurs rechargements manuels (ancien bug : sans skipWaiting()/clients.claim(),
+// le nouveau SW reste en attente ("waiting") tant qu'un onglet garde l'ancien ouvert, et l'app
+// shell + les données affichées restent celles de l'ancienne version jusqu'à ce que TOUS les
+// onglets soient fermés puis rouverts).
+//
+// IMPORTANT : incrémente CACHE_VERSION à chaque déploiement (ou automatise-le dans ton build).
+// C'est ce numéro qui déclenche la détection de mise à jour côté navigateur.
+const CACHE_VERSION = 'metehop-v152';
 
 const APP_SHELL = [
     './',
@@ -15,96 +16,55 @@ const APP_SHELL = [
     './about.html',
     './manifest.webmanifest',
     './favicon-512.png',
-    './apple-touch-icon-180.png',
-    './og-image.png'
+    './apple-touch-icon-180.png'
 ];
 
-// Origins CDN dont les fichiers statiques sont sûrs à servir depuis le cache en priorité.
-const CDN_ORIGINS = [
-    'https://cdn.jsdelivr.net',
-    'https://cdnjs.cloudflare.com',
-    'https://unpkg.com'
-];
-
-self.addEventListener('install', e => {
-    e.waitUntil(
-        caches.open(CACHE)
-            .then(c => c.addAll(APP_SHELL))
-            .then(() => self.skipWaiting())
-            .catch(() => {})
+self.addEventListener('install', (event) => {
+    event.waitUntil(
+        caches.open(CACHE_VERSION)
+            .then((cache) => cache.addAll(APP_SHELL))
+            .then(() => self.skipWaiting()) // n'attend pas que les anciens onglets se ferment
     );
 });
 
-self.addEventListener('activate', e => {
-    e.waitUntil(
+self.addEventListener('activate', (event) => {
+    event.waitUntil(
         caches.keys()
-            .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
-            .then(() => self.clients.claim())
+            .then((keys) => Promise.all(
+                keys.filter((k) => k !== CACHE_VERSION).map((k) => caches.delete(k))
+            ))
+            .then(() => self.clients.claim()) // prend le contrôle des onglets déjà ouverts, sans attendre un reload
     );
 });
 
-async function cacheFirst(req) {
-    const hit = await caches.match(req);
-    if (hit) {
-        // actualise en arrière-plan sans bloquer la réponse
-        fetch(req).then(r => {
-            if (r && r.ok) caches.open(CACHE).then(c => c.put(req, r));
-        }).catch(() => {});
-        return hit;
-    }
-    const r = await fetch(req);
-    if (r && r.ok && (r.type === 'basic' || r.type === 'cors')) {
-        const cache = await caches.open(CACHE);
-        cache.put(req, r.clone());
-    }
-    return r;
-}
+self.addEventListener('fetch', (event) => {
+    const url = new URL(event.request.url);
 
-async function networkFirst(req) {
-    try {
-        const r = await fetch(req);
-        if (r && r.ok && (r.type === 'basic' || r.type === 'cors')) {
-            const cache = await caches.open(CACHE);
-            cache.put(req, r.clone());
-        }
-        return r;
-    } catch (e) {
-        const hit = await caches.match(req);
-        if (hit) return hit;
-        throw e;
-    }
-}
-
-self.addEventListener('fetch', e => {
-    const req = e.request;
-    if (req.method !== 'GET') return;
-    const url = new URL(req.url);
-
-    // Navigation : l'app shell sert toujours la page (repli hors-ligne sur index.html).
-    if (req.mode === 'navigate') {
-        e.respondWith(
-            fetch(req).then(r => {
-                if (r && r.ok && (r.type === 'basic' || r.type === 'cors')) {
-                    const cache = caches.open(CACHE).then(c => c.put(req, r.clone()));
-                }
-                return r;
-            }).catch(() => caches.match('./index.html').then(h => h || caches.match('./')))
+    // App shell (HTML/CSS/JS/icônes du même domaine) : NETWORK-FIRST avec repli cache.
+    // Priorité au réseau pour toujours servir le code le plus récent quand la connexion est
+    // bonne ; le cache ne sert que hors-ligne ou en cas d'échec réseau.
+    if (url.origin === self.location.origin) {
+        event.respondWith(
+            fetch(event.request)
+                .then((res) => {
+                    const resClone = res.clone();
+                    caches.open(CACHE_VERSION).then((cache) => cache.put(event.request, resClone));
+                    return res;
+                })
+                .catch(() => caches.match(event.request))
         );
         return;
     }
 
-    // Fichiers locaux (même origine) : cache d'abord.
-    if (url.origin === self.location.origin && /\.(html|css|js|json|png|webmanifest|svg|ico)$/.test(url.pathname)) {
-        e.respondWith(cacheFirst(req));
-        return;
-    }
+    // Tout le reste (API météo, tuiles radar, CDN Chart.js/Leaflet...) : NETWORK-ONLY.
+    // Ces données ne doivent JAMAIS être servies depuis un cache obsolète — c'est déjà le
+    // principe appliqué ailleurs dans l'app (fetchWithTimeout côté JS), on le confirme ici.
+    event.respondWith(
+        fetch(event.request).catch(() => caches.match(event.request))
+    );
+});
 
-    // Bibliothèques CDN : cache d'abord.
-    if (CDN_ORIGINS.some(o => url.origin === o)) {
-        e.respondWith(cacheFirst(req));
-        return;
-    }
-
-    // Tout le reste (APIs météo, radar, hydrologie…) : réseau d'abord, repli cache si hors-ligne.
-    e.respondWith(networkFirst(req));
+// Permet à la page de demander l'activation immédiate du SW en attente (voir index.html).
+self.addEventListener('message', (event) => {
+    if (event.data === 'SKIP_WAITING') self.skipWaiting();
 });
