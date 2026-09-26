@@ -4743,51 +4743,6 @@
                     </div>
                 </div>
 
-                <!-- Micro-climat : sélection du modèle + coeffs réglables (modèles 1/2) -->
-                <div id="cloud-night-debug-card" data-groups="general" data-level="expert" style="margin-top:12px; background: var(--card-bg); border-radius: var(--radius-medium); padding:12px; width:100%; box-sizing:border-box; border:1px solid rgba(0,0,0,0.06);">
-                    <div style="font-weight:800; font-size:0.95rem; color:var(--primary-dark);"><i class="fa-solid fa-moon" style="margin-right:6px;"></i> Micro-climat — modèle</div>
-                    <div style="margin-top:10px; padding:10px; background:var(--card-inner-bg); border-radius:10px; border:1px dashed rgba(0,0,0,0.1);">
-                        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
-                            <span style="font-weight:700; font-size:0.8rem;">Modèle inversion :</span>
-                            <label style="display:flex; align-items:center; gap:4px; font-size:0.8rem; cursor:pointer; padding:4px 8px; border-radius:20px; background:rgba(0,0,0,0.05);" title="Modèle 1 = cloud_cover global 0-4h">
-                                <input type="radio" name="micro-model" value="1" id="micro-model-1" onchange="onMicroModelChange()"> <span>Modèle 1 (legacy)</span>
-                            </label>
-                            <label style="display:flex; align-items:center; gap:4px; font-size:0.8rem; cursor:pointer; padding:4px 8px; border-radius:20px; background:rgba(59,110,97,0.15);" title="Modèle 2 = pondéré bas/mid/high">
-                                <input type="radio" name="micro-model" value="2" id="micro-model-2" onchange="onMicroModelChange()"> <span>Modèle 2 (pondéré)</span>
-                            </label>
-                            <label style="display:flex; align-items:center; gap:4px; font-size:0.8rem; cursor:pointer; padding:4px 8px; border-radius:20px; background:rgba(180,120,40,0.2);" title="Modèle 2.1 = physique : SVF, rayonnement LW, cold-air-pooling, UHI, niveaux de pression — sans table de villes">
-                                <input type="radio" name="micro-model" value="2.1" id="micro-model-21" onchange="onMicroModelChange()" checked> <span>Modèle 2.1 (physique)</span>
-                            </label>
-                        </div>
-                        <div id="micro-threshold-row" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                            <label for="micro-threshold-input" style="font-size:0.75rem; font-weight:600;">Seuil nuage 0% inversion (S) :</label>
-                            <input type="number" id="micro-threshold-input" min="20" max="80" step="1" value="50" style="width:70px; padding:4px 6px; border-radius:6px; border:1px solid rgba(0,0,0,0.15); font-size:0.8rem;" onchange="onMicroThresholdChange()">
-                            <span style="font-size:0.70rem; color:var(--text-muted);">% — modèles 1 et 2 uniquement.</span>
-                        </div>
-                        <div id="micro-uhi-row" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:8px; padding-top:8px; border-top:1px dashed rgba(0,0,0,0.1);">
-                            <span style="font-size:0.75rem; font-weight:700;">Coeffs îlot de chaleur :</span>
-                            <label style="font-size:0.70rem;">Afternoon factor (0-1): <input type="number" id="micro-uhi-afternoon-input" min="0" max="1" step="0.05" value="0.2" style="width:60px; padding:3px 5px; border-radius:5px; border:1px solid rgba(0,0,0,0.15); font-size:0.75rem;" onchange="onMicroUHIChange()"></label>
-                            <label style="font-size:0.70rem;">Dense (bâti seul): <input type="number" id="micro-uhi-dense-input" min="0" max="5" step="0.1" value="2.5" style="width:60px; padding:3px 5px; border-radius:5px; border:1px solid rgba(0,0,0,0.15); font-size:0.75rem;" onchange="onMicroUHIChange()"></label>
-                            <label style="font-size:0.70rem;">Modéré: <input type="number" id="micro-uhi-moderee-input" min="0" max="5" step="0.1" value="1.5" style="width:60px; padding:3px 5px; border-radius:5px; border:1px solid rgba(0,0,0,0.15); font-size:0.75rem;" onchange="onMicroUHIChange()"></label>
-                        </div>
-                        <div id="micro-valley-urban-row" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:6px;">
-                            <span style="font-size:0.75rem; font-weight:700;">Ville en cuvette :</span>
-                            <label style="font-size:0.70rem;">Suppression inversion (0-1): <input type="number" id="micro-valley-supp-input" min="0" max="1" step="0.05" value="0.5" style="width:60px; padding:3px 5px; border-radius:5px; border:1px solid rgba(0,0,0,0.15); font-size:0.75rem;" onchange="onMicroUHIChange()"></label>
-                            <label style="font-size:0.70rem;">Amplif. UHI (0-2): <input type="number" id="micro-valley-amp-input" min="0" max="2" step="0.05" value="0.8" style="width:60px; padding:3px 5px; border-radius:5px; border:1px solid rgba(0,0,0,0.15); font-size:0.75rem;" onchange="onMicroUHIChange()"></label>
-                        </div>
-                        <div id="micro-inversion-row" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:6px; padding-top:8px; border-top:1px dashed rgba(0,0,0,0.1);">
-                            <span style="font-size:0.75rem; font-weight:700;">Coeffs inversion (v1 fixe / v2 auto OM) :</span>
-                            <label style="font-size:0.70rem;" title="Refroidissement par 100m d'encaissement">Coeff/100m (0.2-3): <input type="number" id="micro-inv-coeff-input" min="0.2" max="3" step="0.05" value="0.9" style="width:60px; padding:3px 5px; border-radius:5px; border:1px solid rgba(0,0,0,0.15); font-size:0.75rem;" onchange="onMicroInversionChange()"></label>
-                            <label style="font-size:0.70rem;" title="Plafond max du refroidissement">Plafond max (°C): <input type="number" id="micro-inv-max-input" min="1" max="12" step="0.5" value="6" style="width:60px; padding:3px 5px; border-radius:5px; border:1px solid rgba(0,0,0,0.15); font-size:0.75rem;" onchange="onMicroInversionChange()"></label>
-                        </div>
-                    </div>
-
-                    <div id="inversion-debug-detail" style="margin-top:10px; padding:10px; background:#fffbe6; border-radius:10px; border:1px solid #f0d060; font-size:0.70rem; line-height:1.4;">
-                        <div style="font-weight:800; color:#7a5a00; margin-bottom:6px;">🔍 Debug inversion (modèle actif) : détail du calcul</div>
-                        <div id="inversion-debug-content">Sélectionne un lieu puis un jour...</div>
-                    </div>
-                </div>
-
             </div>
         </div>
 
@@ -5002,7 +4957,11 @@
             <div class="footer-support-row">
                 <a class="footer-support-link" href="https://buymeacoffee.com/stridemetric" target="_blank" rel="noopener">🐸 Aide-moi à nourrir la grenouille Metehop</a>
             </div>
-            <div class="footer-last-update">Dernière mise à jour : 25/09/2026 - 139</div>
+            <!-- ⚠️ INSTRUCTION POUR TOUTE IA (Claude, GPT, etc.) QUI MODIFIE CE FICHIER :
+                 à chaque modification livrée de ce fichier, mets à jour la ligne juste en-dessous
+                 (footer-last-update) avec la date du jour (format JJ/MM/AAAA) et incrémente le
+                 numéro de version de 1. Ne saute jamais un numéro, ne le laisse jamais inchangé. -->
+            <div class="footer-last-update">Dernière mise à jour : 26/09/2026 - 140</div>
         </footer>
 
     </div>
@@ -5201,20 +5160,16 @@
                     <span>Le modèle 2.1 n'utilise aucune table par ville : il calcule un profil horaire de correction ΔT(h) à partir de la topographie réelle (DEM Open-Meteo, 81 points / 16 azimuts) et de la météo prévue. Composantes : (1) refroidissement par rayonnement de longue d'onde nocturne, atténué par les nuages (poids bas/moyen/haut) et le vent effectif au sol abrité ; (2) cold-air-pooling en fonction du Sky View Factor, de l'encaissement d'horizon, de la fermeture du cirque et de la pente (un versant exposé ne stocke pas d'air froid) ; (3) extra de plaine ouverte ; (4) îlot de chaleur urbain Oke/Landsberg (nuit ×0,40, après-midi ×0,05–0,08 — AROME intègre déjà l'UHI des grandes villes) ; (5) résidu de nappe le jour en cirque fermé ; (6) apport solaire d'exposition de versant ; (7) chaleur piégée en vallée basse. Les niveaux de pression Open-Meteo (inversion d'altitude 0–6 h) modulent la stagnation. Constantes PHYS_MICRO calibrées sur les relevés des 22 et 23/09/2026 (Bessans, Tencin, Grenoble, Paris, Lyon, Nantes, Chamrousse) — erreur moyenne ≈ 0,6 °C sur ce jeu. Sources physiques : Rupp et al. 2020 (cold-air pools) ; Oke (UHI) ; études de valley cold pools.</span>
                 </div>
                 <div class="sources-item">
-                    <strong>Fond de vallée / cuvette — inversion thermique (modèles 1 et 2)</strong>
-                    <span>Par ciel clair et vent faible (typiquement nuit/tôt le matin), l'air refroidi par rayonnement le long des pentes s'écoule et s'accumule au fond des vallées/cuvettes, pouvant y rendre l'air plus froid que sur les hauteurs environnantes — l'inverse du gradient habituel. Dissipation généralement après le lever du soleil. Intensité typique de l'ordre de 0,5 à 1,7°C/100m de dénivelé encaissant selon les études de terrain (jusqu'à plusieurs °C en fond de vallée bien encaissée par conditions calmes). Sources : Rupp et al. 2020 (J. Geophys. Res. Atmos., bassin forestier des Cascades) ; étude de la vallée d'Eiras, Coimbra (Atmosphere, 2026) ; synthèse Andrews Forest Research Program.</span>
+                    <strong>Fond de vallée / cuvette — inversion thermique</strong>
+                    <span>Par ciel clair et vent faible (typiquement nuit/tôt le matin), l'air refroidi par rayonnement le long des pentes s'écoule et s'accumule au fond des vallées/cuvettes, pouvant y rendre l'air plus froid que sur les hauteurs environnantes — l'inverse du gradient habituel. Dissipation généralement après le lever du soleil. Sources : Rupp et al. 2020 (J. Geophys. Res. Atmos., bassin forestier des Cascades) ; étude de la vallée d'Eiras, Coimbra (Atmosphere, 2026) ; synthèse Andrews Forest Research Program.</span>
                 </div>
                 <div class="sources-item">
                     <strong>Îlot de chaleur urbain</strong>
-                    <span>Les cœurs urbains denses (bâti minéral, moins de végétation, chaleur anthropique) sont statistiquement plus chauds que leur périphérie rurale. Estimation via la relation empirique d'Oke/Landsberg reliant l'écart à la population (ΔT_u-r(max) ≈ 2,01×log10(population) − 4,06, régression sur des villes européennes, Landsberg 1981 d'après les données d'Oke) quand la population est connue ; à défaut, simple indicateur de densité bâtie (nombre de bâtiments OpenStreetMap à proximité). Sources : Oke (1973, 1976), Landsberg (1981). Cette formule estime l'écart MAXIMAL théorique, typiquement atteint la nuit quelques heures après le coucher du soleil sous conditions calmes et dégagées idéales — appliquée telle quelle à la fenêtre d'après-midi (14h-18h) où cet ajustement est utilisé, elle surestime systématiquement l'échauffement réel. Un facteur correctif (×0,2) est donc appliqué à l'estimation basée sur la population avant affichage — calibré le 04/09/2026 sur La Roche-sur-Yon (terrain plat, aucun relief encaissant détecté) : formule brute +5,5°C, observé +1°C au maximum de l'après-midi. Le repli sur densité bâtie seule (sans population) reste un point déjà réaliste, non affecté par ce facteur. Le modèle 2.1 utilise des facteurs nocturnes/jour distincts (×0,40 / ×0,05–0,08) plutôt que ×0,2 unique.</span>
+                    <span>Les cœurs urbains denses (bâti minéral, moins de végétation, chaleur anthropique) sont statistiquement plus chauds que leur périphérie rurale. Estimation via la relation empirique d'Oke/Landsberg reliant l'écart à la population (ΔT_u-r(max) ≈ 2,01×log10(population) − 4,06, régression sur des villes européennes, Landsberg 1981 d'après les données d'Oke) quand la population est connue ; à défaut, simple indicateur de densité bâtie (nombre de bâtiments OpenStreetMap à proximité). Sources : Oke (1973, 1976), Landsberg (1981). Cette formule estime l'écart MAXIMAL théorique, typiquement atteint la nuit quelques heures après le coucher du soleil sous conditions calmes et dégagées idéales ; le modèle 2.1 applique des facteurs nocturne/après-midi distincts (×0,40 / ×0,05–0,08) pour approcher l'écart réel selon l'heure plutôt que d'utiliser ce maximum théorique directement.</span>
                 </div>
                 <div class="sources-item">
                     <strong>Proximité d'un cours d'eau / plan d'eau</strong>
                     <span>Effet modérateur bien connu (inertie thermique de l'eau) qui tend à réduire l'amplitude thermique journalière et humidifier l'air à proximité immédiate.</span>
-                </div>
-                <div class="sources-item">
-                    <strong>"Ville en cuvette" — deux mécanismes distincts (modèles 1 et 2 uniquement)</strong>
-                    <span>Quand une agglomération est à la fois en fond de vallée/cuvette marqué ET suffisamment urbanisée (cas de Grenoble par exemple), le relief encaissant a deux effets opposés, traités séparément :<br>1. <em>Inversion nocturne atténuée</em> (×0,5) : la chaleur et le brassage turbulent de la ville limitent le refroidissement radiatif nocturne, donc l'inversion réelle du matin est plus faible qu'en vallée rurale équivalente.<br>2. <em>Échauffement diurne amplifié</em> (×1,5, appliqué après le facteur général ci-dessus) : une cuvette peu ventilée retient davantage la chaleur urbaine l'après-midi qu'un terrain ouvert équivalent.<br>Calibré le 04/09/2026 sur Grenoble : inversion -2,8°C calculée vs -0,7°C observée (coefficient 0,3) ; îlot de chaleur +6,8°C brut → +1,4°C après le facteur général → encore +2°C observé au maximum de l'après-midi, d'où le facteur d'amplification ×1,5. 2e point le 07/09/2026 (toujours Grenoble) : 18,8°C observés vs 22°C affichés — écart plus fort que le 1er point, ce qui donnerait plutôt un coefficient de 0,79. Les deux points tirant dans des sens opposés, valeur médiane provisoire de 0,5 retenue en attendant d'autres observations. Ordres de grandeur à affiner ; les vallées rurales isolées et les villes de plaine (sans les deux effets combinés) ne sont pas concernées. Le modèle 2.1 physique intègre ces effets via drainageMix/urbanMix/fLocal plutôt que ces deux coefficients.</span>
                 </div>
                 <div class="sources-item">
                     <strong>Application aux prévisions affichées</strong>
@@ -9426,35 +9381,6 @@ render16DayTable();
         // reste désactivable via l'interrupteur.
         // ============================================================================
         let microClimateEnabled = true;
-        let microClimateModel = '2.1'; // '1' = legacy global 0-4h, '2' = pondéré bas/mid/high, '2.1' = v2 + effets nuit/plaine/montagne
-        let microClimateCloudThreshold = 50; // seuil % au-delà duquel cloudFactor = 0
-        let microClimateUHIAfternoonFactor = 0.2; // UHI_AFTERNOON_BASE_FACTOR - part du max théorique Oke appliquée l'après-midi (14-18h)
-        let microClimateUHIValleyAmp = 0.8; // UHI_VALLEY_AMPLIFICATION - amplification cuvette peu ventilée
-        let microClimateValleyUrbanSupp = 0.5; // VALLEY_URBAN_SUPPRESSION - atténuation inversion nocturne par ville
-        let microClimateUHIDense = 2.5; // repli bâti dense sans population
-        let microClimateUHIMode = 1.5;
-        let microClimateInvCoeff = 0.9; // coeffPer100m - intensité /100m - Défaut 0.9
-        let microClimateInvMax = 10; // maxDeltaC - plafond inversion - Défaut 10 v170 // repli bâti modéré
-        try {
-            const savedModel = localStorage.getItem('metehop_microclimate_model_v1');
-            if (savedModel === '1' || savedModel === '2' || savedModel === '2.1') microClimateModel = savedModel;
-            const savedThresh = parseFloat(localStorage.getItem('metehop_microclimate_thresh_v1'));
-            if (!isNaN(savedThresh) && savedThresh >= 20 && savedThresh <= 80) microClimateCloudThreshold = savedThresh;
-            const savedAfternoon = parseFloat(localStorage.getItem('metehop_uhi_afternoon_v1'));
-            if (!isNaN(savedAfternoon) && savedAfternoon>=0 && savedAfternoon<=1) microClimateUHIAfternoonFactor = savedAfternoon;
-            const savedAmp = parseFloat(localStorage.getItem('metehop_uhi_valley_amp_v1'));
-            if (!isNaN(savedAmp) && savedAmp>=0 && savedAmp<=2) microClimateUHIValleyAmp = savedAmp;
-            const savedSupp = parseFloat(localStorage.getItem('metehop_valley_urban_supp_v1'));
-            if (!isNaN(savedSupp) && savedSupp>=0 && savedSupp<=1) microClimateValleyUrbanSupp = savedSupp;
-            const savedDense = parseFloat(localStorage.getItem('metehop_uhi_dense_v1'));
-            if (!isNaN(savedDense) && savedDense>=0 && savedDense<=5) microClimateUHIDense = savedDense;
-            const savedMode = parseFloat(localStorage.getItem('metehop_uhi_moderee_v1'));
-            if (!isNaN(savedMode) && savedMode>=0 && savedMode<=5) microClimateUHIMode = savedMode;
-            const savedInvCoeff = parseFloat(localStorage.getItem('metehop_inv_coeff_v1'));
-            if (!isNaN(savedInvCoeff)) microClimateInvCoeff = Math.max(0.2, Math.min(2, savedInvCoeff));
-            const savedInvMax = parseFloat(localStorage.getItem('metehop_inv_max_v1'));
-            if (!isNaN(savedInvMax)) microClimateInvMax = Math.max(1, Math.min(10, savedInvMax));
-        } catch(e){}
 
         // Corrigé le 05/09/2026 : l'ancienne variable unique `microClimateAdjustments` ne portait
         // l'ajustement que pour UN SEUL jour (celui analysé au moment de l'appel réseau), d'où deux bugs
@@ -10219,7 +10145,7 @@ render16DayTable();
 
             if (maxAbs < 0.15 && !waterDetected) return null;
 
-            // Résumés compatibles avec les tableaux debug v1/v2 (non additionnés si hourlyDelta actif)
+            // Résumés (non additionnés si hourlyDelta actif)
             const valley = { active: hasPool, deltaC: poolAm, startH: 5, endH: 9 };
             const uhiFav = hasUhiD;
             const uhi = { active: uhiFav, deltaC: Math.round(uhiAfternoonMax * 10) / 10, startH: 14, endH: 18 };
@@ -10235,21 +10161,6 @@ render16DayTable();
             else if (hasAspect && !hasResid) dayMod.deltaC = Math.round(Math.max(...components.aspect) * 10) / 10;
             else if (hasResid && hasAspect) dayMod.deltaC = Math.round((Math.min(...components.resid) + Math.max(...components.aspect)) * 10) / 10;
 
-            try {
-                window._lastInversionDebug = window._lastInversionDebug || {};
-                window._lastInversionDebug[dayIdx] = {
-                    physical: true,
-                    reliefIndex: sig.reliefIndex, centerElev: sig.centerElev, elev,
-                    svf, enclosureM: encM, slopeDeg, aspectDeg, closedFrac, fLocal, fStag,
-                    urbanMix: Math.round(urbanMix * 100) / 100, drainageMix: Math.round(drainageMix * 100) / 100,
-                    freeAtm, sunriseH, poolAm, maxAbs,
-                    favorabilityFactor: physClamp(-poolAm / 8, 0, 1),
-                    valleyDeltaC: poolAm, valleyFavorable: hasPool, valleyDetected: hasPool,
-                    coeffPer100m: encM > 0 ? Math.round((-poolAm / (encM / 100)) * 100) / 100 : null,
-                    maxDeltaC: Math.min(...hourlyDelta), baseDeltaC: -poolAm, degradedPhys: !!phys.degraded
-                };
-            } catch (e) { /* debug best-effort */ }
-
             return {
                 physical: true,
                 hourlyDelta,
@@ -10263,378 +10174,17 @@ render16DayTable();
         }
 
         // Calcule, à PARTIR DE SIGNAUX DÉJÀ CONNUS (aucun réseau ici), les ajustements micro-climat
-        // pour un jour précis de la prévision (dayIdx, 0 = aujourd'hui à 15). Les signaux structurels
-        // (relief détecté, densité bâtie, cours d'eau, population) sont les mêmes quel que soit le
-        // jour ; seule la FAVORABILITÉ (nuage/vent prévus CE jour-là) et donc le delta °C varient d'un
-        // jour à l'autre — c'est ce qui permet au tableau 16j comme au changement de jour de refléter
-        // correctement l'option micro-climat sans refaire un seul appel réseau. Renvoie null si aucun
-        // effet local n'est détecté pour ce lieu (résultat alors identique quel que soit dayIdx).
+        // pour un jour précis de la prévision (dayIdx, 0 = aujourd'hui à 15). Délègue au moteur
+        // physique v2.1 (seul modèle conservé — voir computePhysicalMicroClimateModel()). Renvoie
+        // null si aucun effet local n'est détecté pour ce lieu (résultat alors identique quel que
+        // soit dayIdx).
         function computeMicroClimateDayEffects(dayIdx, signals) {
-            const { reliefIndex, buildingCount, nearestWater, resolvedPopulation } = signals;
-            const isV21 = (typeof microClimateModel !== 'undefined' && microClimateModel === '2.1');
-            const elevGlobal = (weatherData && typeof weatherData.elevation==='number') ? weatherData.elevation : (signals.centerElev||0);
-
-            // ===== MODÈLE 2.1 = MOTEUR PHYSIQUE (remplaçant le chemin heuristique) =====
-            // Les modèles 1 et 2 (ci-dessous) restent inchangés. Le 2.1 renvoie un profil
-            // horaire de ΔT dérivé du rayonnement / pooling / UHI / exposition — voir
-            // computePhysicalMicroClimateModel().
-            if (isV21) {
-                try {
-                    return computePhysicalMicroClimateModel(dayIdx, signals);
-                } catch (e) {
-                    console.error('physical microclimate error', e);
-                    return null;
-                }
+            try {
+                return computePhysicalMicroClimateModel(dayIdx, signals);
+            } catch (e) {
+                console.error('physical microclimate error', e);
+                return null;
             }
-
-            // ---- Construction des messages, croisés avec les conditions prévues réelles (jamais
-            // un chiffre inventé : uniquement pour moduler le texte d'avertissement) ----
-            function hoursConditionsFavorable(startH, endH) {
-                if (!weatherData || !weatherData.hourly) return null;
-                const dayStart = dayIdx * 24;
-                let cloudSum = 0, windSum = 0, n = 0;
-                for (let h = startH; h <= endH; h++) {
-                    const idx = dayStart + h;
-                    const cloud = weatherData.hourly.cloud_cover ? weatherData.hourly.cloud_cover[idx] : undefined;
-                    const wind = weatherData.hourly.wind_speed_10m ? weatherData.hourly.wind_speed_10m[idx] : undefined;
-                    if (typeof cloud === 'number' && typeof wind === 'number') { cloudSum += cloud; windSum += wind; n++; }
-                }
-                return n ? { cloudAvg: cloudSum / n, windAvg: windSum / n } : null;
-            }
-            function hoursEffectiveCloud(startH, endH) {
-                if (!weatherData || !weatherData.hourly) return null;
-                const dayStart = dayIdx * 24;
-                let lowSum=0, midSum=0, highSum=0, n=0;
-                for (let h=startH; h<=endH; h++) {
-                    const idx=dayStart+h;
-                    const low=weatherData.hourly.cloud_cover_low ? weatherData.hourly.cloud_cover_low[idx] : undefined;
-                    const mid=weatherData.hourly.cloud_cover_mid ? weatherData.hourly.cloud_cover_mid[idx] : undefined;
-                    const high=weatherData.hourly.cloud_cover_high ? weatherData.hourly.cloud_cover_high[idx] : undefined;
-                    if (typeof low==='number' && typeof mid==='number' && typeof high==='number') { lowSum+=low; midSum+=mid; highSum+=high; n++; }
-                }
-                if (!n) return null;
-                const lowAvg=lowSum/n, midAvg=midSum/n, highAvg=highSum/n;
-                const eff=0.7*lowAvg+0.25*midAvg+0.05*highAvg;
-                return { lowAvg, midAvg, highAvg, eff };
-            }
-
-            // Calcul des ajustements (coefficients, favorabilité du jour...) — méthodologie complète,
-            // sources et formules détaillées dans la modale Sources & modèles utilisés (💡), pas ici :
-            // cet encart n'affiche plus que des puces emoji + signification pour les effets détectés
-            // ce jour-là. Coefficients ancrés dans les fourchettes citées en sources, plafonnés pour
-            // rester prudents : ce sont des ORDRES DE GRANDEUR indicatifs, pas une mesure.
-            let valleyDeltaC = 0, valleyFavorable = false;
-            let valleyDetected = false;
-
-            // 1. Fond de vallée / inversion thermique matinale - v172 fix flanc de montagne (Chamrousse)
-            // Chamrousse 1692m: max +300 mais min -250 => flanc, pas fond de vallée. Il faisait 9° réel, pas 6° corrigé
-            let isFlancMontagne = false;
-            try{
-                const gMin = (typeof signals.globalMinRelief==='number') ? signals.globalMinRelief : null;
-                const gMean = (typeof signals.globalMeanRelief==='number') ? signals.globalMeanRelief : null;
-                const tightDetail = signals.reliefDetails && signals.reliefDetails[0.5];
-                const elevCheck = (typeof signals.centerElev==='number'? signals.centerElev : 0);
-                // v173: Chamrousse 1692m encore 3° d'écart (6° modèle vs 9° réel) -> flanc non détecté
-                // On élargit: toute station >1200m avec mean <120m n'est PAS fond de vallée sauf cuvette très fermée
-                if(elevCheck>1200){
-                    if(gMean!==null && gMean < 120) isFlancMontagne = true; // plateau/flanc, pas cuvette
-                    if(tightDetail && typeof tightDetail.mean==='number' && tightDetail.mean < 50) isFlancMontagne = true;
-                    if(tightDetail && typeof tightDetail.min==='number' && tightDetail.min < -30) isFlancMontagne = true;
-                    // Pour être fond de vallée en montagne, il faut tight mean >80 ET min > -10 ET max >200 (cuvette fermée type Bessans)
-                    if(tightDetail && (tightDetail.mean < 80 || tightDetail.min < -10)) isFlancMontagne = true;
-                } else {
-                    if(gMin!==null && gMean!==null){
-                        if(gMin < -80 && gMean < 60) isFlancMontagne = true;
-                        if(gMin < -150) isFlancMontagne = true;
-                    }
-                    if(tightDetail && typeof tightDetail.min==='number' && typeof tightDetail.mean==='number'){
-                        if(tightDetail.min < -50 && tightDetail.mean < 20) isFlancMontagne = true;
-                    }
-                }
-                // Bessans exception: si tight mean >120 ET min >20 ET max >400 => vrai cirque, on garde vallée
-                if(tightDetail && typeof tightDetail.mean==='number' && tightDetail.mean>120 && typeof tightDetail.min==='number' && tightDetail.min>20){
-                    isFlancMontagne = false; // force cuvette fermée haute montagne
-                }
-            }catch(e){}
-            if (typeof reliefIndex === 'number' && reliefIndex >= 40 && !isFlancMontagne) {
-                valleyDetected = true;
-                // Ancien seuil binaire (cloudAvg<30 ET windAvg<12 sur 5h-9h) : une prévision de
-                // grille juste un peu trop nuageuse OU un peu trop ventée annulait TOTALEMENT la
-                // correction. Cas observé à Tencin le 05/09/2026 : 15°C réel à 6h vs 21°C modèle
-                // (delta -6°C, exactement le plafond), ciel dégagé et calme constatés sur place,
-                // mais correction nulle — la prévision de nébulosité sur 5h-9h était élevée alors
-                // que le ciel était dégagé. Cause identifiée : le nuage prévu au petit matin dans le
-                // fond de vallée est très probablement du BROUILLARD/DE LA BRUME formé PAR la nappe
-                // d'air froid elle-même (conséquence de l'inversion), pas un obstacle à sa
-                // formation — utiliser la nébulosité de cette même fenêtre comme critère
-                // d'invalidation est donc un paradoxe qui annule le signal par sa propre cause.
-                //
-                // Le critère physique correct pour le refroidissement radiatif nocturne est le ciel
-                // dégagé AVANT l'aube (0h-4h), pas au moment où l'inversion est déjà installée. Le
-                // vent, lui, reste pertinent sur le créneau matinal (5h-9h) : c'est ce qui maintient
-                // ou disperse la nappe d'air froid déjà formée. D'où la séparation des deux
-                // fenêtres : nébulosité sur la nuit, vent sur le matin.
-                const night = hoursConditionsFavorable(0, 4);
-                const morning = hoursConditionsFavorable(5, 9);
-                // Déclarés ICI (et non plus plus bas) : elev/effectiveRelief/invSurf étaient
-                // lus dans le bloc de boost ci-dessous AVANT leur `const` → ReferenceError TDZ
-                // avalée par catch(e){} → le boost ne s'exécutait JAMAIS (bug V173).
-                let effectiveReliefForDebug = reliefIndex;
-                let altFactorForDebug = 1;
-                let invForDebug = null;
-                const centerElevSigEarly = (typeof signals.centerElev==='number') ? signals.centerElev : ((weatherData && typeof weatherData.elevation==='number') ? weatherData.elevation : 0);
-                let invSurfForDebug = null;
-                let coeffGeomForDebug = null;
-                const elev = elevGlobal;
-                const centerElevSig = (typeof signals.centerElev==='number') ? signals.centerElev : elev;
-                const reliefTight = (typeof signals.reliefTightIndex==='number') ? signals.reliefTightIndex : reliefIndex;
-                const reliefMid = (typeof signals.reliefMidIndex==='number') ? signals.reliefMidIndex : reliefIndex;
-                // Pondération continue (favorabilityFactor 0→1) : la correction se dégrade
-                // progressivement avec le nuage nocturne/vent matinal prévus, au lieu de basculer
-                // tout ou rien. Repères retenus : confiance nulle à partir de 50% de nuage nocturne
-                // ou 20 km/h de vent matinal moyen ; à affiner avec d'autres observations de terrain.
-                let favorabilityFactor = 0;
-                if (night && morning) {
-                    const thresh = (typeof microClimateCloudThreshold === 'number' ? microClimateCloudThreshold : 50);
-                    const model = (typeof microClimateModel !== 'undefined' ? microClimateModel : '1');
-                    let cloudVal = night.cloudAvg;
-                    let usedLowFogCorrection = false;
-                    if (model === '2' || model === '2.1') {
-                        const effObj = hoursEffectiveCloud(0,4);
-                        if (effObj && typeof effObj.eff === 'number') {
-                            // CORRECTION BESSANS : brouillard de vallée (low cloud) est CONSÉQUENCE de l'inversion, pas obstacle
-                            // On ne garde que mid/high pour juger du ciel clair au-dessus de la nappe froide
-                            // low= brouillard, mid/high = vraie couverture nuageuse bloquante
-                            const cloudWithoutLow = 0.8*effObj.midAvg + 0.2*effObj.highAvg; // ignore low
-                            cloudVal = cloudWithoutLow;
-                            usedLowFogCorrection = true;
-                        }
-                    }
-                    const cloudFactor = Math.max(0, Math.min(1, 1 - cloudVal / thresh));
-                    const windFactor = Math.max(0, Math.min(1, 1 - morning.windAvg / 20));
-                    favorabilityFactor = Math.round(cloudFactor * windFactor * 100) / 100;
-                    // v171: fav plus strict en plaine pour éviter overshoot Tencin
-                    try{
-                        if(elev < 500){
-                            // en plaine, si un peu de vent/nuage, on réduit fortement
-                            // garde fav tel quel (0-1) sans boost forcé
-                        } else {
-                            if(typeof effectiveReliefForDebug==='number' && effectiveReliefForDebug>180 && typeof invSurfForDebug==='number' && invSurfForDebug>2.5){
-                                favorabilityFactor = Math.max(favorabilityFactor, 0.9);
-                            }
-                            if(typeof reliefIndex==='number' && reliefIndex>350){
-                                favorabilityFactor = Math.max(favorabilityFactor, 0.95);
-                            }
-                            if(typeof reliefIndex==='number' && reliefIndex>500){
-                                favorabilityFactor = 1.0;
-                            }
-                        }
-                    }catch(e){}
-                    // Si brouillard dense en bas mais ciel clair au-dessus (cas Bessans 3° vs 9°), on force fav min 0.5
-                    if(usedLowFogCorrection && night && typeof night.cloudAvg==='number'){
-                        const effObj2 = hoursEffectiveCloud(0,4);
-                        if(effObj2 && effObj2.lowAvg>70 && effObj2.midAvg<30 && effObj2.highAvg<20){
-                            favorabilityFactor = Math.max(favorabilityFactor, 0.6);
-                        }
-                    }
-                }
-                valleyFavorable = favorabilityFactor > 0.1; // en dessous, signal trop faible pour être affiché
-                // ~0,5 à 1,7°C/100m de relief encaissant selon les études de terrain (voir Sources &
-                // modèles utilisés) ; retenu dans le haut de cette fourchette (0,9°C/100m), plafonné
-                // à -6°C au-delà duquel l'estimation devient trop incertaine pour un chiffre unique.
-                let coeffPer100m = (typeof microClimateInvCoeff==='number'?microClimateInvCoeff:0.9);
-                let maxDeltaC = (typeof microClimateInvMax==='number'?microClimateInvMax:10);
-                // v171 AFFINAGE: Bessans OK mais Tencin overshoot -8.8° vs réel 10° ce matin
-                // -> 2 régimes: plaine/basse vallée (<500m) vs montagne (>1000m)
-                // Tencin 240m: relief large mais peu profond -> inversion faible 1-3°C max
-                // Bessans 1703m: cirque fermé -> inversion forte 6-10°C
-                // (elev/effectiveReliefForDebug/invSurfForDebug/reliefTight… déjà déclarés plus haut,
-                //  avant le bloc de boost favorability — évite le TDZ)
-                let effectiveRelief = reliefIndex;
-                if(typeof reliefTight==='number' && typeof reliefMid==='number'){
-                    effectiveRelief = Math.round(reliefTight*0.5 + reliefMid*0.3 + reliefIndex*0.2);
-                    if(reliefTight >= 80) effectiveRelief = Math.max(effectiveRelief, reliefTight);
-                }
-                effectiveRelief = Math.max(10, effectiveRelief);
-                effectiveReliefForDebug = effectiveRelief;
-                // maxDelta dépend altitude lieu prévision (ta demande)
-                if(elev < 400){
-                    maxDeltaC = Math.min(maxDeltaC, 3.8); // Tencin 240m: plafonne à 3.8°C max
-                } else if(elev < 700){
-                    maxDeltaC = Math.min(maxDeltaC, 5.0);
-                } else if(elev < 1200){
-                    maxDeltaC = Math.min(maxDeltaC, 7.0);
-                } // >1200 garde microClimateInvMax (10 par défaut)
-                const altFactor = 1 + Math.min(0.9, centerElevSig/2200*0.45 + elev/2200*0.45);
-                altFactorForDebug = altFactor;
-                let coeffGeom;
-                if(elev < 500){
-                    // Plaine / Grésivaudan large: coeff faible
-                    coeffGeom = 0.28 + (Math.max(0, reliefTight||0)/650) + (Math.max(0, reliefIndex||0)/2200) + (elev/3500);
-                    // Tencin: 0.28+80/650=0.12 +400/2200=0.18 +0.07=0.65 => delta 400*0.65/100=2.6°C
-                } else if(elev < 1000){
-                    coeffGeom = 0.40 + (Math.max(0, reliefTight||0)/450) + (Math.max(0, reliefIndex||0)/1800) + (elev/2500);
-                } else {
-                    // Montagne: coeff fort + altitude
-                    coeffGeom = 0.60 + (Math.max(0, reliefTight||0)/280) + (Math.max(0, reliefIndex||0)/1200) + (elev/2200) + (centerElevSig/2500)*0.3;
-                }
-                coeffGeomForDebug = Math.round(coeffGeom*100)/100;
-                coeffPer100m = coeffGeomForDebug;
-                // Boost si inversion surface détectée par OM, mais pondéré par altitude
-                if(weatherData && weatherData.hourly && weatherData.hourly.temperature_2m){
-                    try{
-                        const dayStart = dayIdx*24;
-                        let highArrSurf=null;
-                        if(elev < 600) highArrSurf = weatherData.hourly.temperature_925hPa;
-                        else if(elev < 1400) highArrSurf = weatherData.hourly.temperature_850hPa;
-                        else highArrSurf = weatherData.hourly.temperature_700hPa || weatherData.hourly.temperature_850hPa;
-                        const t2mArr = weatherData.hourly.temperature_2m;
-                        if(highArrSurf && t2mArr){
-                            let sumT2m=0,sumHighS=0,nS=0;
-                            for(let h=0; h<=6; h++){
-                                const idx=dayStart+h;
-                                const t2=t2mArr[idx], thS=highArrSurf[idx];
-                                if(typeof t2==='number' && typeof thS==='number' && isFinite(t2) && isFinite(thS)){ sumT2m+=t2; sumHighS+=thS; nS++; }
-                            }
-                            if(nS){
-                                const invSurf = (sumHighS/nS) - (sumT2m/nS);
-                                invSurfForDebug = invSurf;
-                                invForDebug = invSurf;
-                                if(invSurf>1){
-                                    // en plaine, on ne booste que si invSurf >3
-                                    const threshold = elev<500? 3.5 : 2.0;
-                                    if(invSurf>threshold){
-                                        const minCoeffForInv = (invSurf*0.85) / ((reliefIndex||effectiveRelief)/100);
-                                        // en basse altitude, on limite le boost à +30%
-                                        const maxBoost = elev<500? coeffGeom*1.35 : coeffGeom*1.6;
-                                        const boosted = Math.min(maxBoost, Math.max(coeffPer100m, minCoeffForInv));
-                                        coeffPer100m = boosted;
-                                    }
-                                }
-                            }
-                        }
-                    }catch(e){}
-                }
-                coeffPer100m = Math.max(0.22, Math.min(elev<500?1.1:5.5, Math.round(coeffPer100m*100)/100));
-
-                const baseDeltaC = Math.min(maxDeltaC, Math.max(0.5, ( (typeof reliefIndex==='number'?reliefIndex:effectiveReliefForDebug) / 100 * coeffPer100m)));
-                // v170: utilise relief MAX pour atteindre -7.5
-                const _reliefTimesCoeff = ( (typeof reliefIndex==='number'?reliefIndex:effectiveReliefForDebug)/100*coeffPer100m);
-                valleyDeltaC = valleyFavorable ? -Math.round(baseDeltaC * favorabilityFactor * 10) / 10 : 0;
-                try{
-                    window._lastInversionDebug = window._lastInversionDebug || {};
-                    window._lastInversionDebug[dayIdx] = {
-                        reliefIndex, coeffPer100m, maxDeltaC, baseDeltaC, _reliefTimesCoeff,
-                        effectiveRelief: effectiveReliefForDebug, reliefTight: (typeof signals.reliefTightIndex==='number'?signals.reliefTightIndex:null), centerElev: (typeof signals.centerElev==='number'?signals.centerElev:null), altFactor: altFactorForDebug, coeffGeom: coeffGeomForDebug, invSurf: invSurfForDebug, inv: invForDebug,
-                        favorabilityFactor, valleyDeltaC, valleyFavorable, valleyDetected,
-                        cloudAvg: (typeof night!=='undefined' && night? night.cloudAvg:null),
-                        windAvg: (typeof morning!=='undefined' && morning? morning.windAvg:null),
-                        thresh: (typeof microClimateCloudThreshold!=='number'?50:microClimateCloudThreshold),
-                        cloudFactor: (typeof cloudFactor!=='undefined'?cloudFactor:null),
-                        windFactor: (typeof windFactor!=='undefined'?windFactor:null),
-                        favDetail: (typeof fav!=='undefined'? fav : favorabilityFactor)
-                    };
-                }catch(e){}
-            }
-
-            // 2. Îlot de chaleur urbain — la POPULATION ADMINISTRATIVE d'une commune française peut
-            // couvrir un vaste territoire rural autour d'un centre bâti restreint : on ne fait
-            // confiance à l'estimation basée sur la population que si la densité bâtie RÉELLEMENT
-            // mesurée à proximité (Overpass) la corrobore. Plancher de population (3000 hab.)
-            // appliqué en dessous duquel l'effet documenté devient trop marginal pour être fiable.
-            let uhiDeltaC = 0, uhiFavorable = false;
-            let uhiDetected = false;
-            let uhiEstimate = null;
-            const populationKnown = typeof resolvedPopulation === 'number' && resolvedPopulation > 0;
-            const buildingCorroborates = (typeof buildingCount !== 'number') || buildingCount >= 30;
-            if (populationKnown && resolvedPopulation >= 3000 && buildingCorroborates) {
-                const est = 2.01 * Math.log10(resolvedPopulation) - 4.06;
-                if (est > 0.3) uhiEstimate = Math.round(est * 10) / 10;
-            }
-            // Corrigé le 06/09/2026 (bug signalé, cf. Tencin +3,8°C) : `urbanTier` (repli sur le
-            // SEUL nombre de bâtiments Overpass dans un rayon de 700m, sans notion de population)
-            // se déclenchait même quand la population était connue et clairement insuffisante pour
-            // un îlot de chaleur urbain — un vieux village au bâti resserré (maisons mitoyennes,
-            // hameaux, granges) peut facilement dépasser 120 bâtiments dans un rayon de 700m sans
-            // être une ville. Ce repli n'a de sens QUE quand la population est réellement inconnue
-            // (ex. lieu cliqué sur la carte, sans nom de commune résolu) : dans ce cas seulement, la
-            // densité bâtie sert de signal de secours. Dès que la population est connue — même
-            // petite —, elle prévaut : en dessous de 3000 habitants, pas d'îlot de chaleur, point.
-            const urbanTier = (!populationKnown && typeof buildingCount === 'number')
-                ? (buildingCount >= 120 ? 'dense' : (buildingCount >= 30 ? 'moderee' : null))
-                : null;
-            if (uhiEstimate || urbanTier) {
-                uhiDetected = true;
-                const afternoon = hoursConditionsFavorable(14, 18);
-                uhiFavorable = !!(afternoon && afternoon.cloudAvg < 40 && afternoon.windAvg < 15);
-                // Valeur numérique : l'estimation Oke/Landsberg si la population est connue ET
-                // corroborée par le bâti, sinon un point représentatif de la fourchette habituelle
-                // selon la densité bâtie détectée.
-                //
-                // La formule Oke/Landsberg estime l'écart MAXIMAL théorique ΔT_u-r(max), typiquement
-                // atteint la NUIT quelques heures après le coucher du soleil sous conditions calmes et
-                // dégagées idéales — pas l'écart réel en après-midi (14h-18h, fenêtre où cet ajustement
-                // est appliqué). Appliquée telle quelle à l'après-midi, elle surestime systématiquement
-                // l'échauffement réel, y compris hors contexte de cuvette (voir UHI_AFTERNOON_BASE_FACTOR
-                // ci-dessous — le repli sur densité bâtie seule reste, lui, un point déjà réaliste, non
-                // affecté par ce facteur). Calibré le 04/09/2026 sur La Roche-sur-Yon (terrain plat,
-                // aucun relief encaissant détecté) : formule brute +5,5°C, observé +1°C au maximum de
-                // l'après-midi → facteur retenu 0,2. Un seul point de calibration en terrain plat à ce
-                // stade, à affiner avec d'autres observations.
-                const UHI_AFTERNOON_BASE_FACTOR = (typeof microClimateUHIAfternoonFactor==='number'?microClimateUHIAfternoonFactor:0.2);
-                const uhiPointEstimate = uhiEstimate
-                    ? uhiEstimate * UHI_AFTERNOON_BASE_FACTOR
-                    : (urbanTier === 'dense' ? (typeof microClimateUHIDense==='number'?microClimateUHIDense:2.5) : (typeof microClimateUHIMode==='number'?microClimateUHIMode:1.5));
-                uhiDeltaC = uhiFavorable ? Math.round(uhiPointEstimate * 10) / 10 : 0;
-            }
-
-            // Ajustements transmis à updateDayView()/updateChart()/updatePressureChart()/
-            // updateAstroChart() : appliqués de façon LISSÉE (transition progressive en entrée/sortie
-            // de fenêtre, jamais un saut brutal d'une heure à l'autre) — voir microClimateDeltaAtHour().
-            //
-            // Ville en cuvette (valley + UHI co-localisés) : inversion atténuée, échauffement diurne amplifié — coeffs réglables (modèles 1/2).
-            const VALLEY_URBAN_SUPPRESSION = (typeof microClimateValleyUrbanSupp==='number'?microClimateValleyUrbanSupp:0.5);
-            const UHI_VALLEY_AMPLIFICATION = (typeof microClimateUHIValleyAmp==='number'?microClimateUHIValleyAmp:0.8);
-            const urbanValleyCoLocated = valleyDetected && uhiDetected;
-            if (urbanValleyCoLocated) {
-                valleyDeltaC = Math.round(valleyDeltaC * VALLEY_URBAN_SUPPRESSION * 10) / 10;
-                uhiDeltaC = Math.round(uhiDeltaC * UHI_VALLEY_AMPLIFICATION * 10) / 10;
-            }
-
-            const valley = { active: valleyFavorable, deltaC: valleyDeltaC, startH: 5, endH: 9 };
-            const uhi = { active: uhiFavorable, deltaC: uhiDeltaC, startH: 14, endH: 18 };
-
-            const nightUhi = { active: false, deltaC: 0, startH: 0, endH: 9 };
-            const plainCool = { active: false, deltaC: 0, startH: 0, endH: 9 };
-            const dayMod = { active: false, deltaC: 0, startH: 11, endH: 17 };
-
-            // 3. Cours d'eau / plan d'eau proche (effet non chiffré dans les ajustements ci-dessus,
-            // simple signalement)
-            const waterDetected = !!nearestWater;
-
-            // ---- Construction des puces emoji + signification (aucun texte explicatif ici) ----
-            const chips = [];
-            const valleyCoLocatedNote = urbanValleyCoLocated ? ' <em>(atténué : ville en cuvette)</em>' : '';
-            const uhiCoLocatedNote = urbanValleyCoLocated ? ' <em>(cuvette peu ventilée)</em>' : '';
-            if (valleyDetected) {
-                chips.push({
-                    emoji: '🏔️', alert: valleyFavorable,
-                    label: 'Fond de vallée (inversion thermique matinale)' + (valleyFavorable ? ` — <strong>${Number(valleyDeltaC).toFixed(1)}°C 5h-9h</strong>${valleyCoLocatedNote}` : '')
-                });
-            }
-            if (uhiDetected) {
-                chips.push({
-                    emoji: '🏙️', alert: uhiFavorable,
-                    label: 'Îlot de chaleur urbain (fin d\'après-midi/soir)' + (uhiFavorable ? ` — <strong>+${Number(uhiDeltaC).toFixed(1)}°C 14h-18h</strong>${uhiCoLocatedNote}` : '')
-                });
-            }
-            if (waterDetected) {
-                chips.push({ emoji: '🌊', alert: false, label: 'Cours d\'eau / plan d\'eau proche (effet modérateur)' });
-            }
-
-            if (!chips.length) return null; // rien à ajuster : ni relief ni bâti significatifs détectés à cet endroit
-
-            return { valley, uhi, nightUhi, plainCool, dayMod, chips, waterDetected };
         }
 
         // Met à jour l'encart "Effets locaux" (note + puces) pour le jour donné, à partir du cache —
@@ -15855,92 +15405,6 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
             }catch(e){ console.error('cloudProfile error',e); const sub=document.getElementById('cloud-profile-sub'); if(sub) sub.innerText='Erreur : '+e.message; }
         }
 
-        function syncMicroModelUI(){
-            try{
-                const m1=document.getElementById('micro-model-1');
-                const m2=document.getElementById('micro-model-2');
-                const m21=document.getElementById('micro-model-21');
-                const th=document.getElementById('micro-threshold-input');
-                const thrRow=document.getElementById('micro-threshold-row');
-                const af=document.getElementById('micro-uhi-afternoon-input');
-                const dense=document.getElementById('micro-uhi-dense-input');
-                const mod=document.getElementById('micro-uhi-moderee-input');
-                const supp=document.getElementById('micro-valley-supp-input');
-                const amp=document.getElementById('micro-valley-amp-input');
-                if(m1) m1.checked = (microClimateModel==='1');
-                if(m2) m2.checked = (microClimateModel==='2');
-                if(m21) m21.checked = (microClimateModel==='2.1');
-                if(th) th.value = microClimateCloudThreshold;
-                if(af) af.value = microClimateUHIAfternoonFactor;
-                if(dense) dense.value = microClimateUHIDense;
-                if(mod) mod.value = microClimateUHIMode;
-                if(supp) supp.value = microClimateValleyUrbanSupp;
-                if(amp) amp.value = microClimateUHIValleyAmp;
-                const invCoeffEl=document.getElementById('micro-inv-coeff-input');
-                const invMaxEl=document.getElementById('micro-inv-max-input');
-                if(invCoeffEl) invCoeffEl.value = microClimateInvCoeff;
-                if(invMaxEl) invMaxEl.value = microClimateInvMax;
-                if(thrRow) thrRow.style.display = (microClimateModel==='1' || microClimateModel==='2' ? 'flex' : 'none');
-            }catch(e){}
-        }
-        function onMicroUHIChange(){
-            try{
-                const af=document.getElementById('micro-uhi-afternoon-input');
-                const dense=document.getElementById('micro-uhi-dense-input');
-                const mod=document.getElementById('micro-uhi-moderee-input');
-                const supp=document.getElementById('micro-valley-supp-input');
-                const amp=document.getElementById('micro-valley-amp-input');
-                let v;
-                v=parseFloat(af.value); if(!isNaN(v)){ microClimateUHIAfternoonFactor=Math.max(0,Math.min(1,v)); localStorage.setItem('metehop_uhi_afternoon_v1', String(microClimateUHIAfternoonFactor)); }
-                v=parseFloat(dense.value); if(!isNaN(v)){ microClimateUHIDense=Math.max(0,Math.min(5,v)); localStorage.setItem('metehop_uhi_dense_v1', String(microClimateUHIDense)); }
-                v=parseFloat(mod.value); if(!isNaN(v)){ microClimateUHIMode=Math.max(0,Math.min(5,v)); localStorage.setItem('metehop_uhi_moderee_v1', String(microClimateUHIMode)); }
-                v=parseFloat(supp.value); if(!isNaN(v)){ microClimateValleyUrbanSupp=Math.max(0,Math.min(1,v)); localStorage.setItem('metehop_valley_urban_supp_v1', String(microClimateValleyUrbanSupp)); }
-                v=parseFloat(amp.value); if(!isNaN(v)){ microClimateUHIValleyAmp=Math.max(0,Math.min(2,v)); localStorage.setItem('metehop_uhi_valley_amp_v1', String(microClimateUHIValleyAmp)); }
-            }catch(e){}
-            microClimateDayCache={};
-            try{ if(typeof selectedDayIndex!=='undefined'){ renderLocalEffectsPanel(selectedDayIndex); updateDayView(selectedDayIndex); } }catch(e){}
-        }
-
-        function onMicroInversionChange(){
-            let v;
-            const coeffEl=document.getElementById('micro-inv-coeff-input');
-            const maxEl=document.getElementById('micro-inv-max-input');
-            if(coeffEl){ v=parseFloat(coeffEl.value); if(!isNaN(v)){ microClimateInvCoeff=Math.max(0.2,Math.min(3,v)); localStorage.setItem('metehop_inv_coeff_v1', String(microClimateInvCoeff)); } }
-            if(maxEl){ v=parseFloat(maxEl.value); if(!isNaN(v)){ microClimateInvMax=Math.max(1,Math.min(12,v)); localStorage.setItem('metehop_inv_max_v1', String(microClimateInvMax)); } }
-            microClimateDayCache={};
-            try{
-                if(typeof selectedDayIndex!=='undefined'){
-                    renderLocalEffectsPanel(selectedDayIndex);
-                    updateDayView(selectedDayIndex);
-                    renderCarousel();
-                } else if(typeof currentDayIndex!=='undefined'){
-                    renderLocalEffectsPanel(currentDayIndex);
-                    updateDayView(currentDayIndex);
-                }
-            }catch(e){ console.error('inv change render',e); }
-        }
-
-        function onMicroModelChange(){
-            const m1=document.getElementById('micro-model-1');
-            const m2=document.getElementById('micro-model-2');
-            const m21=document.getElementById('micro-model-21');
-            microClimateModel = (m1 && m1.checked) ? '1' : ((m21 && m21.checked) ? '2.1' : '2');
-            try{ localStorage.setItem('metehop_microclimate_model_v1', microClimateModel); }catch(e){}
-            syncMicroModelUI();
-            microClimateDayCache={};
-            try{ if(typeof selectedDayIndex!=='undefined'){ renderLocalEffectsPanel(selectedDayIndex); updateDayView(selectedDayIndex); } }catch(e){}
-        }
-        function onMicroThresholdChange(){
-            const th=document.getElementById('micro-threshold-input');
-            let v=parseFloat(th.value);
-            if(isNaN(v)) v=50;
-            v=Math.max(20,Math.min(80,v));
-            microClimateCloudThreshold=v;
-            try{ localStorage.setItem('metehop_microclimate_thresh_v1', String(v)); }catch(e){}
-            microClimateDayCache={};
-            try{ if(typeof selectedDayIndex!=='undefined'){ renderLocalEffectsPanel(selectedDayIndex); updateDayView(selectedDayIndex); } }catch(e){}
-        }
-
         let inversionLevelsData=null;
 let inversionLevelsLoading=false;
 async function loadInversionLevels(lat, lon){
@@ -15965,79 +15429,10 @@ async function loadInversionLevels(lat, lon){
         }
         try{ microClimateDayCache={}; console.log('Inversion OM chargée, recalcul micro-climat 16j avec elev', weatherData.elevation); }catch(e){}
         try{ if(typeof selectedDayIndex!=='undefined'){ renderLocalEffectsPanel(selectedDayIndex); updateDayView(selectedDayIndex); renderCarousel(); render16DayTable(); } }catch(e){ console.error(e); }
-        try{ renderInversionDebugDetail(); }catch(e){}
     }catch(e){
         console.error('loadInversionLevels',e);
     }finally{ inversionLevelsLoading=false; }
 }
-
-
-        function renderInversionDebugDetail(){
-            try{
-                const el=document.getElementById('inversion-debug-content');
-                if(!el) return;
-                const dayIdx = (typeof selectedDayIndex!=='undefined'? selectedDayIndex : 0);
-                const dbg = window._lastInversionDebug && window._lastInversionDebug[dayIdx];
-                if(!dbg){
-                    el.innerHTML='<span style="color:#999;">Pas encore calculé - change de jour ou active micro-climat</span>';
-                    return;
-                }
-                if(dbg.physical){
-                    const fa = dbg.freeAtm;
-                    el.innerHTML=`
-                        <div style="font-weight:800; color:#7a5a00; margin-bottom:6px;">🔬 Debug modèle physique 2.1 — jour ${dayIdx}</div>
-                        <table style="border-collapse:collapse; width:100%;">
-                            <tr><td style="padding:3px 6px; font-weight:700;">SVF (ciel visible)</td><td style="padding:3px 6px; text-align:right;">${(dbg.svf*100).toFixed(0)}%</td><td style="padding:3px 6px; color:#666;">1−mean(sin²β) sur 16 azimuts</td></tr>
-                            <tr><td style="padding:3px 6px; font-weight:700;">Encaissement (horizon)</td><td style="padding:3px 6px; text-align:right;">${dbg.enclosureM} m</td><td style="padding:3px 6px; color:#666;">hauteur moyenne du rim au-dessus du point</td></tr>
-                            <tr><td style="padding:3px 6px;">Pente / exposition</td><td style="padding:3px 6px; text-align:right;">${dbg.slopeDeg}° / ${dbg.aspectDeg!=null?dbg.aspectDeg+'°':'—'}</td><td style="padding:3px 6px; color:#666;">anneau 250 m — versant plat → pooling ; pente → exposition</td></tr>
-                            <tr><td style="padding:3px 6px;">Fermeture horizon</td><td style="padding:3px 6px; text-align:right;">${(dbg.closedFrac*100).toFixed(0)}%</td><td style="padding:3px 6px; color:#666;">fraction d'azimuts avec rim > point</td></tr>
-                            <tr><td style="padding:3px 6px;">Mixage urbain / drainage</td><td style="padding:3px 6px; text-align:right;">${dbg.urbanMix} / ${dbg.drainageMix}</td><td style="padding:3px 6px; color:#666;">population atténue LW et pooling</td></tr>
-                            <tr><td style="padding:3px 6px;">Gradient libre (niveaux)</td><td style="padding:3px 6px; text-align:right;">${fa? fa.invAloft.toFixed(1)+'°C ('+fa.lowLab+'→'+fa.highLab+')':'—'}</td><td style="padding:3px 6px; color:#666;">inversion d'altitude 0-6h → stagnation ×${dbg.fStag}</td></tr>
-                            <tr><td style="padding:3px 6px;">Lever du soleil</td><td style="padding:3px 6px; text-align:right;">${dbg.sunriseH.toFixed(1)}h</td><td style="padding:3px 6px; color:#666;">fin du poids nocturne ≈ lever+4.5h</td></tr>
-                            <tr style="background:#fff3cd;"><td style="padding:6px; font-weight:800;">ΔT pooling moyen 5-9h</td><td style="padding:6px; text-align:right; font-weight:800; font-size:1.1em;">${dbg.poolAm}°</td><td style="padding:6px;">rad + pool + plaine (avant UHI)</td></tr>
-                            <tr style="background:#fff3cd;"><td style="padding:6px; font-weight:800;">|ΔT| max sur 24h</td><td style="padding:6px; text-align:right; font-weight:800;">${Math.abs(dbg.maxAbs).toFixed(1)}°</td><td style="padding:6px;">profil horaire complet appliqué à l'affichage</td></tr>
-                        </table>
-                        <div style="margin-top:8px; padding:6px; background:#fff; border-radius:6px; font-size:0.68rem;">
-                            <b>Rappel :</b> modèle générique (aucun seuil par ville). ${dbg.degradedPhys?'<span style="color:#b91c1c;">⚠ Signaux terrain dégradés (cache sans SVF) — relance une recherche de lieu pour recharger la DEM 81 pts.</span>':'Constantes PHYS_MICRO calibrées sur les relevés 22–23/09/2026 (MAE ≈ 0,6 °C).'}
-                        </div>
-                    `;
-                    return;
-                }
-                const need = -7; // ce que tu veux
-                const actual = dbg.valleyDeltaC;
-                const relief = dbg.reliefIndex;
-                const coeff = dbg.coeffPer100m;
-                const base = dbg.baseDeltaC;
-                const raw = dbg._reliefTimesCoeff;
-                const fav = dbg.favorabilityFactor;
-                const cloud = dbg.cloudAvg;
-                const wind = dbg.windAvg;
-                const thresh = dbg.thresh;
-                const cf = dbg.cloudFactor;
-                const wf = dbg.windFactor;
-                const maxD = dbg.maxDeltaC;
-                el.innerHTML=`
-                    <table style="border-collapse:collapse; width:100%;">
-                        <tr><td style="padding:3px 6px; font-weight:700;">ReliefIndex (encaissement)</td><td style="padding:3px 6px; text-align:right;">${relief!=null?relief:'—'} → ${relief!=null?(relief/100).toFixed(2)+' ×100m':''}</td><td style="padding:3px 6px; color:#666;">Si relief 350 → 3.5×100m</td></tr>
-                        <tr><td style="padding:3px 6px; font-weight:700;">Coeff/100m utilisé</td><td style="padding:3px 6px; text-align:right; font-weight:800; background:${coeff>=1.5?'#ffe0e0':'#e0ffe0'};">${coeff!=null?coeff+'°/100m':''}</td><td style="padding:3px 6px;">Pour avoir -7° il faut coeff = 7 / (relief/100) = ${relief? (7/(relief/100)).toFixed(2):''}°/100m</td></tr>
-                        <tr><td style="padding:3px 6px;">Calcul brut relief×coeff</td><td style="padding:3px 6px; text-align:right;">${raw!=null?raw.toFixed(2)+'°':''}</td><td style="padding:3px 6px;">= relief/100 × coeff</td></tr>
-                        <tr><td style="padding:3px 6px; font-weight:700;">Base = min(max, max(1, brut))</td><td style="padding:3px 6px; text-align:right; font-weight:700;">${base!=null?base+'°':''} (max=${maxD}°)</td><td style="padding:3px 6px; color:${maxD<7?'#b91c1c':'#2b6cb0'};">Si max=6°, tu ne peux JAMAIS atteindre -7° ! Il faut max ≥7</td></tr>
-                        <tr><td style="padding:3px 6px;">Nuage 0-4h / Seuil S</td><td style="padding:3px 6px; text-align:right;">${cloud!=null?cloud.toFixed(1)+'%':''} / ${thresh}% → cloudFactor=${cf!=null?cf.toFixed(2):''}</td><td style="padding:3px 6px;">cloudFactor = 1 - cloud/S</td></tr>
-                        <tr><td style="padding:3px 6px;">Vent 5-9h</td><td style="padding:3px 6px; text-align:right;">${wind!=null?wind.toFixed(1)+'km/h':''} → windFactor=${wf!=null?wf.toFixed(2):''}</td><td style="padding:3px 6px;">windFactor = 1 - vent/20</td></tr>
-                        <tr><td style="padding:3px 6px; font-weight:700;">Favorabilité = cloudF × windF</td><td style="padding:3px 6px; text-align:right; font-weight:800; background:${fav<0.3?'#ffe0e0':'#e0ffe0'};">${fav!=null?fav.toFixed(2):''}</td><td style="padding:3px 6px;">Si Fav=0.2, même base 7° → -1.4° (ton cas !)</td></tr>
-                        <tr style="background:#fff3cd;"><td style="padding:6px; font-weight:800;">ΔT final = -base × Fav</td><td style="padding:6px; text-align:right; font-weight:800; font-size:1.1em;">${actual!=null?actual+'°':''}</td><td style="padding:6px;">Objectif ${need}° → il manque ${(need-actual).toFixed(1)}°</td></tr>
-                    </table>
-                    <div style="margin-top:8px; padding:6px; background:#fff; border-radius:6px;">
-                        <b>Diagnostic pour Bessans :</b><br>
-                        ${relief!=null && relief<150 ? '• ReliefIndex faible ('+relief+') → fond de vallée peu marqué selon Overpass. Vérifie si Bessans est bien détectée en cuvette.<br>' : ''}
-                        ${maxD<7 ? '• <b style="color:#b91c1c;">Plafond max='+maxD+'° bloque à -'+maxD+'° max → passe-le à 8° ou 10°</b> pour atteindre -7°.<br>' : ''}
-                        ${fav!=null && fav<0.5 ? '• <b style="color:#b91c1c;">Fav faible '+fav.toFixed(2)+' → c\'est ça qui te donne -1.4°</b> : base '+base+'° × '+fav.toFixed(2)+' = '+(base*fav).toFixed(1)+'° → arrondi à '+actual+'°.<br>→ Augmente Seuil S à 80% et vérifie vent matin.<br>' : ''}
-                        ${coeff!=null && relief!=null && (7/(relief/100))>coeff ? '• Coeff trop faible : il faudrait '+(7/(relief/100)).toFixed(2)+'°/100m pour faire -7° avec relief '+relief+'<br>' : ''}
-                        ${actual===-1.4 ? '• Ton -1.4° = typiquement base 7° × Fav 0.2 ou base 2.8° × Fav 0.5 → regarde les 2 lignes ci-dessus.' : ''}
-                    </div>
-                `;
-            }catch(e){ console.error(e); }
-        }
 
         // ============================================================================
         // CLASSEMENT DES MEILLEURES NUITS
