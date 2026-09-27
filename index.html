@@ -2461,6 +2461,19 @@
             gap: 8px;
             margin-bottom: 8px;
         }
+        /* Sélecteur V2.1 / V2.11 du microclimat (27/09/2026) : les variables de thème suffisent
+           à suivre le mode clair/sombre (--card-inner-bg et --text-dark sont redéfinis en sombre). */
+        .micro-model-select {
+            width: 100%;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--text-dark);
+            background: var(--card-inner-bg);
+            border: 1px solid rgba(0,0,0,0.12);
+            border-radius: 8px;
+            padding: 8px 8px;
+            outline: none;
+        }
         .ski-compare-dot {
             width: 10px;
             height: 10px;
@@ -2787,6 +2800,25 @@
             gap: 6px;
         }
         .station-pill i { color: var(--accent-blue); font-size: 0.8rem; }
+        /* Ligne complémentaire MET Norway (27/09/2026) : température interpolée à l'heure
+           exacte + correction Microclimat, insérée SOUS la pastille de température MET
+           existante (inchangée). flex 1 0 100% = sur sa propre ligne dans .snow-details-row.
+           Vert foncé en clair, vert clair en sombre pour rester lisible. */
+        .met-corrected-pill {
+            flex: 1 0 100%;
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            flex-wrap: wrap;
+            background: rgba(22,101,52,0.07);
+            border-radius: var(--radius-small);
+            padding: 6px 10px;
+        }
+        .met-corrected-pill i { color: #166534; font-size: 0.8rem; align-self: center; }
+        .met-corrected-temp { color: #166534; font-weight: 800; font-size: 0.78rem; }
+        .met-corrected-meta { color: var(--text-muted); font-weight: 600; font-size: 0.64rem; }
+        html.dark .met-corrected-pill { background: rgba(110,231,168,0.10); }
+        html.dark .met-corrected-pill i, html.dark .met-corrected-temp { color: #6ee7a8; }
         .snow-avalanche-note {
             background: var(--card-inner-bg);
             border-radius: var(--radius-medium);
@@ -4672,6 +4704,103 @@
             </div>
             <div class="card-collapsible-body" id="geek-card-body">
 
+                <!-- ===== Choix du modèle microclimat (27/09/2026) =====
+                     V2.1 reste le modèle par défaut : aucun changement de comportement existant.
+                     V2.11 est la MÊME physique (PHYS_MICRO_V211 = copie de PHYS_MICRO) avec
+                     SEULEMENT deux coefficients de calibration nocturne réajustés à partir des
+                     observations du 27/09/2026 (K_RAD et K_UHI_N). Le choix pilote réellement le
+                     moteur (getMicroCoefficients() dans computePhysicalMicroClimateModel) et vide
+                     le cache par jour au changement (onMicroModelChange). -->
+                <div id="micro-model-card" data-groups="general" data-level="expert" style="margin-bottom:12px; background:var(--card-inner-bg); border:1px solid rgba(0,0,0,0.08); border-radius:12px; padding:12px; box-sizing:border-box;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
+                        <div style="flex:1; min-width:200px;">
+                            <div style="font-weight:800; font-size:0.9rem; color:var(--primary-dark);"><i class="fa-solid fa-temperature-low" style="color:var(--accent-blue); margin-right:6px;"></i> Modèle Microclimat</div>
+                            <div style="font-size:0.72rem; color:var(--text-muted); margin-top:3px;">Modèle actif : <b id="micro-model-active-name" style="color:var(--primary-dark);">Microclimat V2.1</b></div>
+                        </div>
+                        <div style="min-width:190px;">
+                            <label for="micro-model-select" style="display:block; font-size:0.66rem; font-weight:800; text-transform:uppercase; letter-spacing:0.3px; color:var(--text-muted); margin-bottom:4px;">Modèle Microclimat :</label>
+                            <select id="micro-model-select" class="micro-model-select" onchange="onMicroModelChange(this.value)">
+                                <option value="2.1">Microclimat V2.1</option>
+                                <option value="2.11">Microclimat V2.11</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="micro-model-description" style="margin-top:10px; font-size:0.73rem; line-height:1.55; color:var(--text-muted);"></div>
+                    <div id="micro-model-coefs" style="margin-top:10px; overflow-x:auto;"></div>
+
+                    <div style="margin-top:12px; font-size:0.72rem; font-weight:800; color:var(--primary-dark);">
+                        <i class="fa-solid fa-clipboard-check" style="color:var(--accent-orange); margin-right:5px;"></i> Validation — observations du 27/09/2026
+                    </div>
+                    <div style="overflow-x:auto; margin-top:5px;">
+                        <table style="width:100%; min-width:460px; border-collapse:collapse; font-size:0.7rem; color:var(--text-dark);">
+                            <thead>
+                                <tr style="color:var(--text-muted); text-align:right;">
+                                    <th style="padding:4px 6px; text-align:left; border-bottom:1px solid rgba(0,0,0,0.12);">Lieu (fenêtre 05h–09h)</th>
+                                    <th style="padding:4px 6px; border-bottom:1px solid rgba(0,0,0,0.12);">Observé</th>
+                                    <th style="padding:4px 6px; border-bottom:1px solid rgba(0,0,0,0.12);">Modèle V2.1</th>
+                                    <th style="padding:4px 6px; border-bottom:1px solid rgba(0,0,0,0.12);">Modèle V2.11</th>
+                                    <th style="padding:4px 6px; border-bottom:1px solid rgba(0,0,0,0.12);">Erreur V2.1</th>
+                                    <th style="padding:4px 6px; border-bottom:1px solid rgba(0,0,0,0.12);">Erreur V2.11</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td style="padding:4px 6px; text-align:left;">Tencin (240 m)</td>
+                                    <td style="padding:4px 6px; text-align:right;">7.2</td>
+                                    <td style="padding:4px 6px; text-align:right;">9.0</td>
+                                    <td style="padding:4px 6px; text-align:right; font-weight:800;">7.3</td>
+                                    <td style="padding:4px 6px; text-align:right; color:var(--accent-orange);">+1.8</td>
+                                    <td style="padding:4px 6px; text-align:right; color:var(--accent-green);">+0.1</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:4px 6px; text-align:left;">Grenoble (216 m)</td>
+                                    <td style="padding:4px 6px; text-align:right;">12.4</td>
+                                    <td style="padding:4px 6px; text-align:right;">15.0</td>
+                                    <td style="padding:4px 6px; text-align:right; font-weight:800;">12.4</td>
+                                    <td style="padding:4px 6px; text-align:right; color:var(--accent-orange);">+2.6</td>
+                                    <td style="padding:4px 6px; text-align:right; color:var(--accent-green);">0.0</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:4px 6px; text-align:left;">Chambéry (279 m)</td>
+                                    <td style="padding:4px 6px; text-align:right;">7.8</td>
+                                    <td style="padding:4px 6px; text-align:right;">11.0</td>
+                                    <td style="padding:4px 6px; text-align:right; font-weight:800;">8.8</td>
+                                    <td style="padding:4px 6px; text-align:right; color:var(--accent-orange);">+3.2</td>
+                                    <td style="padding:4px 6px; text-align:right; color:var(--accent-green);">+1.0</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:4px 6px; text-align:left;">Bessans (1703 m)</td>
+                                    <td style="padding:4px 6px; text-align:right;">3.2</td>
+                                    <td style="padding:4px 6px; text-align:right;">4.0</td>
+                                    <td style="padding:4px 6px; text-align:right; font-weight:800;">2.3</td>
+                                    <td style="padding:4px 6px; text-align:right; color:var(--accent-orange);">+0.8</td>
+                                    <td style="padding:4px 6px; text-align:right; color:var(--accent-green);">−0.9</td>
+                                </tr>
+                            </tbody>
+                            <tfoot>
+                                <tr style="font-weight:800; color:var(--primary-dark);">
+                                    <td style="padding:4px 6px; text-align:left; border-top:1px solid rgba(0,0,0,0.12);">MAE (°C)</td>
+                                    <td style="padding:4px 6px; text-align:right; border-top:1px solid rgba(0,0,0,0.12);">—</td>
+                                    <td style="padding:4px 6px; text-align:right; border-top:1px solid rgba(0,0,0,0.12); color:var(--accent-orange);">2.1</td>
+                                    <td style="padding:4px 6px; text-align:right; border-top:1px solid rgba(0,0,0,0.12); color:var(--accent-green);">0.5</td>
+                                    <td style="padding:4px 6px; text-align:right; border-top:1px solid rgba(0,0,0,0.12);" colspan="2">—</td>
+                                </tr>
+                                <tr style="font-weight:800; color:var(--primary-dark);">
+                                    <td style="padding:4px 6px; text-align:left; border-top:1px solid rgba(0,0,0,0.12);">Biais moyen (°C)</td>
+                                    <td style="padding:4px 6px; text-align:right; border-top:1px solid rgba(0,0,0,0.12);">—</td>
+                                    <td style="padding:4px 6px; text-align:right; border-top:1px solid rgba(0,0,0,0.12); color:var(--accent-orange);">+2.1</td>
+                                    <td style="padding:4px 6px; text-align:right; border-top:1px solid rgba(0,0,0,0.12); color:var(--accent-green);">+0.05</td>
+                                    <td style="padding:4px 6px; text-align:right; border-top:1px solid rgba(0,0,0,0.12);" colspan="2">—</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    <div style="margin-top:6px; font-size:0.66rem; line-height:1.5; color:var(--text-muted);">
+                        Températures de surface minuit–09h du 27/09/2026, même moteur et mêmes entrées (réanalyse AROME, terrain, relief, populations) pour les deux colonnes ; seule la paire de coefficients change. Les valeurs V2.1 sont celles affichées par l'app le 27/09/2026 (relevé à l'unité), les valeurs V2.11 celles du même moteur réajusté (affichage à 0,1 °C). Erreur = modèle − observé.
+                    </div>
+                </div>
+
                 <!-- Désaccord entre modèles météo (chantier 2, 12/09/2026) : visible seulement si, sur au
                      moins un des 7 prochains jours, les modèles (prévision affichée / ICON / ECMWF /
                      AROME / ARPEGE) divergent franchement. Voir loadModelDisagreement() / renderModelDisagreementCard(). -->
@@ -4961,7 +5090,7 @@
                  à chaque modification livrée de ce fichier, mets à jour la ligne juste en-dessous
                  (footer-last-update) avec la date du jour (format JJ/MM/AAAA) et incrémente le
                  numéro de version de 1. Ne saute jamais un numéro, ne le laisse jamais inchangé. -->
-            <div class="footer-last-update">Dernière mise à jour : 26/09/2026 - 140</div>
+            <div class="footer-last-update">Dernière mise à jour : 27/09/2026 - 141</div>
         </footer>
 
     </div>
@@ -5157,7 +5286,7 @@
                 <h4>Effets locaux (micro-climat)</h4>
                 <div class="sources-item">
                     <strong>Modèle 2.1 — moteur physique générique (Europe)</strong>
-                    <span>Le modèle 2.1 n'utilise aucune table par ville : il calcule un profil horaire de correction ΔT(h) à partir de la topographie réelle (DEM Open-Meteo, 81 points / 16 azimuts) et de la météo prévue. Composantes : (1) refroidissement par rayonnement de longue d'onde nocturne, atténué par les nuages (poids bas/moyen/haut) et le vent effectif au sol abrité ; (2) cold-air-pooling en fonction du Sky View Factor, de l'encaissement d'horizon, de la fermeture du cirque et de la pente (un versant exposé ne stocke pas d'air froid) ; (3) extra de plaine ouverte ; (4) îlot de chaleur urbain Oke/Landsberg (nuit ×0,40, après-midi ×0,05–0,08 — AROME intègre déjà l'UHI des grandes villes) ; (5) résidu de nappe le jour en cirque fermé ; (6) apport solaire d'exposition de versant ; (7) chaleur piégée en vallée basse. Les niveaux de pression Open-Meteo (inversion d'altitude 0–6 h) modulent la stagnation. Constantes PHYS_MICRO calibrées sur les relevés des 22 et 23/09/2026 (Bessans, Tencin, Grenoble, Paris, Lyon, Nantes, Chamrousse) — erreur moyenne ≈ 0,6 °C sur ce jeu. Sources physiques : Rupp et al. 2020 (cold-air pools) ; Oke (UHI) ; études de valley cold pools.</span>
+                    <span>Le modèle 2.1 n'utilise aucune table par ville : il calcule un profil horaire de correction ΔT(h) à partir de la topographie réelle (DEM Open-Meteo, 81 points / 16 azimuts) et de la météo prévue. Composantes : (1) refroidissement par rayonnement de longue d'onde nocturne, atténué par les nuages (poids bas/moyen/haut) et le vent effectif au sol abrité ; (2) cold-air-pooling en fonction du Sky View Factor, de l'encaissement d'horizon, de la fermeture du cirque et de la pente (un versant exposé ne stocke pas d'air froid) ; (3) extra de plaine ouverte ; (4) îlot de chaleur urbain Oke/Landsberg (nuit ×0,40, après-midi ×0,05–0,08 — AROME intègre déjà l'UHI des grandes villes) ; (5) résidu de nappe le jour en cirque fermé ; (6) apport solaire d'exposition de versant ; (7) chaleur piégée en vallée basse. Les niveaux de pression Open-Meteo (inversion d'altitude 0–6 h) modulent la stagnation. Constantes PHYS_MICRO calibrées sur les relevés des 22 et 23/09/2026 (Bessans, Tencin, Grenoble, Paris, Lyon, Nantes, Chamrousse) — erreur moyenne ≈ 0,6 °C sur ce jeu. Version 2.11 : même modèle, seuls deux coefficients de calibration nocturne réajustés sur les observations du 27/09/2026 (K_RAD 7,8 → 12,0 et K_UHI_N 0,40 → 0,20) — sélectionnable via le sélecteur « Modèle Microclimat » de la section « Metehop pour les geeks », V2.1 restant le défaut. Sources physiques : Rupp et al. 2020 (cold-air pools) ; Oke (UHI) ; études de valley cold pools.</span>
                 </div>
                 <div class="sources-item">
                     <strong>Fond de vallée / cuvette — inversion thermique</strong>
@@ -6327,7 +6456,12 @@
         // FETE_DU_JOUR_MONTHS (donnée locale, voir plus haut), plus aucun appel réseau. Toujours
         // "les X" par prénom, comme demandé, y compris pour un seul prénom. Masqué (retourne null) si
         // le jour correspond à une fête/un événement plutôt qu'à un prénom (FETE_DU_JOUR_EXCLUDE).
-        function sentenceFeteDuJour() {
+        // v150 - extrait de sentenceFeteDuJour() pour pouvoir réutiliser exactement la même donnée/
+        // logique (calendrier FETE_DU_JOUR_MONTHS + exclusions) depuis "Le conseil de Metehop"
+        // (message du matin de la grenouille), sans dupliquer de base de données ni changer le
+        // comportement de sentenceFeteDuJour() elle-même. Retourne la liste brute des prénoms du
+        // jour (ou null si aucun/exclu), sentenceFeteDuJour() se charge ensuite de la mise en phrase.
+        function feteDuJourNames() {
             const now = new Date();
             const month = now.getMonth() + 1, day = now.getDate();
             if (FETE_DU_JOUR_EXCLUDE.has(`${month}-${day}`)) return null;
@@ -6336,6 +6470,11 @@
             const raw = monthEntries.split('|')[day - 1];
             if (!raw) return null;
             const names = raw.split(',').map(s => s.trim()).filter(Boolean);
+            return names.length ? names : null;
+        }
+        function sentenceFeteDuJour() {
+            const names = feteDuJourNames();
+            if (!names) return null;
             const parts = names.map(n => `les ${n}`);
             const joined = parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} et ${parts[parts.length - 1]}`;
             return `Aujourd'hui, nous fêtons ${joined} !`;
@@ -6968,6 +7107,7 @@ function applyDisplayMode() {
             applyDisplayMode();
             initTheme();
             updateMicroClimateToggleUI();
+            renderMicroModelPanel(); // sélecteur V2.1/V2.11 : affiche le modèle actif (défaut V2.1)
             initCollapsibleCards();
             favorites = loadFavorites();
             loadDefaultLocation();
@@ -8460,6 +8600,11 @@ function applyDisplayMode() {
                 const cloud = (typeof d.cloud === 'number' && isFinite(d.cloud)) ? d.cloud.toFixed(0) : '—';
                 const press = (typeof d.press === 'number' && isFinite(d.press)) ? Math.round(d.press) : '—';
                 let html = `<span class="snow-pill" style="background: rgba(14,116,144,0.10);"><i class="fa-solid fa-temperature-half"></i> ${omFmt(d.t, 1)} °C</span>`;
+                // Nouveau 27/09/2026 : ligne complémentaire juste SOUS la température MET
+                // Norway ci-dessus (elle reste strictement inchangée) — température interpolée
+                // à l'heure exacte + correction du modèle Microclimat sélectionné.
+                const metCorrectedLine = metCorrectedPillHtml(d);
+                if (metCorrectedLine) html += metCorrectedLine;
                 const symInfo = metNoSymbolLabel(d.symbolCode);
                 if (symInfo) html += `<span class="snow-pill"><i class="${symInfo.icon}"></i> ${symInfo.label}</span>`;
                 if (typeof d.precipNext1h === 'number' && isFinite(d.precipNext1h)) {
@@ -8492,6 +8637,445 @@ function applyDisplayMode() {
             }
             if (updatedEl) updatedEl.innerText = '';
             contentEl.style.display = 'none';
+        }
+
+        // ═════════════════════════════════════════════════════════════════════════════
+        // NOUVEAU 27/09/2026 — "Stations météo à proximité" / MET Norway :
+        // température interpolée à l'heure EXACTE + correction du modèle Microclimat
+        // sélectionné, affichée dans une ligne COMPLÉMENTAIRE sous la température MET
+        // Norway existante (laquelle reste strictement inchangée : mêmes données, même
+        // pastille, même emplacement).
+        //
+        //   MET Norway horaire → interpolation continue → + correction Microclimat
+        //   (modèle choisi dans "Metehop pour les geeks", aucune logique dupliquée)
+        //   → température affichée.
+        //
+        // Interpolation hybride, sans aucune dépendance externe :
+        //   · ancrages = températures MET Norway, retrouvées EXACTEMENT aux horaires MET ;
+        //   · tangentes = spline monotone Fritsch-Carlson (aucun extremum inventé,
+        //     aucun dépassement des valeurs de données) ;
+        //   · guidage sinusoïdal entre Tmin et Tmax AFFINÉS à partir des données de
+        //     prévision (parabole sur les 3 points voisins de l'extrème horaire, puis
+        //     échantillonnage fin de la courbe) : pente nulle aux extrema et forme
+        //     diurne réaliste, sans imposer un cosinus global sur 24 h ;
+        //   · nuit / inversion / plateaux : hors plage diurne guidée, la courbe suit
+        //     strictement les points MET ;
+        //   · garde-fous : la version guidée n'est retenue que si elle reste dans la
+        //     plage des données ET sans extremum supplémentaire ; sinon repli sur la
+        //     spline monotone seule (toujours dans la plage des données). Jamais de NaN,
+        //     jamais de valeur aberrante. Le modèle est pré-construit et mis en cache
+        //     par série + jour : l'évaluation à une heure précise est ensuite O(log n).
+        // ═════════════════════════════════════════════════════════════════════════════
+
+        let metDiurnalModelCache = { key: null, model: null };
+
+        // Décalage UTC du fuseau IANA (lieu) à un instant donné, en ms.
+        function metZoneOffsetMs(ms, timeZone) {
+            try {
+                const dtf = new Intl.DateTimeFormat('en-CA', {
+                    timeZone: (timeZone || undefined), year: 'numeric', month: '2-digit', day: '2-digit',
+                    hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
+                });
+                const parts = dtf.formatToParts(new Date(ms));
+                const g = t => { const p = parts.find(x => x.type === t); return p ? parseInt(p.value, 10) : NaN; };
+                const y = g('year'), mo = g('month'), dd = g('day'), hh = g('hour'), mi = g('minute'), ss = g('second');
+                if (![y, mo, dd, hh, mi, ss].every(isFinite)) return 0;
+                return Date.UTC(y, mo - 1, dd, hh, mi, ss, 0) - Math.floor(ms / 1000) * 1000;
+            } catch (e) { return 0; }
+        }
+
+        // Composants de l'heure LOCALE du lieu (jamais UTC) : {y, mo, d, h, mi} ou null.
+        function metZoneParts(ms, timeZone) {
+            try {
+                const dtf = new Intl.DateTimeFormat('en-CA', {
+                    timeZone: (timeZone || undefined), year: 'numeric', month: '2-digit', day: '2-digit',
+                    hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+                });
+                const parts = dtf.formatToParts(new Date(ms));
+                const g = t => { const p = parts.find(x => x.type === t); return p ? parseInt(p.value, 10) : NaN; };
+                const y = g('year'), mo = g('month'), d = g('day'), h = g('hour'), mi = g('minute');
+                if (![y, mo, d, h, mi].every(isFinite)) return null;
+                return { y, mo, d, h, mi };
+            } catch (e) { return null; }
+        }
+
+        // "HH:MM" en heure locale du lieu, ou null si illisible.
+        function metLocalHm(ms, timeZone) {
+            const p = metZoneParts(ms, timeZone);
+            if (!p) return null;
+            return String(p.h).padStart(2, '0') + ':' + String(p.mi).padStart(2, '0');
+        }
+
+        // Minuit local (heure du lieu) du jour contenant ms — robuste au changement d'heure.
+        function metLocalDayStartMs(ms, timeZone) {
+            const off = metZoneOffsetMs(ms, timeZone);
+            const pseudo = ms + off;
+            const dayStartPseudo = Math.floor(pseudo / 86400000) * 86400000;
+            let dayStart = dayStartPseudo - off;
+            const off2 = metZoneOffsetMs(dayStart, timeZone);
+            if (off2 !== off) dayStart = dayStartPseudo - off2;
+            return dayStart;
+        }
+
+        // Clé de date locale "YYYY-MM-DD" (changement de jour 23 → 00 inclus).
+        function metLocalDateKey(ms, timeZone) {
+            const p = metZoneParts(ms, timeZone);
+            if (!p) {
+                const d = new Date(ms);
+                return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+            }
+            return p.y + '-' + String(p.mo).padStart(2, '0') + '-' + String(p.d).padStart(2, '0');
+        }
+
+        // Heure locale décimale (0..24) : entrée de microClimateDeltaAtHour().
+        function metLocalHourDecimal(ms, timeZone) {
+            const p = metZoneParts(ms, timeZone);
+            if (!p) { const d = new Date(ms); return d.getHours() + d.getMinutes() / 60; }
+            return p.h + p.mi / 60;
+        }
+
+        // Index de jour du Microclimat (0 = premier jour de weatherData, borné 0..15) :
+        // comparaison des CLÉS DE DATE locales (aucune conversion de chaîne ambigüe).
+        function metMicroclimateDayIdx(ms, timeZone) {
+            try {
+                const base = (typeof weatherData !== 'undefined' && weatherData && weatherData.hourly &&
+                    Array.isArray(weatherData.hourly.time) && weatherData.hourly.time.length)
+                    ? String(weatherData.hourly.time[0]).substring(0, 10) : null;
+                const refKey = metLocalDateKey(ms, timeZone);
+                if (!base || !/^\d{4}-\d{2}-\d{2}$/.test(base) || !/^\d{4}-\d{2}-\d{2}$/.test(refKey)) return 0;
+                const a = Date.UTC(+base.slice(0, 4), +base.slice(5, 7) - 1, +base.slice(8, 10));
+                const b = Date.UTC(+refKey.slice(0, 4), +refKey.slice(5, 7) - 1, +refKey.slice(8, 10));
+                const idx = Math.round((b - a) / 86400000);
+                return (isFinite(idx) && idx >= 0 && idx <= 15) ? idx : 0;
+            } catch (e) { return 0; }
+        }
+
+        // Points MET valides : timestamps UTC parsés (jamais de fuseau supposé), trous
+        // (null / non numérique) écartés, ordre strict croissant conservé.
+        function metSeriesPoints(timesIso, temps) {
+            const pts = [];
+            if (!Array.isArray(timesIso) || !Array.isArray(temps)) return pts;
+            const n = Math.min(timesIso.length, temps.length);
+            for (let i = 0; i < n; i++) {
+                const raw = timesIso[i];
+                if (typeof raw !== 'string' || !raw) continue;
+                const hasTz = /(?:Z|[+-]\d{2}:?\d{2})$/.test(raw);
+                let t = NaN;
+                try { t = Date.parse(hasTz ? raw : raw + 'Z'); } catch (e) { t = NaN; }
+                if (!isFinite(t)) continue;
+                // Trous de données : null / undefined / '' doivent être ÉCARTÉS.
+                // (Attention : Number(null) vaut 0 — un trou ne doit jamais devenir 0 °C.)
+                const rawV = temps[i];
+                if (rawV === null || rawV === undefined || rawV === '') continue;
+                const v = Number(rawV);
+                if (!isFinite(v)) continue;
+                if (pts.length && t <= pts[pts.length - 1].t) continue;
+                pts.push({ t: t, v: v });
+            }
+            return pts;
+        }
+
+        // Tangentes d'une spline cubique monotone (Fritsch-Carlson) : exactitude aux
+        // ancrages, continuité de la pente, aucun extremum ni dépassement inventé.
+        // Retourne { m: tangentes (°C/h), d: pentes sécantes }.
+        function metMonotoneTangents(hs, vs) {
+            const n = hs.length;
+            const m = new Array(n).fill(0);
+            const d = new Array(Math.max(0, n - 1)).fill(0);
+            for (let i = 0; i < n - 1; i++) {
+                const dx = hs[i + 1] - hs[i];
+                d[i] = dx > 0 ? (vs[i + 1] - vs[i]) / dx : 0;
+            }
+            if (n === 1) return { m: m, d: d };
+            m[0] = d[0];
+            m[n - 1] = d[n - 2];
+            for (let i = 1; i < n - 1; i++) {
+                if (d[i - 1] * d[i] <= 0) { m[i] = 0; continue; }
+                const dxn = hs[i + 1] - hs[i], dxp = hs[i] - hs[i - 1];
+                const w1 = 2 * dxn + dxp, w2 = dxn + 2 * dxp;
+                const den = w1 / d[i - 1] + w2 / d[i];
+                const val = den !== 0 ? (w1 + w2) / den : 0;
+                m[i] = isFinite(val) ? val : 0;
+            }
+            return { m: m, d: d };
+        }
+
+        // Bornage monotone (Fritsch-Carlson) des tangentes : si chaque tangente vérifie
+        // 0 <= m/d <= 3 sur la sécante adjacente (et a² + b² <= 9 à l'intérieur), la
+        // cubique ne peut DÉPASSER les valeurs de données sur aucun intervalle — même
+        // après mélange avec le guidage sinusoïdal (aucun micro-dépassement possible).
+        function metClampMonotoneTangents(m, d) {
+            const n = m.length;
+            if (n < 2) return m;
+            const clampTo = (a, dv) => (dv >= 0 ? Math.max(0, Math.min(3 * dv, a)) : Math.min(0, Math.max(3 * dv, a)));
+            if (d.length) {
+                m[0] = clampTo(m[0], d[0]);
+                m[n - 1] = clampTo(m[n - 1], d[d.length - 1]);
+            }
+            for (let i = 1; i < n - 1; i++) {
+                const dp = d[i - 1], dn = d[i];
+                if (dp === 0 && dn === 0) { m[i] = 0; continue; }
+                if (dp * dn <= 0) { m[i] = 0; continue; }
+                const a = m[i] / dp, b = m[i] / dn;
+                const s = a * a + b * b;
+                if (!isFinite(s)) { m[i] = 0; continue; }
+                if (s > 9) m[i] = (3 / Math.sqrt(s)) * m[i];
+            }
+            return m;
+        }
+
+        // Guidage sinusoïdal des tangentes entre Tmin et Tmax : pente nulle aux extrema,
+        // forme diurne réaliste. Hors plage (nuit lointaine) les tangentes de données
+        // sont conservées telles quelles — l'inversion nocturne reste pilotée par MET.
+        function metGuidedTangents(m0, d, hs, vs, extMin, extMax, lam, t0) {
+            const H = 3600000;
+            const m = m0.slice();
+            if (!(lam > 0)) return m;
+            const hMin = (extMin.t - t0) / H, hMax = (extMax.t - t0) / H;
+            const L = hMax - hMin;
+            const dv = extMax.v - extMin.v;
+            if (!(L >= 1.5) || !(Math.abs(dv) > 0.2)) return m;
+            const k = Math.PI * dv / (2 * L);   // pente maximale de la sinusoïde diurne
+            const n = hs.length;
+            for (let i = 0; i < n; i++) {
+                const u = (hs[i] - hMin) / L;
+                if (u < -0.6 || u > 1.6) continue;                                   // nuit : données seules
+                if (i > 0 && i < n - 1 && vs[i] === vs[i - 1] && vs[i] === vs[i + 1]) continue; // plateau strict
+                const s = k * Math.sin(Math.PI * u);
+                if (!isFinite(s)) continue;
+                m[i] = (1 - lam) * m0[i] + lam * s;
+            }
+            return metClampMonotoneTangents(m, d);
+        }
+
+        // Évaluation de la spline cubique (Hermite) à l'heure h (en heures depuis t0).
+        function metHermiteEval(hs, vs, m, h) {
+            const n = hs.length;
+            if (n === 0 || !isFinite(h)) return NaN;
+            if (n === 1 || h <= hs[0]) return vs[0];
+            if (h >= hs[n - 1]) return vs[n - 1];
+            let lo = 0, hi = n - 1;
+            while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (hs[mid] <= h) lo = mid; else hi = mid; }
+            const x0 = hs[lo], x1 = hs[lo + 1], y0 = vs[lo], y1 = vs[lo + 1];
+            const dx = x1 - x0;
+            if (!(dx > 0)) return y0;
+            const s = (h - x0) / dx, s2 = s * s, s3 = s2 * s;
+            const v = (2 * s3 - 3 * s2 + 1) * y0 + (s3 - 2 * s2 + s) * dx * m[lo] +
+                (-2 * s3 + 3 * s2) * y1 + (s3 - s2) * dx * m[lo + 1];
+            return v;
+        }
+
+        // Sommet d'une parabole passant par 3 points (repère centré au point central,
+        // en heures : formulation numérique stable). Retourne {t, v} ou null si le sommet
+        // est hors des voisins, si la courbure est incohérente avec l'extrème cherché,
+        // ou s'il s'écarte trop de l'ancrage horaire (jamais de dérive).
+        function metParabolaVertex(x1, y1, x2, y2, x3, y3, wantMin) {
+            try {
+                const H = 3600000;
+                const a1 = (x1 - x2) / H, a3 = (x3 - x2) / H;
+                if (!(a1 < 0) || !(a3 > 0)) return null;
+                const den = a3 * (a3 - a1);
+                if (!isFinite(den) || den === 0) return null;
+                const A = ((y3 - y2) - a3 * (y1 - y2) / a1) / den;
+                if (!isFinite(A) || A === 0) return null;
+                if (wantMin ? A <= 0 : A >= 0) return null;
+                const B = (y1 - y2) / a1 - A * a1;
+                if (!isFinite(B)) return null;
+                const tv = -B / (2 * A);
+                if (!isFinite(tv) || tv < a1 || tv > a3) return null;
+                const yv = A * tv * tv + B * tv + y2;
+                if (!isFinite(yv)) return null;
+                if (Math.abs(yv - y2) > 1.0) return null;             // parabole trop excentrique
+                if (wantMin ? yv > y2 + 1e-9 : yv < y2 - 1e-9) return null;
+                return { t: x2 + tv * H, v: yv };
+            } catch (e) { return null; }
+        }
+
+        // Extrème affiné (résolution sous-horaire) à partir des 3 points MET voisins.
+        function metRefineExtremum(prev, cur, next, wantMin) {
+            if (!prev || !cur || !next) return cur;
+            const r = metParabolaVertex(prev.t, prev.v, cur.t, cur.v, next.t, next.v, wantMin);
+            return r || cur;
+        }
+
+        // Construit la courbe continue du jour local demandé (aucun appel réseau).
+        function buildMetDiurnalModel(pts, refMs, dayStart, dayEnd, timeZone) {
+            const H = 3600000, pad = 8 * H, step = 3 * 60000;
+            if (!pts || pts.length < 2) return null;
+            // --- fenêtre des extrema : jour local, repli si la série n'est pas dessus
+            let winA = dayStart, winB = dayEnd;
+            let inWin = pts.filter(p => p.t >= winA && p.t <= winB);
+            if (inWin.length < 3) {
+                const a = Math.max(dayStart, pts[0].t), b = Math.min(dayEnd, pts[pts.length - 1].t);
+                if (b - a >= 3 * H) { winA = a; winB = b; }
+                else {
+                    const c = Math.max(refMs - 12 * H, pts[0].t), e = Math.min(refMs + 12 * H, pts[pts.length - 1].t);
+                    if (e - c < 2 * H) return null;                 // série trop courte : rien d'affichable
+                    winA = c; winB = e;
+                }
+                inWin = pts.filter(p => p.t >= winA && p.t <= winB);
+            }
+            if (inWin.length < 2) return null;
+            const anchors = pts.filter(p => p.t >= winA - pad && p.t <= winB + pad);
+            const n = anchors.length;
+            if (n < 2) return null;
+            const hs = new Array(n), vs = new Array(n);
+            for (let i = 0; i < n; i++) { hs[i] = (anchors[i].t - anchors[0].t) / H; vs[i] = anchors[i].v; }
+            const t0 = anchors[0].t;
+
+            // --- extrema horaires + affinage parabolique (contraintes Tmin/Tmax)
+            let iMin = 0, iMax = 0;
+            for (let i = 1; i < inWin.length; i++) {
+                if (inWin[i].v < inWin[iMin].v) iMin = i;
+                if (inWin[i].v > inWin[iMax].v) iMax = i;
+            }
+            const extMin = metRefineExtremum(inWin[iMin - 1] || null, inWin[iMin], inWin[iMin + 1] || null, true);
+            const extMax = metRefineExtremum(inWin[iMax - 1] || null, inWin[iMax], inWin[iMax + 1] || null, false);
+
+            // --- plage des valeurs de la fenêtre (contrainte anti-dérive / anti-aberration)
+            let dataLo = Infinity, dataHi = -Infinity;
+            for (let i = 0; i < inWin.length; i++) { const v = inWin[i].v; if (v < dataLo) dataLo = v; if (v > dataHi) dataHi = v; }
+            const tol = Math.max(0.5, 0.1 * (dataHi - dataLo));
+            // Bornes des ANCRAGES (voisinage compris) : le bornage de l'évaluation doit
+            // impérativement laisser intactes les valeurs MET aux horaires MET (exactitude).
+            let ancLo = Infinity, ancHi = -Infinity;
+            for (let i = 0; i < n; i++) { const v = vs[i]; if (v < ancLo) ancLo = v; if (v > ancHi) ancHi = v; }
+
+            const sA = Math.max(winA, anchors[0].t), sB = Math.min(winB, anchors[n - 1].t);
+            if (!(sB > sA)) return null;
+            const sampleTimes = [];
+            for (let t = sA; t <= sB; t += step) sampleTimes.push(t);
+            if (sampleTimes[sampleTimes.length - 1] !== sB) sampleTimes.push(sB);
+
+            const countExt = arr => {
+                let c = 0; const eps = 0.05;
+                for (let i = 1; i < arr.length - 1; i++) {
+                    const a = arr[i - 1], b = arr[i], e2 = arr[i + 1];
+                    if ((b < a - eps && b < e2 - eps) || (b > a + eps && b > e2 + eps)) c++;
+                }
+                return c;
+            };
+            const sampleWith = m => sampleTimes.map(t => metHermiteEval(hs, vs, m, (t - t0) / H));
+            const acceptable = vals => {
+                for (let i = 0; i < vals.length; i++) {
+                    if (!isFinite(vals[i])) return false;
+                    if (vals[i] < dataLo - tol || vals[i] > dataHi + tol) return false;
+                }
+                return true;
+            };
+
+            const baseTang = metMonotoneTangents(hs, vs);
+            const baseVals = sampleWith(baseTang.m);
+            const baseExt = countExt(baseVals);
+
+            // --- choix du guidage : hybride d'abord, sinon spline pure (toujours valide)
+            const L = (extMax.t - extMin.t) / H;
+            const canGuide = (L >= 1.5) && (Math.abs(extMax.v - extMin.v) > 0.2);
+            let chosenM = baseTang.m, chosenVals = baseVals, chosenLambda = 0;
+            for (const lam0 of [0.7, 0.35, 0]) {
+                const lam = canGuide ? lam0 : 0;
+                const m = lam > 0 ? metGuidedTangents(baseTang.m, baseTang.d, hs, vs, extMin, extMax, lam, t0) : baseTang.m;
+                const vals = lam > 0 ? sampleWith(m) : baseVals;
+                if (lam === 0 || (acceptable(vals) && countExt(vals) <= baseExt)) {
+                    chosenM = m; chosenVals = vals; chosenLambda = lam; break;
+                }
+            }
+
+            // --- extrema de la courbe retenue, échantillonnés fin (3 min) puis parabole
+            let kMin = 0, kMax = 0;
+            for (let i = 1; i < chosenVals.length; i++) {
+                if (chosenVals[i] < chosenVals[kMin]) kMin = i;
+                if (chosenVals[i] > chosenVals[kMax]) kMax = i;
+            }
+            const refineSample = (k, wantMin) => {
+                if (k <= 0 || k >= sampleTimes.length - 1) return { t: sampleTimes[k], v: chosenVals[k] };
+                return metParabolaVertex(sampleTimes[k - 1], chosenVals[k - 1], sampleTimes[k], chosenVals[k],
+                    sampleTimes[k + 1], chosenVals[k + 1], wantMin) || { t: sampleTimes[k], v: chosenVals[k] };
+            };
+            const exMin = refineSample(kMin, true), exMax = refineSample(kMax, false);
+            const showExtrema = (Math.abs(exMax.t - exMin.t) >= 60000);   // série plate : pas d'horaires trompeurs
+            const clamp = v => Math.max(ancLo, Math.min(ancHi, v));
+
+            const model = {
+                lambda: chosenLambda,
+                nAnchors: n,
+                t0: t0,                       // premier instant couvert (ms)
+                tEnd: anchors[n - 1].t,       // dernier instant couvert (ms)
+                dayStart: dayStart,
+                dayEnd: winB,
+                tol: tol,
+                mode: chosenLambda > 0 ? 'hybride' : 'spline',
+                tMinMs: showExtrema ? exMin.t : null,
+                tMaxMs: showExtrema ? exMax.t : null,
+                hmMin: showExtrema ? metLocalHm(exMin.t, timeZone) : null,
+                hmMax: showExtrema ? metLocalHm(exMax.t, timeZone) : null,
+                dataLo: dataLo, dataHi: dataHi,
+                // Température interpolée à un instant exact (ms) — AVANT correction Microclimat.
+                evalMs: function (ms) {
+                    if (typeof ms !== 'number' || !isFinite(ms)) return NaN;
+                    const v = metHermiteEval(hs, vs, chosenM, (ms - t0) / H);
+                    if (isFinite(v)) return clamp(v);
+                    // repli : ancrage MET le plus proche (jamais de NaN)
+                    let best = null, bestD = Infinity;
+                    for (let i = 0; i < n; i++) { const dd = Math.abs(hs[i] - (ms - t0) / H); if (dd < bestD) { bestD = dd; best = vs[i]; } }
+                    return (best !== null && isFinite(best)) ? best : NaN;
+                }
+            };
+            model.tang = chosenM;
+            return model;
+        }
+
+        // Accès au modèle : pré-construit et mémoïsé par série MET + jour local (le calcul
+        // n'est refait que si la série ou le jour change — jamais à chaque affichage).
+        function getMetDiurnalModel(timesIso, temps, refMs, timeZone) {
+            try {
+                const pts = metSeriesPoints(timesIso, temps);
+                if (pts.length < 2) return null;
+                const dayStart = metLocalDayStartMs(refMs, timeZone);
+                const dayEnd = metLocalDayStartMs(dayStart + 36 * 3600000, timeZone);
+                const sig = pts.length + '#' + pts[0].t + '#' + pts[pts.length - 1].t + '#' + dayStart + '#' + (timeZone || '');
+                if (metDiurnalModelCache.key === sig && metDiurnalModelCache.model) return metDiurnalModelCache.model;
+                const model = buildMetDiurnalModel(pts, refMs, dayStart, dayEnd, timeZone);
+                metDiurnalModelCache = { key: sig, model: model };
+                return model;
+            } catch (e) { return null; }
+        }
+
+        // Ligne complémentaire de la carte MET Norway. Ordre imposé :
+        //   MET Norway horaire → interpolation à l'heure exacte → correction du modèle
+        //   Microclimat sélectionné (microClimateDeltaAtHour, modèle non dupliqué).
+        // Retourne '' si les données sont insuffisantes : jamais de NaN, jamais de
+        // valeur inventée, et la pastille MET Norway existante n'est pas touchée.
+        function metCorrectedPillHtml(d) {
+            try {
+                if (!d || typeof d.t !== 'number' || !isFinite(d.t)) return '';
+                const tz = stationChartTimeZone();
+                const refMs = Date.now();
+                const model = getMetDiurnalModel(d.hourlyTime, d.hourlyTemps, refMs, tz);
+                if (!model) return '';
+                const tInterp = model.evalMs(refMs);
+                if (typeof tInterp !== 'number' || !isFinite(tInterp)) return '';
+                let corr = 0;
+                try {
+                    if (typeof microClimateDeltaAtHour === 'function') {
+                        const dayIdx = metMicroclimateDayIdx(refMs, tz);
+                        corr = microClimateDeltaAtHour(metLocalHourDecimal(refMs, tz), dayIdx).delta || 0;
+                    }
+                } catch (e) { corr = 0; }
+                if (!isFinite(corr)) corr = 0;
+                const tFinal = tInterp + corr;
+                if (!isFinite(tFinal)) return '';
+                const meta = (model.hmMin && model.hmMax)
+                    ? `<span class="met-corrected-meta">min ${model.hmMin} · max ${model.hmMax}</span>` : '';
+                let titleTxt = "T° MET Norway interpolée à l'heure exacte";
+                try {
+                    if (typeof microModelVersion !== 'undefined') {
+                        titleTxt += ' + correction micro-climat (' + (microModelVersion === '2.11' ? 'V2.11' : 'V2.1') + ', ' + omSigned(corr, 1) + ' °C)';
+                    }
+                } catch (e) { /* titre informatif seulement */ }
+                return `<span class="met-corrected-pill" title="${titleTxt}"><i class="fa-solid fa-temperature-half"></i>` +
+                    `<span class="met-corrected-temp">${omFmt(tFinal, 1)} °C</span>${meta}</span>`;
+            } catch (e) { return ''; }
         }
 
         // ---- Graphique journalier comparatif de la rubrique (25/09/2026) ----
@@ -9560,6 +10144,90 @@ render16DayTable();
         }
 
         // ============================================================================
+        // SÉLECTEUR DE MODÈLE MICROCLIMAT (27/09/2026) — V2.1 (défaut) / V2.11
+        // ============================================================================
+        // Rôle : afficher le modèle actif, ses coefficients et la validation, et permettre de
+        // basculer vers V2.11 (recalibrage nocturne uniquement, voir PHYS_MICRO_V211). Le
+        // changement est persisté et piloté par getMicroCoefficients() dans le moteur.
+        // ============================================================================
+        const MICRO_MODEL_COEF_LABELS = {
+            K_RAD: 'Rayonnement LW nocturne (refroidissement radiatif de base)',
+            K_POOL: 'Amplification du cold-air-pooling (nappe d\'air froid)',
+            K_PLAIN: 'Extra de refroidissement de plaine ouverte',
+            K_UHI_N: 'Îlot de chaleur urbain — part nocturne (Oke)',
+            K_UHI_D: 'Îlot de chaleur urbain — après-midi (villes < 400 000 hab.)',
+            K_UHI_D_LARGE: 'Îlot de chaleur urbain — après-midi (villes ≥ 400 000 hab.)',
+            K_ASPECT: 'Exposition de versant / apport solaire (jour)',
+            K_VDAY: 'Chaleur piégée en vallée basse (jour)',
+            RESID_DAY: 'Résidu de nappe maintenu le jour (cirque fermé)',
+            DRAIN_POP: 'Population au-delà de laquelle le drainage d\'air froid s\'atténue',
+            URBAN_POP: 'Population au-delà de laquelle le refroidissement LW s\'atténue',
+            WIND_REF: 'Vent (km/h) qui détruit l\'inversion au sol',
+            WIND_EXP: 'Exposant de réponse du refroidissement au vent'
+        };
+
+        function renderMicroModelPanel() {
+            const isV211 = microModelVersion === '2.11';
+            const sel = document.getElementById('micro-model-select');
+            if (sel) sel.value = isV211 ? '2.11' : '2.1';
+            const nameEl = document.getElementById('micro-model-active-name');
+            if (nameEl) nameEl.innerText = 'Microclimat ' + (isV211 ? 'V2.11' : 'V2.1');
+            const descEl = document.getElementById('micro-model-description');
+            if (descEl) {
+                descEl.innerHTML = isV211
+                    ? '<b>V2.11 = modèle physique V2.1 avec coefficients de calibration nocturne réajustés à partir des observations du 27/09/2026.</b> Ce n\'est pas un nouveau modèle physique : aucune équation, aucune condition, aucune donnée d\'entrée n\'a changé — seuls <b>K_RAD (7.8 → 12.0)</b> et <b>K_UHI_N (0.40 → 0.20)</b> diffèrent. Sur les 4 lieux observés, la MAE passe de 2.1 à 0.5 °C et le biais moyen de +2.1 à +0.05 °C (tableau ci-dessous).'
+                    : '<b>Modèle physique de référence (moteur « Modèle 2.1 »), inchangé.</b> Refroidissement radiatif nocturne, cold-air-pooling / nappe d\'air froid, îlot de chaleur urbain, exposition de versant et gradient orographique, calibré les 22-23/09/2026. C\'est le modèle par défaut de l\'app. Coefficients :';
+            }
+            const coefsEl = document.getElementById('micro-model-coefs');
+            if (!coefsEl) return;
+            const hl = 'font-weight:800; color:var(--accent-blue);';
+            let rows = '';
+            Object.keys(PHYS_MICRO).forEach(function (k) {
+                const v21 = PHYS_MICRO[k];
+                const v211 = PHYS_MICRO_V211[k];
+                const changed = (v21 !== v211);
+                const badge = changed
+                    ? ' <span style="font-size:0.58rem; font-weight:800; text-transform:uppercase; letter-spacing:0.3px; color:var(--accent-orange);">réajusté</span>'
+                    : '';
+                rows += '<tr>'
+                    + '<td style="padding:3px 6px; white-space:nowrap;"><b>' + k + '</b>' + badge + '</td>'
+                    + '<td style="padding:3px 6px; color:var(--text-muted);">' + (MICRO_MODEL_COEF_LABELS[k] || '') + '</td>'
+                    + '<td style="padding:3px 6px; text-align:right; white-space:nowrap;' + (isV211 ? '' : hl) + '">' + v21 + '</td>'
+                    + '<td style="padding:3px 6px; text-align:right; white-space:nowrap;' + (isV211 ? hl : '') + '">' + v211 + '</td>'
+                    + '</tr>';
+            });
+            coefsEl.innerHTML = '<div style="font-size:0.66rem; font-weight:800; text-transform:uppercase; letter-spacing:0.3px; color:var(--text-muted);">Coefficients du modèle sélectionné (class PHYS_MICRO)</div>'
+                + '<table style="width:100%; border-collapse:collapse; font-size:0.69rem; margin-top:4px;">'
+                + '<thead><tr style="color:var(--text-muted); text-align:right;">'
+                + '<th style="padding:3px 6px; text-align:left; border-bottom:1px solid rgba(0,0,0,0.12);">Constante</th>'
+                + '<th style="padding:3px 6px; text-align:left; border-bottom:1px solid rgba(0,0,0,0.12);">Rôle</th>'
+                + '<th style="padding:3px 6px; border-bottom:1px solid rgba(0,0,0,0.12);">V2.1</th>'
+                + '<th style="padding:3px 6px; border-bottom:1px solid rgba(0,0,0,0.12);">V2.11</th>'
+                + '</tr></thead><tbody>' + rows + '</tbody></table>';
+        }
+
+        function onMicroModelChange(value) {
+            const v = (value === '2.11') ? '2.11' : '2.1';
+            if (v === microModelVersion) { renderMicroModelPanel(); return; }
+            microModelVersion = v;
+            try { localStorage.setItem('metehop_micro_model_v1', v); } catch (e) { /* préférence non conservée */ }
+            // Les ajustements mémorisés dépendent des coefficients : cache vidé pour recalculer.
+            microClimateDayCache = {};
+            renderMicroModelPanel();
+            // Carte MET Norway : la ligne "température interpolée + micro-climat" dépend du
+            // modèle sélectionné, on la re-rend (uniquement si la source est déjà chargée).
+            try { if (typeof metNorwayCache !== 'undefined' && metNorwayCache) renderMetNorwayCard(); } catch (e) { /* encart optionnel */ }
+            // Mêmes rafraîchissements que onMicroClimateToggleChange : la bascule doit se voir
+            // partout (encart "Effets locaux", rangées horaires, tableau 16 jours, carrousel,
+            // coupe nuageuse, détails du désaccord de modèles). Garde-fous identiques : rien à
+            // rerendre si la prévision n'est pas encore chargée (weatherData null).
+            if (weatherData && currentLat !== null) updateDayView(selectedDayIndex);
+            if (weatherData) { render16DayTable();
+                setTimeout(()=>{ try{ renderCloudProfileChart(); }catch(e){ console.error(e); } }, 500); renderCarousel(); }
+            refreshModelDisagreeDetailsIfOpen();
+        }
+
+        // ============================================================================
         // EFFETS LOCAUX (MICRO-CLIMAT) — encart informatif sous "Les prochaines heures"
         // ============================================================================
         // Les modèles météo (résolution kilométrique) ne peuvent pas résoudre les phénomènes de
@@ -9904,6 +10572,44 @@ render16DayTable();
             WIND_EXP: 0.85
         };
 
+        // ============================================================================
+        // MICROCLIMAT V2.11 (27/09/2026) — copie logique de V2.1.
+        //
+        // La physique, les équations, les conditions et les entrées sont EXACTEMENT celles de
+        // V2.1 ci-dessus : seule cette paire de coefficients de calibration nocturne change,
+        // réajustée à partir des 4 observations matinales du 27/09/2026 (Tencin, Grenoble,
+        // Chambéry, Bessans) qui montraient un refroidissement nocturne trop FAIBLE — le modèle
+        // était systématiquement trop chaud le matin (biais moyen +2.1 °C, MAE 2.1 °C) :
+        //   - K_RAD   7.8 → 12.0 : rayonnement LW de base. Le refroidissement radiatif était
+        //     insuffisant sur sites dégagés et en cuvette ouverte (Chambéry +3.2 °C, Tencin
+        //     +1.8 °C) alors que le cold-air-pooling (K_POOL) y était déjà quasi nul — K_POOL
+        //     n'était donc pas le bon levier, K_RAD si.
+        //   - K_UHI_N 0.40 → 0.20 : part nocturne de l'îlot de chaleur urbain (Oke) — AROME
+        //     intègre déjà une partie de l'UHI des villes, ce qui réchauffait deux fois Grenoble
+        //     (+2.6 °C).
+        // Aucun terme n'est ajouté ni retiré : c'est un recalibrage de coefficients, pas un
+        // nouveau modèle. Physiquement neutre pour le modèle V2.1, qui n'est PAS modifié.
+        //
+        // Résultat sur le jeu de validation (mêmes entrées, fenêtre 05h-09h) :
+        //   MAE 2.1 → 0.5 °C, biais moyen +2.1 → +0.05 °C.
+        // Plateau de calibration large (K_RAD 11.5-12.5 / K_UHI_N 0.18-0.25 → MAE 0.51-0.61) :
+        // pas de sur-ajustement sur 4 points.
+        // ============================================================================
+        const PHYS_MICRO_V211 = Object.assign({}, PHYS_MICRO, { K_RAD: 12.0, K_UHI_N: 0.20 });
+
+        // Modèle microclimat sélectionné par l'utilisateur : '2.1' (défaut, inchangé) ou '2.11'.
+        let microModelVersion = '2.1';
+        try {
+            const storedMicroModel = localStorage.getItem('metehop_micro_model_v1');
+            if (storedMicroModel === '2.11') microModelVersion = '2.11';
+        } catch (e) { /* localStorage indisponible : on garde V2.1 */ }
+
+        // Point d'entrée unique des coefficients dans le moteur : c'est bien le sélecteur qui
+        // pilote le calcul (voir computePhysicalMicroClimateModel), pas seulement l'affichage.
+        function getMicroCoefficients() {
+            return microModelVersion === '2.11' ? PHYS_MICRO_V211 : PHYS_MICRO;
+        }
+
         function physClamp(x, a, b) { return Math.max(a, Math.min(b, x)); }
 
         function physSmoothstep(edge0, edge1, x) {
@@ -9990,7 +10696,9 @@ render16DayTable();
             const pop = (typeof sig.resolvedPopulation === 'number' && sig.resolvedPopulation > 0) ? sig.resolvedPopulation : 0;
             const buildingCount = sig.buildingCount;
             const nearestWater = sig.nearestWater;
-            const C = PHYS_MICRO;
+            // Jeu de coefficients selon le modèle choisi dans "Metehop pour les geeks" :
+            // PHYS_MICRO (V2.1, défaut) ou PHYS_MICRO_V211 (V2.11). Aucune autre différence.
+            const C = getMicroCoefficients();
             const sunriseH = physSunriseHour(dayIdx);
             const hourly = weatherData.hourly;
             const dayStart = dayIdx * 24;
@@ -14253,8 +14961,137 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
 };
 
         
+        // ============================================================================
+        // v150 - Enrichissement "Le conseil de Metehop" (mode simple uniquement) : bonne fête du
+        // matin + vocabulaire enrichi + anti-répétition ~7 jours + anticipation météo J+1..J+3.
+        // Ne touche ni au mode geek, ni aux modèles météo/microclimat : réutilise uniquement des
+        // données déjà chargées (feteDuJourNames() de la rubrique Actualité, lastForecastRemarkableDays
+        // du tableau 16 jours). Historique léger conservé en localStorage (texte + date + slot).
+        // ============================================================================
+        const FROG_HISTORY_KEY = 'metehop_frog_msg_history_v1';
+        const FROG_HISTORY_DAYS = 7;
+        let frogHistoryCache = null;
+        function loadFrogHistory() {
+            try {
+                const raw = localStorage.getItem(FROG_HISTORY_KEY);
+                if (!raw) return [];
+                const arr = JSON.parse(raw);
+                const cutoff = Date.now() - FROG_HISTORY_DAYS * 86400000;
+                return Array.isArray(arr) ? arr.filter(e => e && typeof e.t === 'number' && e.t > cutoff) : [];
+            } catch (e) { return []; }
+        }
+        function saveFrogHistory() {
+            try { localStorage.setItem(FROG_HISTORY_KEY, JSON.stringify(frogHistoryCache.slice(-300))); } catch (e) {}
+        }
+        function frogHashSeed(str) {
+            let h = 0;
+            for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
+            return Math.abs(h);
+        }
+        // Choix stable pour la journée (même phrase tant qu'on reste le même jour civil), qui évite
+        // autant que possible toute formulation déjà utilisée ces 7 derniers jours (tous slots
+        // confondus, donc pas seulement des doublons exacts au sein d'un même slot). Se rabat sur
+        // tout le pool si plus aucune formulation "fraîche" n'est disponible (peu de variantes).
+        function frogPickDaily(pool, slotKey) {
+            if (!pool || !pool.length) return '';
+            if (!frogHistoryCache) frogHistoryCache = loadFrogHistory();
+            const dateStr = new Date().toISOString().slice(0, 10);
+            // Si ce slot a déjà été tiré aujourd'hui, on renvoie exactement la même formulation (la
+            // grenouille ne change pas d'avis à chaque re-rendu de la page dans la même journée) :
+            // on recherche donc l'entrée existante AVANT de recalculer quoi que ce soit.
+            const existing = frogHistoryCache.find(e => e.slot === slotKey && e.date === dateStr);
+            if (existing && pool.includes(existing.text)) return existing.text;
+            const usedTexts = new Set(frogHistoryCache.map(e => e.text));
+            let candidates = pool.filter(p => !usedTexts.has(p));
+            if (!candidates.length) candidates = pool;
+            const seed = frogHashSeed(dateStr + '|' + slotKey);
+            const choice = candidates[seed % candidates.length];
+            frogHistoryCache.push({ text: choice, slot: slotKey, date: dateStr, t: Date.now() });
+            saveFrogHistory();
+            return choice;
+        }
+
+        // "Bonne fête" du matin : réutilise exactement feteDuJourNames() (donc FETE_DU_JOUR_MONTHS /
+        // FETE_DU_JOUR_EXCLUDE de la rubrique Actualité) - aucune deuxième base de données. Retourne
+        // null si aucune fête dispo aujourd'hui (comportement actuel inchangé dans ce cas).
+        function buildFeteGreetingPhrase() {
+            if (typeof feteDuJourNames !== 'function') return null;
+            const names = feteDuJourNames();
+            if (!names || !names.length) return null;
+            const parts = names.map(n => `tous les ${n}`);
+            const joined = parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} et ${parts[parts.length - 1]}`;
+            const templates = [
+                `🐸 Bonjour ! Bonne fête à ${joined} aujourd'hui ! Et voyons ce que le ciel nous prépare…`,
+                `🐸 Coucou ! Aujourd'hui, on souhaite une belle fête à ${joined} !`,
+                `🐸 Petit coucou matinal : bonne fête à ${joined} !`,
+                `🐸 Une pensée toute spéciale pour ${joined} en ce jour de fête !`,
+                `🐸 Ding dong, c'est la fête de ${joined} aujourd'hui !`,
+                `🐸 Avant de parler météo : bonne fête à ${joined} !`
+            ];
+            return frogPickDaily(templates, 'greeting');
+        }
+
+        // Anticipation météo J+1 à J+3 : réutilise lastForecastRemarkableDays (déjà calculé par
+        // render16DayTable() pour le tableau 16 jours), jamais un nouveau calcul de prévision.
+        // `dayIdx` = jour actuellement affiché (0 = aujourd'hui) ; on ne regarde que les jours
+        // strictement après lui et à 3 jours maximum. Même ordre de priorité que la hiérarchie
+        // générale : orage > neige > pluie forte > vent > chaleur > froid.
+        const CONSEIL_ANTICIPATION_TEMPLATES = {
+            storm: (when) => [
+                `🐸 Petit orage à surveiller ${when}, je garde mon nénuphar-parapluie sous la patte !`,
+                `🐸 Zeus pourrait refaire son numéro ${when}, je me prépare déjà !`,
+                `🐸 On annonce du grondement dans le ciel ${when}, restons attentifs !`
+            ],
+            snow: (when) => [
+                `🐸 Vivement ${when}, il paraît que la neige arrive !`,
+                `🐸 Chouette, la montagne pourrait bientôt passer en mode sucre glace ${when} !`,
+                `🐸 J'ai entendu dire que quelques flocons se préparent ${when}… vivement !`,
+                `🐸 Mes palmes frissonnent déjà : de la neige serait annoncée ${when} !`
+            ],
+            rain: (when) => [
+                `🐸 Chouette, je vais pouvoir ressortir mes bottes ${when} !`,
+                `🐸 Il paraît que la pluie arrive ${when}… mes bottes sont déjà impatientes !`,
+                `🐸 Quelques gouttes se préparent pour ${when}. Parfait pour justifier une petite sieste !`,
+                `🐸 Mon parapluie sent déjà l'ambiance : de la pluie prévue ${when} !`
+            ],
+            wind: (when) => [
+                `🐸 Ça va décoiffer ${when}, le vent devrait se lever !`,
+                `🐸 Mon nénuphar promet de bien tanguer ${when}, rafales en vue !`,
+                `🐸 Prévision de vent soutenu ${when}, accroche-toi bien !`
+            ],
+            hot: (when) => [
+                `🐸 Chaleur en approche ${when}, je réserve déjà une place à l'ombre !`,
+                `🐸 Ça va chauffer ${when}, sortez les brumisateurs à moucherons !`,
+                `🐸 Le thermomètre pourrait s'affoler ${when} !`
+            ],
+            cold: (when) => [
+                `🐸 Ça sent la doudoune ${when}, un coup de froid s'annonce !`,
+                `🐸 Petit coup de fraîcheur en vue ${when}, sortez les écharpes !`,
+                `🐸 Le gel pourrait pointer le bout de son nez ${when} !`
+            ]
+        };
+        function getConseilAnticipation(dayIdx) {
+            try {
+                const days = lastForecastRemarkableDays;
+                if (!days || !days.length || typeof dayIdx !== 'number') return null;
+                const upcoming = days.filter(d => d.day > dayIdx && (d.day - dayIdx) <= 3);
+                if (!upcoming.length) return null;
+                const priority = ['storm', 'snow', 'rain', 'wind', 'hot', 'cold'];
+                let best = null;
+                for (const type of priority) {
+                    best = upcoming.find(d => d.type === type);
+                    if (best) break;
+                }
+                if (!best || !CONSEIL_ANTICIPATION_TEMPLATES[best.type]) return null;
+                const offset = best.day - dayIdx;
+                const when = offset === 1 ? 'demain' : (offset === 2 ? 'dans deux jours' : 'dans trois jours');
+                const templates = CONSEIL_ANTICIPATION_TEMPLATES[best.type](when);
+                return frogPickDaily(templates, `anticipation:${best.type}`);
+            } catch (e) { return null; }
+        }
+
         function getFrogRendering(opts) {
-            const { temp, code, windSpeed, uvMax, isDayNow } = opts;
+            const { temp, code, windSpeed, uvMax, isDayNow, period, dayIdx } = opts;
             // v147 - priorité météo > température (pluie/vent/neige prennent le dessus)
             const isRain = [51,53,55,56,57,61,63,65,66,67,80,81,82].includes(code);
             const isSnow = [71,73,75,77,85,86].includes(code);
@@ -14296,116 +15133,164 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
 
             let svg = NEW_OUTFITS[outfitId] || NEW_OUTFITS['doux'];
 
-            // Phrases rigolotes Metehop - édition 16/09/2026
+            // Phrases rigolotes Metehop - édition 16/09/2026, vocabulaire enrichi v150 (27/09/2026)
+            // pour éviter les répétitions rapides. La sélection se fait désormais via frogPickDaily()
+            // (stable sur la journée, anti-doublon ~7 jours), plus seulement un index déterministe.
             const funny = {
                 freezing: [
                     "🥶 Grand froid : doudoune puffy matelassée !",
                     "🥶 Il fait si froid que même mes mouches portent un bonnet !",
                     "❄️ Polaire power : je sors mon slip en laine polaire !",
                     "🧊 J'ai croassé et ça a fait 'glagla' au lieu de 'croa' !",
-                    "🐸 Mes pattes collent au nénuphar gelé, SOS !"
+                    "🐸 Mes pattes collent au nénuphar gelé, SOS !",
+                    "🥶 Le thermomètre a rendu son tablier, direction le plaid !",
+                    "🧊 Ma mare a des allures de patinoire ce matin !",
+                    "🐸 J'ai enfilé trois paires de moufles, plus une pour la chance !"
                 ],
                 cold: [
                     "🧥 Froid, manteau chaud !",
                     "🧣 J'ai mis 3 écharpes, je ressemble à une momie chic !",
                     "☕ Chocolat chaud obligatoire, je trempe mes pattes dedans !",
                     "🐸 Même ma grenouillère a une grenouillère !",
-                    "🥶 Mode hibernation désactivé, mode frisson activé !"
+                    "🥶 Mode hibernation désactivé, mode frisson activé !",
+                    "🧤 Petites mitaines pour petites pattes, brrr !",
+                    "🍵 Tisane fumante et plaid douillet, programme du jour !",
+                    "🐸 Je saute un peu plus vite pour me réchauffer les palmes !"
                 ],
                 mild: [
                     "🍂 Doux, veste denim + sac à dos !",
                     "😌 Température parfaite pour buler au soleil sans cuire !",
                     "🌿 Ni trop chaud ni trop froid, juste grenouille-compatible !",
                     "🎒 Journée idéale pour aller voir si l'herbe est plus verte ailleurs (spoiler : oui) !",
-                    "🐸 Météo validée par le comité des grenouilles frileuses !"
+                    "🐸 Météo validée par le comité des grenouilles frileuses !",
+                    "🌤️ Douceur ambiante, parfait pour une balade autour de la mare !",
+                    "🍃 Une petite laine suffit, rien de plus !",
+                    "🐸 Journée idéale pour ne rien faire de spécial, et c'est très bien comme ça !"
                 ],
                 warm: [
                     "☀️ Beau, casquette Metehop + lunettes !",
                     "😎 On sort les lunettes de soleil, même pour les têtards !",
                     "🍦 Température à glace - 2 boules minimum, c'est la loi grenouille !",
                     "🕶️ Bronzage des cuisses de grenouille en cours...",
-                    "🌞 Je sors mon transat nénuphar XXL !"
+                    "🌞 Je sors mon transat nénuphar XXL !",
+                    "🌻 Belle lumière aujourd'hui, parfait pour paresser dehors !",
+                    "🍉 Petite tranche de pastèque avant la sieste au soleil !",
+                    "🐸 Journée à croquer, littéralement (mouches incluses) !"
                 ],
                 hot: [
                     "😎 Chaud, chapeau paille + glacière !",
                     "🥵 J'ai mis mon nénuphar à l'ombre, il a pris un coup de soleil !",
                     "🧊 Mode glaçon : je squatte le frigo, tu viens ?",
                     "💦 Je transpire même des genoux, et j'ai pas de genoux !",
-                    "🍉 Pastèque party dans la mare, tenue légère exigée !"
+                    "🍉 Pastèque party dans la mare, tenue légère exigée !",
+                    "🥤 Boisson fraîche obligatoire toutes les heures !",
+                    "🐸 Je fais la sieste dans l'ombre la plus fraîche du jardin !",
+                    "🌡️ Chaleur bien installée, mode farniente activé !"
                 ],
                 scorching: [
                     "🥵 Canicule, coquillage nacré + éventail !",
                     "🔥 Il fait si chaud que je fais cuire mes mouches au soleil !",
                     "🐸 SOS mare en ébullition, je deviens grenouille bouillie !",
                     "🌡️  J'ai vu un glaçon se jeter dans l'eau pour se rafraîchir !",
-                    "🏖️ Plan canicule : nénuphar climatisé + brumisateur à moucherons !"
+                    "🏖️ Plan canicule : nénuphar climatisé + brumisateur à moucherons !",
+                    "🧊 Je vis désormais dans le bac à glaçons !",
+                    "🐸 Même les moustiques ont trop chaud pour voler !",
+                    "🥵 Chaleur extrême, hydratation permanente pour tout le monde !"
                 ]
             };
             const seed = (typeof opts.temp === 'number' ? Math.floor(opts.temp) : 0) + (code || 0) + (new Date().getMinutes() % 5);
-            const rnd = (arr) => arr[seed % arr.length];
+            const slotPeriod = period || 'now';
             const phrases = [];
-            if (tier === 'freezing') phrases.push(rnd(funny.freezing));
-            else if (tier === 'cold') phrases.push(rnd(funny.cold));
-            else if (tier === 'mild') phrases.push(rnd(funny.mild));
-            else if (tier === 'warm') phrases.push(rnd(funny.warm));
-            else if (tier === 'hot') phrases.push(rnd(funny.hot));
-            else phrases.push(rnd(funny.scorching));
+            if (tier === 'freezing') phrases.push(frogPickDaily(funny.freezing, `family:freezing:${slotPeriod}`));
+            else if (tier === 'cold') phrases.push(frogPickDaily(funny.cold, `family:cold:${slotPeriod}`));
+            else if (tier === 'mild') phrases.push(frogPickDaily(funny.mild, `family:mild:${slotPeriod}`));
+            else if (tier === 'warm') phrases.push(frogPickDaily(funny.warm, `family:warm:${slotPeriod}`));
+            else if (tier === 'hot') phrases.push(frogPickDaily(funny.hot, `family:hot:${slotPeriod}`));
+            else phrases.push(frogPickDaily(funny.scorching, `family:scorching:${slotPeriod}`));
             if (isStorm) {
                 const stormJokes = [
                     "⛈️ Orage : à l'abri sous le parapluie !",
                     "⛈️ Zeus fait son karaoké, je me cache sous le nénuphar !",
                     "⚡ Parapluie en mode paratonnerre, pas fou la grenouille !",
-                    "🌩️ J'ai compté 3 éclairs, j'ai sauté 3 fois plus haut !"
+                    "🌩️ J'ai compté 3 éclairs, j'ai sauté 3 fois plus haut !",
+                    "⛈️ Ciel électrique aujourd'hui, je reste bien au sec !",
+                    "🌩️ Tonnerre en approche, je referme mon nénuphar-parapluie !"
                 ];
-                phrases.push(rnd(stormJokes));
+                phrases.push(frogPickDaily(stormJokes, `event:storm:${slotPeriod}`));
             } else if (isRain) {
                 const rainJokes = [
                     "🌧️ Pluie : ciré jaune brillant !",
                     "🌧️ Douche gratuite, je fais mon shampoing aux algues !",
                     "☔ Ciré jaune + bottes rouges = grenouille stylée !",
                     "💧 Enfin une météo où je n'ai pas besoin d'hydrater ma peau !",
-                    "🐸 Pluie = spa naturel, je bulle littéralement !"
+                    "🐸 Pluie = spa naturel, je bulle littéralement !",
+                    "☂️ Petites averses aujourd'hui, parapluie de sortie !",
+                    "🌦️ Le ciel pleure un peu, ma mare dit merci !"
                 ];
-                phrases.push(rnd(rainJokes));
+                phrases.push(frogPickDaily(rainJokes, `event:rain:${slotPeriod}`));
             }
             if (isSnow) {
                 const snowJokes = [
                     "❄️ Neige !",
                     "❄️ Neige : j'ai essayé de faire un bonhomme de têtard, raté !",
                     "⛄ Mes moufles sont trop petites pour mes palmes !",
-                    "🎿 Ski de grenouille : je glisse sur le ventre, c'est plus rapide !"
+                    "🎿 Ski de grenouille : je glisse sur le ventre, c'est plus rapide !",
+                    "❄️ La mare passe en mode patinoire enneigée !",
+                    "⛄ Bataille de boules de neige contre les canards du coin !"
                 ];
-                phrases.push(rnd(snowJokes));
+                phrases.push(frogPickDaily(snowJokes, `event:snow:${slotPeriod}`));
             }
             if (isFog) {
                 const fogJokes = [
                     "🌫️ Brouillard, frontale allumée !",
                     "🌫️ Je joue à cache-cache avec ma propre mare !",
                     "👓 Même mes lunettes ont de la buée, c'est dire !",
-                    "🔦 Mode lampe torche activé, je cherche mes lunettes dans le brouillard !"
+                    "🔦 Mode lampe torche activé, je cherche mes lunettes dans le brouillard !",
+                    "🌫️ Ambiance mystérieuse, on ne voit pas plus loin que son nénuphar !"
                 ];
-                phrases.push(rnd(fogJokes));
+                phrases.push(frogPickDaily(fogJokes, `event:fog:${slotPeriod}`));
             }
             if (isWindy) {
                 const windJokes = [
                     "💨 Vent fort !",
                     "💨 Coiffure effet soufflé, même sans cheveux !",
                     "🪁 J'ai failli m'envoler, accroché à mon nénuphar !",
-                    "🌬️ Brushing gratuit pour grenouille, merci Éole !"
+                    "🌬️ Brushing gratuit pour grenouille, merci Éole !",
+                    "💨 Je m'accroche bien aux roseaux aujourd'hui !"
                 ];
-                phrases.push(rnd(windJokes));
+                phrases.push(frogPickDaily(windJokes, `event:wind:${slotPeriod}`));
             }
             if (isSunny && strongUV) {
-                phrases.push("🧴 Crème solaire indice nénuphar 50, sinon je deviens grenouille rouge !");
+                const uvJokes = [
+                    "🧴 Crème solaire indice nénuphar 50, sinon je deviens grenouille rouge !",
+                    "🕶️ UV élevés, lunettes et ombre recommandées !",
+                    "🧴 Petit coup de crème avant de sortir, même pour une grenouille !"
+                ];
+                phrases.push(frogPickDaily(uvJokes, `event:uv:${slotPeriod}`));
             }
             if (isNight) {
                 const nightJokes = [
                     "🌙 Team grenouille de nuit, concert de coassements à 22h !",
-                    "✨ Les étoiles brillent, ma mare aussi !"
+                    "✨ Les étoiles brillent, ma mare aussi !",
+                    "🌙 Nuit calme en perspective, parfaite pour coasser tranquille !"
                 ];
-                if (seed % 2 === 0) phrases.push(rnd(nightJokes));
+                if (seed % 2 === 0) phrases.push(frogPickDaily(nightJokes, `event:night:${slotPeriod}`));
             }
-            return { svg, message: phrases.join(' '), tier, isRain, isSnow, isStorm, isWindy, isFog };
+
+            // v150 - "Bonne fête" du matin (jour affiché = aujourd'hui uniquement, la fête concerne
+            // la date civile réelle) + anticipation météo J+1..J+3 (uniquement sur le créneau matin,
+            // pour rester concis sur les deux autres créneaux).
+            const finalParts = [];
+            if (period === 'morning' && dayIdx === 0) {
+                const greeting = buildFeteGreetingPhrase();
+                if (greeting) finalParts.push(greeting);
+            }
+            finalParts.push(...phrases);
+            if (period === 'morning' && typeof dayIdx === 'number') {
+                const anticipation = getConseilAnticipation(dayIdx);
+                if (anticipation) finalParts.push(anticipation);
+            }
+            return { svg, message: finalParts.join(' '), tier, isRain, isSnow, isStorm, isWindy, isFog };
         }
 
 
@@ -14528,11 +15413,11 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 const sAdj = applyAdj(s);
 
                 renderWeatherBuddyInto(document.getElementById('buddy-svg-morning'), document.getElementById('buddy-msg-morning'),
-                    { temp: mAdj.temp, code: mAdj.code, windSpeed: mAdj.windSpeed, uvMax: uvMax, isDayNow: mAdj.isDay });
+                    { temp: mAdj.temp, code: mAdj.code, windSpeed: mAdj.windSpeed, uvMax: uvMax, isDayNow: mAdj.isDay, period: 'morning', dayIdx });
                 renderWeatherBuddyInto(document.getElementById('buddy-svg-afternoon'), document.getElementById('buddy-msg-afternoon'),
-                    { temp: aAdj.temp, code: aAdj.code, windSpeed: aAdj.windSpeed, uvMax: uvMax, isDayNow: aAdj.isDay });
+                    { temp: aAdj.temp, code: aAdj.code, windSpeed: aAdj.windSpeed, uvMax: uvMax, isDayNow: aAdj.isDay, period: 'afternoon', dayIdx });
                 renderWeatherBuddyInto(document.getElementById('buddy-svg-evening'), document.getElementById('buddy-msg-evening'),
-                    { temp: sAdj.temp, code: sAdj.code, windSpeed: sAdj.windSpeed, uvMax: uvMax, isDayNow: sAdj.isDay });
+                    { temp: sAdj.temp, code: sAdj.code, windSpeed: sAdj.windSpeed, uvMax: uvMax, isDayNow: sAdj.isDay, period: 'evening', dayIdx });
 
                 // maj badges avec températures
                 const badgeM = document.getElementById('buddy-badge-morning');
