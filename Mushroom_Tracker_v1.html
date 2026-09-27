@@ -1,0 +1,3047 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mushroom Tracker — zones favorables</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* ==========================================================================
+   DESIGN TOKENS + COMPOSANTS — repris de metehop-live.html (Coa Live)
+   pour garantir la cohérence visuelle avec l'application d'origine.
+   ========================================================================== */
+:root{
+  --bg:#f1f5f2; --card-bg:#e5eee8; --ink:#112118; --muted:#5a6d60;
+  --pill:#ffffff; --hero:#1a2e22; --accent:#2d5a3a; --line:#dbe7df;
+  --warn-bg:#fff7ed; --warn-line:#fde6c8; --warn-ink:#8a6d5a;
+  --good:#2d7a45; --part:#b7791f; --bad:#b02a37; --unknown:#5a6d60;
+  --font:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+*,*::before,*::after{ box-sizing:border-box; }
+html,body{ margin:0; padding:0; }
+body{
+  background:var(--bg); color:var(--ink); font-family:var(--font);
+  font-size:15px; line-height:1.45; -webkit-text-size-adjust:100%;
+}
+button,input,select{ font-family:var(--font); }
+h1,h2,h3{ margin:0; }
+p{ margin:0; }
+.mono{ font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+.hidden,.is-hidden,[hidden]{ display:none !important; }
+.wrap{ width:100%; max-width:980px; margin:0 auto; padding:0 16px; }
+.serif{ font-weight:700; letter-spacing:-0.015em; }
+
+/* ---------- Barre supérieure ---------- */
+.topbar{
+  position:sticky; top:0; z-index:30; backdrop-filter:blur(16px);
+  background:rgba(241,245,242,0.88); border-bottom:1px solid rgba(219,231,223,.7);
+  padding-top:env(safe-area-inset-top);
+}
+.brand-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding-top:10px; }
+.app-brand{ display:flex; align-items:center; gap:8px; font-size:1.12rem; font-weight:700; letter-spacing:-0.02em; line-height:1.1; color:var(--hero); }
+.app-brand .brand-dot{ width:9px; height:9px; border-radius:50%; background:var(--accent); box-shadow:0 0 0 4px rgba(45,90,58,0.15); flex-shrink:0; }
+.app-brand .brand-logo{ width:52px; height:52px; border-radius:8px; object-fit:cover; flex-shrink:0; box-shadow:0 1px 3px rgba(0,0,0,.15); }
+
+/* ---------- Écran de lancement ---------- */
+.splash-screen{
+  position:fixed; inset:0; z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:16px; background:linear-gradient(135deg,#101f16 0%,#182d20 100%); color:#fff;
+  transition:opacity .45s ease, visibility .45s ease;
+}
+.splash-logo{ width:300px; height:300px; border-radius:28px; box-shadow:0 12px 40px rgba(0,0,0,.35); object-fit:cover; animation:splash-pop .5s ease; }
+.splash-title{ font-size:1.3rem; font-weight:700; letter-spacing:-.01em; opacity:.92; }
+@keyframes splash-pop{ from{ opacity:0; transform:scale(.85); } to{ opacity:1; transform:scale(1); } }
+.splash-screen.is-hidden{ opacity:0; visibility:hidden; pointer-events:none; }
+@media(max-width:480px){ .splash-logo{ width:240px; height:240px; } }
+.brand-sub{ font-size:.68rem; font-weight:600; color:var(--muted); letter-spacing:.06em; text-transform:uppercase; }
+.topbar-actions{ display:flex; align-items:center; gap:8px; }
+.search-row{ display:flex; gap:8px; align-items:center; padding:12px 0 6px; }
+.search-bar{
+  flex:1; display:flex; align-items:center; gap:8px; background:#fff;
+  border-radius:999px; padding:7px 8px 7px 14px; border:1px solid var(--line); box-shadow:0 1px 3px rgba(0,0,0,.03);
+}
+.search-bar .search-ico{ color:#7a8f80; font-size:15px; }
+#city-input{ flex:1; min-width:0; border:0; outline:none; background:transparent; font-size:15px; color:var(--ink); }
+#city-input::placeholder{ color:#8aa092; }
+.btn-search{
+  border:0; background:var(--hero); color:#fff; border-radius:999px;
+  padding:7px 15px; font-size:.84rem; font-weight:600; cursor:pointer; transition:background .15s;
+}
+.btn-search:hover{ background:#000; }
+.icon-btn{
+  width:38px; height:38px; border-radius:50%; background:#fff; border:1px solid var(--line);
+  display:grid; place-items:center; cursor:pointer; font-size:1rem; color:var(--muted);
+  box-shadow:0 1px 3px rgba(0,0,0,.04); flex-shrink:0; transition:background .15s;
+}
+.icon-btn:hover{ background:#e5eee8; }
+
+/* ---------- Favoris (identique Metehop) ---------- */
+.btn-favorite{
+  background:#fff; border:1px solid var(--line); border-radius:50%; width:38px; height:38px;
+  display:flex; align-items:center; justify-content:center; cursor:pointer;
+  box-shadow:0 1px 3px rgba(0,0,0,.04); flex-shrink:0; color:var(--muted); font-size:1rem;
+}
+.btn-favorite.is-favorite{ color:#d97706; }
+.btn-favorite:disabled{ opacity:.4; cursor:default; }
+.favorites-chips{ display:flex; gap:6px; overflow-x:auto; padding:2px 0 8px; scrollbar-width:none; }
+.favorites-chips::-webkit-scrollbar{ display:none; }
+.favorite-chip{
+  display:flex; align-items:center; gap:6px; background:var(--card-bg); color:var(--ink);
+  border:none; border-radius:999px; padding:6px 8px 6px 12px; font-size:.72rem; font-weight:600;
+  white-space:nowrap; cursor:pointer; flex-shrink:0;
+}
+.favorite-chip.active{ background:#1a2e22; color:#fff; }
+.favorite-chip .fav-remove{
+  background:rgba(0,0,0,.08); border:none; border-radius:50%; width:16px; height:16px;
+  display:flex; align-items:center; justify-content:center; color:inherit; font-size:.55rem;
+  cursor:pointer; flex-shrink:0; padding:0;
+}
+.favorite-chip.active .fav-remove{ background:rgba(255,255,255,.25); }
+
+/* ---------- Hero ---------- */
+main{ padding-bottom:40px; }
+.hero{
+  position:relative; overflow:hidden; border-radius:24px; color:#fff;
+  background:linear-gradient(135deg,#101f16 0%,#182d20 100%);
+  padding:18px 22px 20px; margin-top:16px;
+}
+.hero-glow{ position:absolute; right:-40px; bottom:-46px; width:170px; height:170px; border-radius:50%; background:rgba(255,255,255,.05); pointer-events:none; }
+.hero-title-row{ display:flex; flex-wrap:wrap; align-items:baseline; gap:10px; }
+#place-title{ font-size:32px; line-height:1.05; letter-spacing:-.02em; }
+.hero-alt{
+  font-size:.78rem; font-weight:600; background:rgba(255,255,255,.13); border:1px solid rgba(255,255,255,.16);
+  border-radius:999px; padding:3px 10px; white-space:nowrap;
+}
+.hero-sub{ display:flex; flex-wrap:wrap; gap:6px 14px; align-items:baseline; margin-top:6px; font-size:12.5px; color:rgba(255,255,255,.68); }
+.wx-pills{ display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
+.wx-pills .pill{
+  background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.14); color:#fff;
+  border-radius:20px; padding:5px 11px; font-size:.76rem; display:inline-flex; align-items:center; gap:6px; white-space:nowrap;
+}
+.wx-pills .pill.muted{ background:transparent; color:rgba(255,255,255,.6); border-style:dashed; }
+.hero-actions{ display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
+.hero-btn{
+  background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.18);
+  border-radius:999px; padding:8px 14px; font-size:.8rem; font-weight:600; cursor:pointer; transition:.15s;
+}
+.hero-btn:hover{ background:rgba(255,255,255,.22); }
+.hero-btn.is-active{ background:#fff; color:var(--hero); border-color:#fff; }
+
+/* ---------- Cartes / sections ---------- */
+.card{ background:var(--card-bg); border-radius:20px; }
+.card.pad{ padding:18px 18px 20px; margin-top:16px; }
+.section-head{ display:flex; flex-wrap:wrap; gap:10px; align-items:flex-start; justify-content:space-between; margin-bottom:12px; }
+.section-title{ font-size:1.12rem; font-weight:700; letter-spacing:-.01em; color:var(--hero); }
+.section-sub{ font-size:.78rem; color:var(--muted); margin-top:3px; }
+.section-actions{ display:flex; gap:6px; flex-wrap:wrap; }
+.btn-ghost{
+  background:#fff; border:1px solid var(--line); color:var(--muted); border-radius:999px;
+  padding:6px 12px; font-size:.74rem; font-weight:600; cursor:pointer; transition:.15s;
+}
+.btn-ghost:hover{ background:#f7faf8; color:var(--ink); }
+.btn-primary{
+  background:var(--hero); color:#fff; border:0; border-radius:999px; padding:11px 22px;
+  font-size:.88rem; font-weight:700; cursor:pointer; transition:.15s; box-shadow:0 4px 14px rgba(26,46,34,.22);
+}
+.btn-primary:hover{ background:#0f1f16; }
+.btn-primary:disabled{ opacity:.45; cursor:default; box-shadow:none; }
+.pill{
+  background:var(--pill); border-radius:20px; padding:6px 12px; font-size:.8rem;
+  display:inline-flex; align-items:center; gap:6px; border:1px solid #dfe8e2; white-space:nowrap;
+}
+.hint{ font-size:.74rem; color:var(--muted); }
+
+/* ---------- Date cible ---------- */
+.date-row{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:12px; font-size:.78rem; color:var(--muted); }
+.date-row label{ font-weight:600; }
+#date-target{
+  border:1px solid var(--line); background:#fff; border-radius:10px; padding:6px 10px;
+  font-size:.82rem; color:var(--ink); outline:none;
+}
+#date-target:focus{ border-color:var(--accent); }
+
+/* ---------- Cartes espèces ---------- */
+.species-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(215px,1fr)); gap:10px; }
+.species-card{
+  position:relative; text-align:left; background:#fff; border:1.5px solid var(--line);
+  border-radius:16px; padding:12px 13px 13px; cursor:pointer; transition:border-color .15s, box-shadow .15s, transform .15s;
+  display:flex; flex-direction:column; gap:5px; overflow:hidden;
+}
+.species-card:hover{ border-color:#bcd2c4; transform:translateY(-1px); }
+.species-card.active{ border-color:var(--accent); box-shadow:0 0 0 3px rgba(45,90,58,.13); }
+.species-card.active::after{
+  content:"✓"; position:absolute; top:9px; right:10px; width:20px; height:20px; border-radius:50%;
+  background:var(--accent); color:#fff; font-size:.7rem; font-weight:700; display:grid; place-items:center;
+}
+.species-top{ display:flex; align-items:center; gap:8px; }
+.species-emoji{ font-size:1.35rem; line-height:1; }
+.species-name{ font-size:.9rem; font-weight:700; letter-spacing:-.01em; }
+.species-sci{ font-size:.68rem; font-style:italic; color:var(--muted); }
+.species-tags{ display:flex; flex-wrap:wrap; gap:4px; }
+.species-tag{
+  font-size:.62rem; font-weight:600; background:var(--card-bg); color:var(--muted);
+  border-radius:999px; padding:2.5px 7px; white-space:nowrap;
+}
+.species-dot{ width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.species-desc{
+  font-size:.7rem; color:var(--muted); line-height:1.4;
+  display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;
+}
+.analyze-row{ display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-top:16px; }
+
+/* ---------- Progression ---------- */
+.progress-card{ margin-top:16px; }
+.progress-head{ display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+.spinner{
+  width:20px; height:20px; border-radius:50%; border:2.5px solid #cfe0d5; border-top-color:var(--accent);
+  animation:spin .8s linear infinite; flex-shrink:0;
+}
+@keyframes spin{ to{ transform:rotate(360deg); } }
+.progress-title{ font-size:.92rem; font-weight:700; color:var(--hero); }
+.progress-sub{ font-size:.74rem; color:var(--muted); }
+.steps{ list-style:none; margin:0; padding:0; display:grid; gap:5px; }
+.step{ display:flex; align-items:center; gap:9px; font-size:.79rem; color:var(--muted); }
+.step .step-dot{
+  width:15px; height:15px; border-radius:50%; border:2px solid #cfe0d5; flex-shrink:0;
+  display:grid; place-items:center; font-size:.55rem; color:#fff; background:#fff;
+}
+.step.active{ color:var(--ink); font-weight:600; }
+.step.active .step-dot{ border-color:var(--accent); border-top-color:transparent; animation:spin .9s linear infinite; background:transparent; }
+.step.done .step-dot{ background:var(--good); border-color:var(--good); }
+.step.done .step-dot::after{ content:"✓"; }
+.step.fail .step-dot{ background:var(--bad); border-color:var(--bad); }
+.step.fail .step-dot::after{ content:"!"; }
+
+/* ---------- Bannière données partielles ---------- */
+.banner-warn{
+  margin-top:16px; background:var(--warn-bg); border:1px solid var(--warn-line); color:var(--warn-ink);
+  border-radius:16px; padding:13px 15px; font-size:.79rem; line-height:1.5;
+}
+.banner-warn strong{ display:block; font-size:.84rem; margin-bottom:3px; color:#7c4a12; }
+.banner-warn ul{ margin:5px 0 0; padding-left:18px; }
+
+/* ---------- Résultats ---------- */
+.result-list{ display:grid; gap:10px; }
+.result-row{
+  background:#fff; border:1px solid var(--line); border-radius:16px; padding:13px 15px;
+  display:grid; grid-template-columns:auto 1fr auto; gap:6px 13px; align-items:center; cursor:pointer; transition:.15s;
+}
+.result-row:hover{ border-color:#bcd2c4; }
+.result-row.is-active{ border-color:var(--accent); box-shadow:0 0 0 3px rgba(45,90,58,.12); }
+.result-emoji{ font-size:1.5rem; grid-row:span 2; align-self:center; }
+.result-name{ font-size:.92rem; font-weight:700; }
+.result-name .sci{ font-size:.7rem; font-style:italic; color:var(--muted); font-weight:400; margin-left:6px; }
+.result-stats{ font-size:.76rem; color:var(--muted); grid-column:2; }
+.result-score{ grid-row:span 2; text-align:right; }
+.result-score .val{ font-size:1.35rem; font-weight:700; color:var(--hero); letter-spacing:-.02em; }
+.result-score .lab{ font-size:.62rem; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+.result-bar{ grid-column:2 / span 2; height:6px; border-radius:999px; background:#e9f0eb; overflow:hidden; }
+.result-bar > i{ display:block; height:100%; border-radius:999px; background:linear-gradient(90deg,#8bc34a,#2d7a45); }
+.result-empty{ font-size:.78rem; color:var(--muted); font-style:italic; }
+
+/* ---------- Carte ---------- */
+.map-card{ padding-bottom:16px; }
+.map-toolbar{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.species-chips{ display:flex; gap:6px; overflow-x:auto; padding-bottom:2px; scrollbar-width:none; }
+.species-chips::-webkit-scrollbar{ display:none; }
+.species-chip{
+  display:inline-flex; align-items:center; gap:6px; background:#fff; border:1px solid var(--line);
+  border-radius:999px; padding:5px 11px; font-size:.73rem; font-weight:600; color:var(--muted);
+  cursor:pointer; white-space:nowrap; flex-shrink:0; transition:.15s;
+}
+.species-chip.active{ background:var(--hero); border-color:var(--hero); color:#fff; }
+.map-pick-btn{ cursor:pointer; font-weight:600; font-size:.75rem; }
+.map-pick-btn.is-active{ background:var(--hero); color:#fff; border-color:var(--hero); }
+.pick-hint{
+  background:#fff7ed; border:1px solid var(--warn-line); color:var(--warn-ink);
+  border-radius:12px; padding:9px 13px; font-size:.78rem; margin-bottom:8px; font-weight:600;
+}
+.map-h{ height:440px; border-radius:16px; overflow:hidden; background:#c9ddd0; width:100%; transition:height .2s ease; }
+@media(max-width:640px){ .map-h{ height:330px; } .species-grid{ grid-template-columns:repeat(auto-fill,minmax(158px,1fr)); } #place-title{ font-size:27px; } }
+
+/* ---------- Carte plein écran ---------- */
+.map-card.is-fullscreen{
+  position:fixed; inset:0; z-index:2000; margin:0; border-radius:0;
+  display:flex; flex-direction:column; background:var(--card-bg);
+  padding:12px 12px calc(12px + env(safe-area-inset-bottom));
+  overflow-y:auto;
+}
+.map-card.is-fullscreen .map-h{ height:auto; flex:1 1 auto; min-height:260px; }
+.map-card.is-fullscreen #btn-map-fullscreen{ background:var(--hero); color:#fff; border-color:var(--hero); }
+body.map-fullscreen-lock{ overflow:hidden; }
+.map-readout{
+  margin-top:9px; background:#fff; border:1px solid var(--line); border-radius:12px;
+  padding:8px 12px; font-size:.78rem; color:var(--muted); min-height:34px; display:flex; align-items:center; gap:8px;
+}
+.map-readout .score{ font-weight:700; color:var(--hero); }
+.map-legend{ margin-top:11px; background:#fff; border:1px solid var(--line); border-radius:14px; padding:11px 13px; }
+.legend-title{ font-size:.72rem; font-weight:700; color:var(--hero); text-transform:uppercase; letter-spacing:.05em; margin-bottom:8px; }
+.legend-bands{ display:flex; gap:6px; flex-wrap:wrap; }
+.legend-band{ display:flex; align-items:center; gap:6px; font-size:.7rem; color:var(--muted); }
+.legend-swatch{ width:20px; height:13px; border-radius:4px; border:1px solid rgba(0,0,0,.12); }
+.legend-foot{ display:flex; flex-wrap:wrap; gap:8px 16px; margin-top:9px; font-size:.7rem; color:var(--muted); align-items:center; }
+.legend-radius{ display:inline-block; width:20px; height:13px; border:1.5px dashed var(--accent); border-radius:50%/40%; background:rgba(45,90,58,.07); }
+.map-note{ font-size:.72rem; color:var(--muted); margin-top:9px; line-height:1.5; }
+.no-zones{
+  background:#fff; border:1px dashed #cfe0d5; border-radius:14px; padding:16px;
+  font-size:.82rem; color:var(--muted); text-align:center; margin-top:10px;
+}
+
+/* ---------- Détails (popup carte) ---------- */
+.mt-popup{ font-family:var(--font); font-size:12.5px; line-height:1.5; min-width:230px; }
+.mt-popup h4{ font-size:14px; margin:0 0 2px; display:flex; align-items:center; gap:6px; }
+.mt-popup .p-score{ font-size:19px; font-weight:700; color:var(--hero); margin:4px 0 2px; }
+.mt-popup .p-meta{ color:var(--muted); font-size:11.5px; margin-bottom:7px; }
+.mt-popup ul{ list-style:none; margin:0; padding:0; display:grid; gap:3px; }
+.mt-popup li{ display:flex; gap:7px; align-items:flex-start; font-size:11.8px; }
+.mt-popup li .st{ width:13px; flex-shrink:0; text-align:center; font-weight:700; }
+.mt-popup li.good .st{ color:var(--good); }
+.mt-popup li.part .st{ color:var(--part); }
+.mt-popup li.bad .st{ color:var(--bad); }
+.mt-popup li.unknown .st{ color:var(--unknown); }
+.mt-popup li .lb{ color:var(--ink); font-weight:600; }
+.mt-popup li .vl{ color:var(--muted); }
+.mt-popup .p-foot{ margin-top:8px; padding-top:7px; border-top:1px solid #e6ede8; font-size:10.5px; color:var(--muted); }
+
+/* ---------- Divers ---------- */
+.app-version{
+  position:fixed; right:14px; bottom:calc(12px + env(safe-area-inset-bottom)); font-size:11px; line-height:1;
+  letter-spacing:.05em; color:var(--muted); opacity:.72; padding:3px 8px; border-radius:999px;
+  background:rgba(255,255,255,.7); backdrop-filter:blur(6px); z-index:40; pointer-events:none;
+}
+.app-footer{ margin-top:22px; font-size:.74rem; color:var(--muted); line-height:1.6; }
+.app-footer details{ background:#fff; border:1px solid var(--line); border-radius:16px; padding:12px 15px; }
+.app-footer summary{ cursor:pointer; font-weight:700; color:var(--hero); font-size:.82rem; }
+.app-footer ul{ margin:9px 0 0; padding-left:18px; }
+.app-footer li{ margin-bottom:3px; }
+.disclaimer{ margin-top:10px; background:var(--warn-bg); border:1px solid var(--warn-line); color:var(--warn-ink); border-radius:12px; padding:10px 13px; }
+
+/* ---------- Dialogue favori (identique Metehop) ---------- */
+.fav-overlay{ position:fixed; inset:0; z-index:3000; display:flex; align-items:center; justify-content:center; padding:20px; }
+.fav-backdrop{ position:absolute; inset:0; background:rgba(17,33,24,.45); backdrop-filter:blur(3px); }
+.fav-dialog{ position:relative; width:100%; max-width:380px; background:#fff; border-radius:16px; padding:20px; box-shadow:0 18px 48px rgba(17,33,24,.28); }
+.fav-dialog-title{ font-size:16px; font-weight:700; color:var(--ink); margin-bottom:4px; }
+.fav-dialog-sub{ font-size:12px; color:var(--muted); font-family:ui-monospace,SFMono-Regular,Menlo,monospace; margin-bottom:12px; }
+.fav-dialog-input{ width:100%; box-sizing:border-box; border:1px solid #cfdbd3; border-radius:10px; padding:10px 12px; font-size:15px; color:var(--ink); background:#f7faf8; outline:none; }
+.fav-dialog-input:focus{ border-color:var(--accent); box-shadow:0 0 0 3px rgba(45,90,58,.14); }
+.fav-dialog-actions{ display:flex; gap:8px; justify-content:flex-end; margin-top:16px; }
+.fav-dialog-btn{ font-size:14px; font-weight:600; border:none; border-radius:10px; padding:9px 16px; cursor:pointer; background:#eef3ef; color:var(--muted); }
+.fav-dialog-btn:hover{ filter:brightness(.97); }
+.fav-dialog-btn-primary{ background:var(--accent); color:#fff; }
+
+/* ---------- Leaflet ---------- */
+.leaflet-container{ font-family:var(--font); }
+.mt-tooltip{ font-family:var(--font); }
+
+/* ---------- Barre de progression ---------- */
+.progress-bar{ height:7px; border-radius:999px; background:#e2ece6; overflow:hidden; margin:0 0 11px; }
+.progress-bar > i{ display:block; height:100%; width:0; border-radius:999px; transition:width .25s ease;
+  background:linear-gradient(90deg,#8bc34a,#2d7a45); }
+
+/* ---------- Boutons/lignes reprenant du code existant ---------- */
+.result-row, .species-card, .species-chip, .icon-btn, .btn-favorite, .hero-btn{ font:inherit; }
+.result-row{ width:100%; text-align:left; }
+
+/* ---------- Pills complémentaires ---------- */
+.pill.accent{ background:rgba(255,255,255,.22); border-color:rgba(255,255,255,.42); font-weight:700; }
+
+/* ---------- Étiquettes génériques ---------- */
+.tag{
+  font-size:.62rem; font-weight:600; background:#fff; color:var(--muted);
+  border:1px solid var(--line); border-radius:999px; padding:2.5px 7px; white-space:nowrap;
+}
+
+/* ---------- Toast ---------- */
+.mt-toast{
+  position:fixed; left:50%; bottom:calc(22px + env(safe-area-inset-bottom)); transform:translate(-50%,14px);
+  background:#1a2e22; color:#fff; font-size:.78rem; font-weight:600; padding:10px 16px; border-radius:999px;
+  box-shadow:0 8px 24px rgba(0,0,0,.22); opacity:0; pointer-events:none; transition:.22s; z-index:80;
+  max-width:min(92vw,560px); text-align:center;
+}
+.mt-toast.is-on{ opacity:1; transform:translate(-50%,0); }
+
+/* ---------- Section explication ---------- */
+.explain-head{ display:flex; align-items:center; gap:11px; margin-bottom:14px; }
+.explain-dot{ width:15px; height:15px; border-radius:50%; flex-shrink:0; }
+.explain-species{ font-size:.95rem; font-weight:700; letter-spacing:-.01em; }
+.explain-where{ font-size:.7rem; color:var(--muted); }
+.explain-score{ margin-left:auto; font-size:1.7rem; font-weight:800; letter-spacing:-.03em; }
+.explain-bars{ display:grid; gap:7px; }
+.ex-row{
+  display:grid; grid-template-columns:120px 42px 1fr 34px; gap:8px; align-items:center;
+  font-size:.74rem;
+}
+.ex-row:hover{ background:rgba(45,90,58,.05); border-radius:8px; }
+.ex-label{ font-weight:700; color:var(--ink); }
+.ex-weight{ color:var(--muted); font-size:.68rem; }
+.ex-track{ height:8px; background:#e9f0eb; border-radius:999px; overflow:hidden; }
+.ex-track > i{ display:block; height:100%; border-radius:999px; transition:width .3s; }
+.ex-val{ text-align:right; font-weight:700; font-variant-numeric:tabular-nums; }
+.ex-val.is-unknown{ color:var(--unknown); }
+.ex-txt{ grid-column:1 / -1; color:var(--muted); font-size:.66rem; margin-top:-4px; }
+@media(min-width:720px){ .ex-txt{ grid-column:3 / -1; } }
+.explain-multi{ display:flex; flex-wrap:wrap; gap:7px; margin-top:13px; }
+.ex-mult{
+  display:flex; align-items:center; gap:6px; font-size:.72rem; background:#fff;
+  border:1px solid var(--line); border-radius:999px; padding:5px 11px; color:var(--muted);
+}
+.ex-mult b{ color:var(--ink); font-weight:700; }
+.ex-mult.is-warn{ background:var(--warn-bg); border-color:var(--warn-line); color:var(--warn-ink); }
+.explain-formula{
+  margin-top:12px; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:.68rem; color:var(--muted); background:#fff; border:1px dashed var(--line);
+  border-radius:12px; padding:10px 12px; line-height:1.6; word-break:break-word;
+}
+.explain-facts{
+  display:grid; gap:6px; margin-top:14px; grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+}
+.ex-fact{
+  display:flex; justify-content:space-between; gap:10px; align-items:baseline;
+  background:#fff; border:1px solid var(--line); border-radius:12px; padding:8px 11px; font-size:.71rem;
+}
+.ex-fact-k{ color:var(--muted); font-weight:700; flex-shrink:0; }
+.ex-fact-v{ text-align:right; color:var(--ink); }
+.explain-species-card{
+  margin-top:14px; background:#fff; border:1px solid var(--line); border-radius:16px; padding:14px 15px;
+}
+.sp-card-title{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:.92rem; }
+.sp-swatch{ width:12px; height:12px; border-radius:50%; }
+.sp-sci{ font-size:.72rem; font-style:italic; color:var(--muted); }
+.sp-desc{ font-size:.76rem; color:var(--muted); line-height:1.55; margin-top:7px; }
+.sp-tags{ display:flex; flex-wrap:wrap; gap:5px; margin-top:9px; }
+
+/* ---------- Détail (popup carte) : lignes de facteurs ---------- */
+.pc-head{ display:flex; align-items:center; gap:7px; font-size:14px; margin-bottom:2px; }
+.pc-dot{ width:11px; height:11px; border-radius:50%; }
+.pc-score{ margin-left:auto; font-size:19px; font-weight:800; color:var(--hero); }
+.pc-where{ font-size:11px; color:var(--muted); margin-bottom:8px; }
+.pc-row{ display:grid; grid-template-columns:1fr auto 62px auto; gap:7px; align-items:center; font-size:11.4px; margin-bottom:3px; }
+.pc-label{ font-weight:700; }
+.pc-w{ color:var(--muted); font-size:10.4px; }
+.pc-track{ height:7px; background:#e9f0eb; border-radius:999px; overflow:hidden; }
+.pc-track > i{ display:block; height:100%; background:var(--accent); }
+.pc-sub{ text-align:right; font-weight:700; font-variant-numeric:tabular-nums; }
+.pc-mult{ margin-top:8px; font-size:10.6px; color:var(--muted); line-height:1.5; }
+.pc-note{ margin-top:6px; font-size:10.4px; color:var(--bad); }
+</style>
+</head>
+<body>
+
+<!-- ================= ÉCRAN DE LANCEMENT (logo) ================= -->
+<div id="splash-screen" class="splash-screen">
+  <img class="splash-logo" src="data:image/webp;base64,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" alt="Mushroom Tracker" width="180" height="180">
+  <div class="splash-title">Mushroom&nbsp;Tracker</div>
+</div>
+
+<div class="app">
+
+  <!-- ================= EN-TÊTE : recherche + favoris (module LOCATION / FAVORITES) ================= -->
+  <header class="topbar">
+    <div class="wrap brand-row">
+      <div class="app-brand"><img class="brand-logo" src="data:image/webp;base64,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" alt="" width="26" height="26"><span>Mushroom&nbsp;Tracker</span></div>
+      <div class="topbar-actions">
+        <button id="btn-geoloc" class="icon-btn" title="Me localiser" aria-label="Me localiser">◎</button>
+        <button id="btn-favorite" class="btn-favorite" title="Ajouter aux favoris" aria-label="Favori">☆</button>
+      </div>
+    </div>
+    <div class="wrap search-row">
+      <div class="search-bar">
+        <span class="search-ico">⌕</span>
+        <input id="city-input" type="text" placeholder="Rechercher une ville ou un lieu…" autocomplete="off">
+        <button id="btn-search" class="btn-search">Rechercher</button>
+      </div>
+    </div>
+    <div class="wrap"><div class="favorites-chips" id="favorites-chips"></div></div>
+  </header>
+
+  <main class="wrap">
+
+    <!-- ================= HERO : lieu, altitude, actions ================= -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="hero-title-row">
+        <h1 id="place-title">—</h1>
+        <span class="hero-alt" id="place-alt" hidden></span>
+      </div>
+      <div class="hero-sub">
+        <span class="mono" id="place-coords">—</span>
+        <span id="place-date"></span>
+        <span id="place-radius">rayon de recherche : 5 km</span>
+      </div>
+      <div class="wx-pills" id="wx-pills"><span class="pill muted">Conditions du moment : chargement…</span></div>
+      <div class="hero-actions">
+        <button class="hero-btn" id="btn-hero-geoloc">◎ Me localiser</button>
+        <button class="hero-btn" id="btn-hero-fav">☆ Ajouter aux favoris</button>
+        <button class="hero-btn" id="btn-hero-change">🗺 Changer de lieu</button>
+      </div>
+    </section>
+
+    <!-- ================= SÉLECTION DES 10 ESPÈCES ================= -->
+    <section class="card pad">
+      <div class="section-head">
+        <div>
+          <h2 class="section-title">Quelles espèces rechercher&nbsp;?</h2>
+          <p class="section-sub">10 espèces présélectionnées · sélection multiple · analyse des zones &gt; 50 % dans un rayon de 5 km.</p>
+        </div>
+        <div class="section-actions">
+          <button class="btn-ghost" id="btn-select-all">Tout sélectionner</button>
+          <button class="btn-ghost" id="btn-select-none">Tout désélectionner</button>
+        </div>
+      </div>
+      <div class="date-row">
+        <label for="date-target">Date cible</label>
+        <input type="date" id="date-target">
+        <span class="hint" id="date-hint">saison calculée sur la date du jour</span>
+      </div>
+      <div class="species-grid" id="species-grid"></div>
+      <div class="analyze-row">
+        <button class="btn-primary" id="btn-analyze" disabled>Analyser les zones</button>
+        <span class="hint" id="analyze-hint">Sélectionnez au moins une espèce.</span>
+      </div>
+    </section>
+
+    <!-- ================= PROGRESSION ================= -->
+    <section class="card pad progress-card" id="progress-card" hidden>
+      <div class="progress-head">
+        <div class="spinner" id="progress-spinner"></div>
+        <div>
+          <div class="progress-title" id="progress-title">Analyse en cours…</div>
+          <div class="progress-sub" id="progress-sub">Les requêtes sont groupées et mises en cache.</div>
+        </div>
+      </div>
+      <div class="progress-bar"><i id="progress-bar"></i></div>
+      <ul class="steps" id="progress-steps"></ul>
+    </section>
+
+    <!-- ================= DONNÉES PARTIELLES ================= -->
+    <div class="banner-warn" id="partial-banner" hidden>
+      <strong>⚠ Données environnementales partielles — précision du résultat réduite.</strong>
+      <span id="partial-text"></span>
+      <ul id="partial-list"></ul>
+    </div>
+
+    <!-- ================= RÉSULTATS ================= -->
+    <section class="card pad" id="results-section" hidden>
+      <div class="section-head">
+        <div>
+          <h2 class="section-title">Résultats</h2>
+          <p class="section-sub" id="results-summary">—</p>
+        </div>
+      </div>
+      <div class="result-list" id="results-list"></div>
+    </section>
+
+    <!-- ================= POURQUOI ? (modèle explicable) ================= -->
+    <section class="card pad" id="explain-section" hidden>
+      <div class="section-head">
+        <div>
+          <h2 class="section-title">Pourquoi ce score&nbsp;?</h2>
+          <p class="section-sub" id="explain-sub">Détail du calcul pour la zone la mieux notée de l’espèce active.</p>
+        </div>
+      </div>
+      <div class="explain-head">
+        <span class="explain-dot" id="explain-dot"></span>
+        <div>
+          <div class="explain-species" id="explain-species">-</div>
+          <div class="explain-where mono" id="explain-where">-</div>
+        </div>
+        <div class="explain-score" id="explain-score">-</div>
+      </div>
+      <div class="explain-bars" id="explain-bars"></div>
+      <div class="explain-multi" id="explain-multi"></div>
+      <p class="explain-formula" id="explain-formula"></p>
+      <div class="explain-facts" id="explain-facts"></div>
+      <div class="explain-species-card" id="explain-species-card"></div>
+    </section>
+
+    <!-- ================= CARTE ================= -->
+    <section class="card pad map-card" id="map-section">
+      <div class="section-head">
+        <div>
+          <h2 class="section-title">Carte des zones favorables</h2>
+          <p class="section-sub" id="map-sub">Choisissez un lieu, sélectionnez des espèces, puis lancez l’analyse.</p>
+        </div>
+        <div class="section-actions">
+          <button class="pill map-pick-btn" id="btn-map-fullscreen" title="Plein écran" aria-label="Plein écran">⛶ Plein écran</button>
+        </div>
+      </div>
+      <div class="map-toolbar" id="map-toolbar" hidden>
+        <div class="species-chips" id="map-species-chips"></div>
+        <button class="pill map-pick-btn" id="btn-map-pick">🗺 Choisir sur carte</button>
+      </div>
+      <div class="pick-hint" id="pick-hint" hidden>📍 Touchez la carte pour choisir un nouveau lieu de recherche</div>
+      <div id="map" class="map-h"></div>
+      <div class="map-readout" id="map-readout">Survolez une zone colorée pour voir son score exact.</div>
+      <div class="map-legend" id="map-legend" hidden>
+        <div class="legend-title">Score de probabilité</div>
+        <div class="legend-bands" id="legend-bands"></div>
+        <div class="legend-foot">
+          <span class="legend-band"><span class="legend-radius"></span> rayon de recherche 5 km</span>
+          <span id="legend-cell">cellules affinées ≈ 100 m</span>
+          <span id="legend-species"></span>
+        </div>
+      </div>
+      <p class="map-note" id="map-note">
+        Clic sur une zone : détail complet du score (habitat, arbres hôtes, humidité, sol, altitude, saison, température).
+        Seules les zones strictement supérieures à 50 % sont affichées.
+      </p>
+      <div class="no-zones is-hidden" id="no-zones"></div>
+    </section>
+
+    <!-- ================= SOURCES ================= -->
+    <footer class="app-footer">
+      <details>
+        <summary>Sources &amp; méthodologie</summary>
+        <ul>
+          <li><b>Espèces, critères écologiques, coefficients et seuils</b> : reprise du module « Carte des champignons » de <span class="mono">index_last_26092026.html</span> (ajout du 23/09/2026) — guide mycosylviculture (agroforesterie.fr / CRPF), fiches espèces (ONF, MYCO), écologie établie (pentes, expositions, pH, fenêtres de saison).</li>
+          <li><b>Relief (altitude, pente, exposition, cuvettes)</b> : API <span class="mono">Elevation</span> d’Open-Meteo (MNT par points, requêtes groupées ≤ 100 coordonnées).</li>
+          <li><b>Sol (pH, texture, matière organique)</b> : SoilGrids v2.0 / ISRIC (<span class="mono">rest.isric.org</span>), interpolation par IDW sur 9 points.</li>
+          <li><b>Couvert forestier, essences, routes</b> : OpenStreetMap via l’API Overpass (ways + relations, géométries), miroirs de secours inclus.</li>
+          <li><b>Météo, humidité, pluie, vent</b> : Open-Meteo Forecast (10 jours passés + 7 jours prévus), appel unique partagé par tout l’écran.</li>
+          <li><b>Recherche de lieu / géocodage</b> : Open-Meteo Geocoding + Nominatim (OpenStreetMap) pour le nommage inverse.</li>
+          <li><b>Fond de carte</b> : tuiles © OpenStreetMap France, moteur <a href="https://leafletjs.com/" target="_blank" rel="noopener">Leaflet</a>.</li>
+          <li><b>Localisation, favoris, mémorisation du lieu</b> : code repris de <span class="mono">metehop-live.html</span> (clés <span class="mono">metehop_favorites_v1</span> / <span class="mono">metehop_last_location_v1</span>).</li>
+        </ul>
+        <div class="disclaimer">
+          Indices <b>indicatifs d’habitat + conditions du moment</b> : ce n’est ni une carte de gisement, ni une garantie de cueillette.
+          L’identification certaine reste obligatoire avant toute consommation. Une donnée manquante est affichée comme « inconnue » et n’est jamais transformée en faveur du score.
+        </div>
+      </details>
+    </footer>
+  </main>
+</div>
+
+<!-- ================= DIALOGUE FAVORI ================= -->
+<div class="fav-overlay" id="fav-overlay" hidden>
+  <div class="fav-backdrop" id="fav-backdrop"></div>
+  <div class="fav-dialog">
+    <div class="fav-dialog-title">Ajouter aux favoris</div>
+    <div class="fav-dialog-sub" id="fav-dialog-sub">—</div>
+    <input id="fav-name-input" class="fav-dialog-input" placeholder="Nom du favori" maxlength="60" autocomplete="off">
+    <div class="fav-dialog-actions">
+      <button type="button" class="fav-dialog-btn" id="fav-dialog-cancel">Annuler</button>
+      <button type="button" class="fav-dialog-btn fav-dialog-btn-primary" id="fav-dialog-save">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<div class="app-version">MT v1.0</div>
+
+<script>
+"use strict";
+
+/* ============================================================================
+ * MUSHROOM TRACKER — application autonome
+ * Reuse : metehop-live.html (localisation, géolocalisation, recherche, carte,
+ *         favoris, mémorisation du lieu, composants UI)
+ * Reuse : index_last_26092026.html (module « Carte des champignons »,
+ *         10 espèces, coefficients, seuils, MNT/Overpass/SoilGrids/hydrométrie)
+ * =============================================================================
+ * MODULES : API/CACHE · LOCATION · FAVORITES · MAP · MUSHROOM DATABASE
+ *           ENVIRONMENT DATA · SPATIAL GRID · MUSHROOM SCORING · RESULTS · UI
+ * ==========================================================================*/
+
+/* ============================================================================
+ * 1. API / CACHE
+ * Objectif : zéro requête redondante. Trois niveaux — mémoire, localStorage
+ * (avec expiration), puis réseau. Les requêtes identiques en vol sont partagées
+ * (dédoublonnage), les listes de points sont regroupées par lots de ≤ 100
+ * (plafond de l'API Elevation Open-Meteo) avec une parallélisation bornée.
+ * ==========================================================================*/
+const CACHE_PREFIX = 'mt_';
+const inflight = new Map();          // url -> Promise (dédoublonnage)
+const memCache = new Map();          // key -> { t, data }
+
+function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
+
+/** Haversine — reprise de metehop-live.html (Pi). */
+function haversineKm(lat1, lon1, lat2, lon2) {
+    const toRad = Math.PI / 180;
+    const dLat = (lat2 - lat1) * toRad, dLon = (lon2 - lon1) * toRad;
+    const a = Math.sin(dLat / 2) ** 2 +
+        Math.cos(lat1 * toRad) * Math.cos(lat2 * toRad) * Math.sin(dLon / 2) ** 2;
+    return 12742 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function escapeHtml(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function debounce(fn, ms) {
+    let t = null;
+    return function () { clearTimeout(t); const a = arguments, c = this; t = setTimeout(() => fn.apply(c, a), ms); };
+}
+
+/** fetch avec timeout — reprise de index_last_26092026.html (fetchWithTimeout). */
+function fetchWithTimeout(resource, options = {}) {
+    const { timeout = 10000 } = options;
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    return fetch(resource, { ...options, signal: controller.signal })
+        .then(r => { clearTimeout(id); return r; })
+        .catch(e => { clearTimeout(id); throw e; });
+}
+
+/** Lecture/écriture localStorage (repli silencieux en navigation privée). */
+const LS = {
+    get(key) {
+        try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; }
+        catch (e) { return null; }
+    },
+    set(key, value) {
+        try { localStorage.setItem(key, JSON.stringify(value)); return true; }
+        catch (e) {
+            // quota dépassé : on purge doucement les entrées de CE cache puis on retente une fois
+            try {
+                const cur = localStorage.getItem(key);
+                localStorage.removeItem(key);
+                localStorage.setItem(key, JSON.stringify(value));
+                return true;
+            } catch (e2) { try { localStorage.setItem(key, cur); } catch (e3) {} return false; }
+        }
+    },
+    del(key) { try { localStorage.removeItem(key); } catch (e) {} }
+};
+
+/** Cache mémoire + localStorage avec expiration. */
+const Store = {
+    memory: new Map(),
+    get(key, ttlMs) {
+        const now = Date.now();
+        const m = this.memory.get(key);
+        if (m && now - m.t < ttlMs) return m.data;
+        const ls = LS.get(CACHE_PREFIX + key);
+        if (ls && typeof ls.t === 'number' && now - ls.t < ttlMs) {
+            this.memory.set(key, ls);
+            return ls.data;
+        }
+        return undefined;
+    },
+    set(key, data, persist = true) {
+        const entry = { t: Date.now(), data };
+        this.memory.set(key, entry);
+        if (persist) LS.set(CACHE_PREFIX + key, entry);
+        return data;
+    },
+    /** Entrée brute (pour les payloads volumineux : on garde le contenu le plus récent). */
+    getBig(key, ttlMs) {
+        const now = Date.now();
+        const m = this.memory.get(key);
+        if (m && now - m.t < ttlMs) return m.data;
+        const ls = LS.get(CACHE_PREFIX + key);
+        if (ls && typeof ls.t === 'number' && now - ls.t < ttlMs) {
+            this.memory.set(key, ls);
+            return ls.data;
+        }
+        return undefined;
+    },
+    setBig(key, data) {
+        const entry = { t: Date.now(), data };
+        this.memory.set(key, entry);
+        LS.set(CACHE_PREFIX + key, entry);   // échec silencieux si quota : on garde au moins la mémoire
+        return data;
+    }
+};
+
+/** GET JSON avec cache + dédoublonnage des requêtes en vol. */
+async function fetchJSONCached(url, { ttlMs = 36e5, timeout = 12000, cache = true, big = false } = {}) {
+    const key = 'u_' + url;
+    if (cache) {
+        const hit = big ? Store.getBig(key, ttlMs) : Store.get(key, ttlMs);
+        if (hit !== undefined) return hit;
+    }
+    if (inflight.has(url)) return inflight.get(url);
+    const p = (async () => {
+        try {
+            const res = await fetchWithTimeout(url, { timeout });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const data = await res.json();
+            if (cache) { big ? Store.setBig(key, data) : Store.set(key, data); }
+            return data;
+        } finally { inflight.delete(url); }
+    })().catch(() => null);
+    inflight.set(url, p);
+    return p;
+}
+
+/** Exécute une liste de tâches avec une parallélisation bornée. */
+async function mapLimit(items, limit, worker) {
+    const out = new Array(items.length);
+    let idx = 0;
+    const runners = new Array(Math.max(1, Math.min(limit, items.length))).fill(0).map(async () => {
+        while (idx < items.length) {
+            const i = idx++;
+            try { out[i] = await worker(items[i], i); }
+            catch (e) { out[i] = null; }
+        }
+    });
+    await Promise.all(runners);
+    return out;
+}
+
+/** Course estafette (hedged request) — reprise de index_last_26092026.html,
+ *  renforcée : miroirs lancés plus tôt (échec plus vite détecté) et un
+ *  second passage complet si tous les miroirs échouent au premier tour
+ *  (transitoire réseau) avant d'abandonner. */
+async function hedgedFetch(buildUrl, hosts, { timeout = 12000, stagger = 500, init = null, retries = 1 } = {}) {
+    const race = () => {
+        const tryOne = (url) => fetchWithTimeout(url, init ? { ...init, timeout } : { timeout })
+            .then(r => (r && r.ok ? r : null)).catch(() => null);
+        const attempts = [tryOne(buildUrl(hosts[0]))];
+        hosts.slice(1).forEach((host, i) => {
+            attempts.push(new Promise(res => setTimeout(res, stagger * (i + 1)))
+                .then(() => tryOne(buildUrl(host))));
+        });
+        let pending = attempts.length, done = false;
+        return new Promise(resolve => {
+            attempts.forEach(p => p.then(r => {
+                if (r && !done) { done = true; resolve(r); return; }
+                if (--pending === 0 && !done) resolve(null);
+            }));
+        });
+    };
+    let res = await race();
+    for (let attempt = 0; !res && attempt < retries; attempt++) {
+        await new Promise(r => setTimeout(r, 700));
+        res = await race();
+    }
+    return res;
+}
+
+/** Petite relance générique : ré-essaie une fonction async qui peut renvoyer
+ *  une valeur "creuse" (null/undefined/false) en cas d'échec réseau isolé,
+ *  sans attendre le prochain relevé complet. */
+async function retryAsync(fn, times, delayMs) {
+    let res = await fn();
+    for (let i = 0; !res && i < times; i++) {
+        await new Promise(r => setTimeout(r, delayMs));
+        res = await fn();
+    }
+    return res;
+}
+
+/* ============================================================================
+ * 2. LOCATION — reprise quasi telle quelle de metehop-live.html
+ * (localisation par défaut, mémorisation du lieu, géocodage inverse,
+ *  recherche de ville, géolocalisation navigateur)
+ * ==========================================================================*/
+const DEFAULT_LOC = { lat: 45.311, lon: 5.961, name: 'Tencin' };
+
+// Clé identique à Metehop : le dernier lieu consulté est partagé entre les apps.
+const LAST_LOCATION_KEY = 'metehop_last_location_v1';
+function saveLastLocation(lat, lon, name) {
+    try { localStorage.setItem(LAST_LOCATION_KEY, JSON.stringify({ lat, lon, name })); } catch (e) {}
+}
+function loadLastLocation() {
+    try {
+        const raw = localStorage.getItem(LAST_LOCATION_KEY);
+        if (raw) {
+            const o = JSON.parse(raw);
+            if (o && typeof o.lat === 'number' && typeof o.lon === 'number' && typeof o.name === 'string') return o;
+        }
+    } catch (e) {}
+    try {
+        const raw = localStorage.getItem('metehop_light_pos');   // repli sur l'ancienne clé Metehop
+        if (raw) {
+            const o = JSON.parse(raw);
+            if (o && typeof o.lat === 'number' && typeof o.lon === 'number' && typeof o.name === 'string' && o.name !== 'Ma position') return o;
+        }
+    } catch (e) {}
+    return null;
+}
+
+/** Nom de lieu à partir de coordonnées (Nominatim) — reprise de metehop-live (Tt). */
+async function reverseGeocodeName(lat, lon, fallback) {
+    if (!/^-?\d/.test(String(fallback)) || !String(fallback).includes(',')) return fallback;
+    try {
+        const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&accept-language=fr`;
+        const j = await fetchJSONCached(url, { ttlMs: 864e5, timeout: 6000 });
+        if (j && (j.name || j.display_name)) {
+            return j.address?.village || j.address?.town || j.address?.city || j.name || fallback;
+        }
+    } catch (e) {}
+    return fallback;
+}
+
+/** Recherche de ville — reprise de metehop-live (Ii), géocodage Open-Meteo. */
+async function searchPlace(query) {
+    const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=5&language=fr&format=json`;
+    const j = await fetchJSONCached(url, { ttlMs: 864e5, timeout: 10000 });
+    const r = j && j.results && j.results[0];
+    return r ? { lat: r.latitude, lon: r.longitude, name: r.name } : null;
+}
+
+/** Géolocalisation navigateur — reprise de metehop-live (_f). */
+function geolocate(onSuccess) {
+    if (!navigator.geolocation) { alert('Géoloc non supportée'); return; }
+    navigator.geolocation.getCurrentPosition(
+        pos => onSuccess(pos.coords.latitude, pos.coords.longitude, 'Ma position'),
+        () => alert('Géoloc refusée'),
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+    );
+}
+
+/* ============================================================================
+ * 3. FAVORITES — reprise de metehop-live.html
+ * (clé metehop_favorites_v1 partagée, comparaison à 0,0005° près,
+ *  « Ma position » exclue, amorçage sur le dernier lieu, repli silencieux)
+ * ==========================================================================*/
+const FAVORITES_KEY = 'metehop_favorites_v1';
+const FAVORITES_MAX = 10;
+
+function saveFavorites(list) { try { localStorage.setItem(FAVORITES_KEY, JSON.stringify(list)); } catch (e) {} }
+function loadFavorites() {
+    try {
+        const raw = localStorage.getItem(FAVORITES_KEY);
+        if (raw) {
+            const arr = JSON.parse(raw);
+            if (Array.isArray(arr)) {
+                return arr.filter(f => f && typeof f.lat === 'number' && typeof f.lon === 'number' && typeof f.name === 'string');
+            }
+            return [];
+        }
+        const last = loadLastLocation();
+        if (last) {
+            const seeded = [{ lat: last.lat, lon: last.lon, name: last.name }];
+            saveFavorites(seeded);
+            return seeded;
+        }
+    } catch (e) {}
+    return [];
+}
+function isFavAt(list, lat, lon) {
+    return list.some(f => Math.abs(f.lat - lat) < 0.0005 && Math.abs(f.lon - lon) < 0.0005);
+}
+
+/* ============================================================================
+ * 4. ÉTAT GLOBAL
+ * ==========================================================================*/
+const state = {
+    lat: DEFAULT_LOC.lat, lon: DEFAULT_LOC.lon, name: DEFAULT_LOC.name,
+    altitude: null,
+    favorites: loadFavorites(),
+    pickMode: false,
+    selected: new Set(),          // ids d'espèces sélectionnées
+    targetDate: todayISO(),       // date cible (saison + fenêtre hydrométrique)
+    env: null,                    // environnement construit pour (lat,lon) — indépendant de la date/espèces
+    results: new Map(),           // speciesId -> { count, best, cells:[{i,j,score}], raster }
+    activeSpecies: null,
+    analyzed: false,
+    busy: false,
+    seq: 0,                       // anti-course : invalidation si le lieu change pendant l'analyse
+    sources: null,                // { dem:'ok'|'fail', soil:..., cover:..., weather:... }
+    missing: []                   // libellés des données manquantes
+};
+
+function todayISO(d) {
+    const x = d || new Date();
+    return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0');
+}
+function locKey(lat, lon) { return Math.round(lat * 1e4) + '_' + Math.round(lon * 1e4); }
+
+/* ============================================================================
+ * 5. MAP — module Leaflet repris/ adapté de metehop-live.html
+ * (chargement paresseux de Leaflet, tuiles OSM France, marqueur déplaçable,
+ *  clic pour choisir un lieu, cercle de recherche — ici 5 km et non la
+ *  « maille Open-Meteo » de Metehop)
+ * ==========================================================================*/
+const Map_ = {
+    map: null, marker: null, radius: null, ready: false,
+    overlays: new Map(),       // speciesId -> L.imageOverlay
+    clickHandlers: [],
+    hoverHandlers: []
+};
+
+function loadLeaflet() {
+    if (window.L) return Promise.resolve(window.L);
+    if (Map_._p) return Map_._p;
+    const loadPromise = new Promise((resolve, reject) => {
+        if (!document.getElementById('leaflet-css')) {
+            const link = document.createElement('link');
+            link.id = 'leaflet-css'; link.rel = 'stylesheet';
+            link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+            document.head.appendChild(link);
+        }
+        const s = document.createElement('script');
+        s.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+        s.onload = () => resolve(window.L);
+        s.onerror = () => reject(new Error('Leaflet indisponible'));
+        document.head.appendChild(s);
+    });
+    // Filet de sécurité : si le CDN ne répond ni en succès ni en erreur
+    // (réseau restrictif, bloqueur de script, proxy silencieux), on ne doit
+    // jamais rester bloqué indéfiniment au démarrage — on rejette après 8 s.
+    const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Leaflet : délai dépassé')), 8000));
+    Map_._p = Promise.race([loadPromise, timeoutPromise]);
+    return Map_._p;
+}
+
+async function initMap() {
+    const el = document.getElementById('map');
+    if (!el || Map_.map) return;
+    let L;
+    try { L = await loadLeaflet(); } catch (e) {
+        document.getElementById('map-sub').textContent =
+            'Carte indisponible (Leaflet non chargé). La recherche de zones fonctionne toujours, la carte ne s’affichera pas.';
+        return;
+    }
+    Map_.map = L.map('map', { zoomControl: false, maxZoom: 18 }).setView([state.lat, state.lon], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png',
+        { maxZoom: 18, attribution: '© OpenStreetMap France' }).addTo(Map_.map);
+    L.control.zoom({ position: 'bottomright' }).addTo(Map_.map);
+
+    Map_.marker = L.marker([state.lat, state.lon], { draggable: true, zIndexOffset: 1000 }).addTo(Map_.map);
+    Map_.marker.on('dragend', () => {
+        const ll = Map_.marker.getLatLng();
+        setLocation(ll.lat, ll.lng, `${ll.lat.toFixed(3)}, ${ll.lng.toFixed(3)}`);
+    });
+
+    Map_.radius = L.circle([state.lat, state.lon], {
+        radius: 5000, color: '#2d5a3a', weight: 2, dashArray: '6 6',
+        fillColor: '#2d5a3a', fillOpacity: 0.07, interactive: false
+    }).addTo(Map_.map);
+    Map_.radius.bindTooltip('Rayon de recherche : 5 km', { permanent: true, direction: 'center', className: 'mt-tooltip' });
+
+    Map_.map.on('click', e => Map_.clickHandlers.forEach(h => h(e)));
+    Map_.ready = true;
+    if (window.ResizeObserver) {
+        new ResizeObserver(() => { try { Map_.map && Map_.map.invalidateSize(); } catch (e) {} })
+            .observe(document.getElementById('map'));
+    }
+    window.addEventListener('resize', debounce(() => { try { Map_.map && Map_.map.invalidateSize(); } catch (e) {} }, 250));
+}
+
+function setPickMode(on) {
+    state.pickMode = !!on;
+    const btn = document.getElementById('btn-map-pick');
+    const hint = document.getElementById('pick-hint');
+    const heroBtn = document.getElementById('btn-hero-change');
+    if (btn) { btn.classList.toggle('is-active', state.pickMode); btn.textContent = state.pickMode ? '✕ Annuler' : '🗺 Choisir sur carte'; }
+    if (hint) hint.hidden = !state.pickMode;
+    if (heroBtn) heroBtn.classList.toggle('is-active', state.pickMode);
+    if (Map_.map) Map_.map.getContainer().style.cursor = state.pickMode ? 'crosshair' : '';
+    if (on) document.getElementById('map-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* ============================================================================
+ * 6. LOCATION — sélection d'un lieu (cœur repris de metehop-live Tt)
+ * ==========================================================================*/
+async function setLocation(lat, lon, name, opts = {}) {
+    const seq = ++state.seq;
+    state.lat = lat; state.lon = lon;
+
+    if (Map_.marker && Map_.map) {
+        Map_.map.setView([lat, lon], Map_.map.getZoom());
+        Map_.marker.setLatLng([lat, lon]);
+    }
+    if (Map_.radius) Map_.radius.setLatLng([lat, lon]);
+    if (!state.pickMode) document.getElementById('map').style.cursor = '';
+
+    const isGps = name === 'Ma position';
+    if (!isGps) saveLastLocation(lat, lon, name);
+
+    let finalName = name;
+    if (/^-?\d/.test(String(name)) && String(name).includes(',')) {
+        finalName = await reverseGeocodeName(lat, lon, name);
+        if (seq !== state.seq) return null;
+    }
+    state.name = finalName;
+
+    // L'environnement dépend du lieu : on l'invalide (le météo/altitude suivent aussi).
+    state.env = null;
+    state.results = new Map();
+    state.analyzed = false;
+
+    refreshHero();
+    refreshFavoriteUI();
+    clearOverlays();
+    hideResults();
+
+    // Altitude + conditions du moment (1 requête météo partagée par le modèle)
+    loadAltitude(lat, lon, seq);
+    loadWeatherForHero(lat, lon, seq);
+
+    if (!opts.silent && state.selected.size > 0 && wasAnalyzedOnce()) await runAnalysis();
+    return finalName;
+}
+
+/** Altitude du lieu — un seul point, réutilisé par le modèle de grille. */
+async function loadAltitude(lat, lon, seq) {
+    const el = document.getElementById('place-alt');
+    const v = await getElevations([{ lat, lon }]);
+    if (seq !== undefined && seq !== state.seq) return;
+    const alt = v && typeof v[0] === 'number' ? Math.round(v[0]) : null;
+    state.altitude = alt;
+    if (alt === null) { el.hidden = true; }
+    else { el.hidden = false; el.textContent = alt.toLocaleString('fr-FR') + ' m'; }
+}
+
+let _analyzedOnce = false;
+function wasAnalyzedOnce() { return _analyzedOnce; }
+
+function refreshHero() {
+    document.getElementById('place-title').textContent = state.name || '—';
+    document.getElementById('place-coords').textContent =
+        state.lat.toFixed(4) + '°, ' + state.lon.toFixed(4) + '°';
+    document.getElementById('place-date').textContent =
+        new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+    document.getElementById('place-radius').textContent = 'rayon de recherche : 5 km';
+    const sub = document.getElementById('map-sub');
+    if (sub && !state.analyzed) sub.textContent = `Lieu : ${state.name} — sélectionnez des espèces puis lancez l’analyse.`;
+}
+
+/* ============================================================================
+ * 7. UI — recherche, géolocalisation, favoris (comportement Metehop conservé)
+ * ==========================================================================*/
+function onSearchClick() {
+    const input = document.getElementById('city-input');
+    const q = input.value.trim();
+    if (!q) return;
+    searchPlace(q).then(r => {
+        if (!r) { alert('Ville non trouvée'); return; }
+        setLocation(r.lat, r.lon, r.name);
+        input.value = '';
+    }).catch(() => alert('Recherche échouée'));
+}
+
+function onGeolocateClick() {
+    geolocate((lat, lon, label) => setLocation(lat, lon, label));
+}
+
+function refreshFavoriteUI() {
+    const isGps = state.name === 'Ma position';
+    const isFav = !isGps && isFavAt(state.favorites, state.lat, state.lon);
+    document.querySelectorAll('.btn-favorite').forEach(b => {
+        b.classList.toggle('is-favorite', isFav);
+        b.textContent = isFav ? '★' : '☆';
+        b.disabled = isGps;
+        b.title = isGps ? 'Recherchez une ville pour l’ajouter aux favoris' : (isFav ? 'Retirer des favoris' : 'Ajouter aux favoris');
+    });
+    const hero = document.getElementById('btn-hero-fav');
+    if (hero) {
+        hero.textContent = isFav ? '★ Retirer des favoris' : '☆ Ajouter aux favoris';
+        hero.disabled = isGps;
+        hero.style.opacity = isGps ? .45 : 1;
+    }
+    renderFavoriteChips();
+}
+
+function renderFavoriteChips() {
+    const row = document.getElementById('favorites-chips');
+    if (!row) return;
+    row.innerHTML = '';
+    state.favorites.forEach((f, i) => {
+        const active = Math.abs(f.lat - state.lat) < 0.0005 && Math.abs(f.lon - state.lon) < 0.0005;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'favorite-chip' + (active ? ' active' : '');
+        btn.innerHTML = '<span></span><span class="fav-remove" role="button" aria-label="Retirer">✕</span>';
+        btn.children[0].textContent = f.name;
+        btn.addEventListener('click', () => setLocation(f.lat, f.lon, f.name));
+        btn.children[1].addEventListener('click', ev => {
+            ev.stopPropagation();
+            const nx = state.favorites.slice(); nx.splice(i, 1);
+            saveFavorites(nx); state.favorites = nx; refreshFavoriteUI();
+        });
+        row.appendChild(btn);
+    });
+}
+
+function toggleFavorite() {
+    if (state.name === 'Ma position') return;
+    if (isFavAt(state.favorites, state.lat, state.lon)) {
+        state.favorites = state.favorites.filter(f =>
+            !(Math.abs(f.lat - state.lat) < 0.0005 && Math.abs(f.lon - state.lon) < 0.0005));
+        saveFavorites(state.favorites);
+        refreshFavoriteUI();
+        return;
+    }
+    openFavDialog(state.lat, state.lon, state.name);
+}
+
+function offerFavorite(lat, lon, name) {
+    if (typeof name !== 'string' || !name.trim()) return;
+    if (isFavAt(state.favorites, lat, lon)) return;
+    openFavDialog(lat, lon, name);
+}
+
+let favDlg = null, favName = '';
+function openFavDialog(lat, lon, name) {
+    favDlg = { lat, lon };
+    favName = (typeof name === 'string' && name.trim()) ? name.trim() : '';
+    document.getElementById('fav-dialog-sub').textContent = lat.toFixed(4) + '°, ' + lon.toFixed(4) + '°';
+    const input = document.getElementById('fav-name-input');
+    input.value = favName;
+    document.getElementById('fav-overlay').hidden = false;
+    setTimeout(() => input.focus(), 30);
+}
+function closeFavDialog() { favDlg = null; document.getElementById('fav-overlay').hidden = true; }
+function confirmFav() {
+    if (!favDlg) return;
+    const nm = (document.getElementById('fav-name-input').value || '').trim() || state.name;
+    if (isFavAt(state.favorites, favDlg.lat, favDlg.lon)) { closeFavDialog(); return; }
+    if (state.favorites.length >= FAVORITES_MAX) {
+        alert(`Vous pouvez enregistrer au maximum ${FAVORITES_MAX} favoris. Retirez-en un avant d'en ajouter un nouveau.`);
+        return;
+    }
+    state.favorites = state.favorites.concat([{ lat: favDlg.lat, lon: favDlg.lon, name: nm }]);
+    saveFavorites(state.favorites);
+    refreshFavoriteUI();
+    closeFavDialog();
+}
+
+/* ============================================================================
+ * 8. MUSHROOM DATABASE — les 10 espèces
+ * -----------------------------------------------------------------------------
+ * SOURCE : module « CARTE DES CHAMPIGNONS — 10 espèces les plus ramassées en
+ * France (23/09/2026) » de index_last_26092026.html. Les paramètres
+ * écologiques (hosts, symbiotic, forest, soil, soilTol, leafPref, slopeDeg,
+ * aspect, hydro, tpi, altM, months, frostHardy, metrics) sont repris À L'IDENTIQUE
+ * : ce sont eux qui alimentent le calcul — aucune préférence n'a été inventée.
+ * Les champs de présentation demandés (scientificName, emoji, description,
+ * habitat, preferredTrees, soilPreferences, moisturePreferences,
+ * altitudeRange, temperaturePreferences, season) sont DÉRIVÉS de ces mêmes
+ * paramètres source, jamais inventés :
+ *   - description  = « metrics » de la fiche source (texte inchangé) ;
+ *   - habitat       = forest + tpi + aspect + slopeDeg ;
+ *   - preferredTrees= traduction des codes d'arbres hôtes (hosts) ;
+ *   - soilPreferences    = soil[] + soilTol ;
+ *   - moisturePreferences= hydro ('dry' | 'mesic' | 'wet') ;
+ *   - altitudeRange = altM ;
+ *   - season        = months ;
+ *   - temperaturePreferences = DÉRIVÉ à l'analyse : bande de température
+ *     correspondant à altM via le gradient thermique vertical standard
+ *     (6,5 °C/km) et la température réellement mesurée sur place — aucune
+ *     valeur de température n'est inventée par espèce.
+ * ==========================================================================*/
+const TREE_NAMES = {
+    quercus: 'chêne', chene: 'chêne', fagus: 'hêtre', hetre: 'hêtre',
+    picea: 'épicéa', epicea: 'épicéa', abies: 'sapin', sapin: 'sapin',
+    castanea: 'châtaignier', chat: 'châtaignier', pinus: 'pin', pin: 'pin',
+    salix: 'saule', saule: 'saule', populus: 'peuplier', peuplier: 'peuplier',
+    fraxinus: 'frêne', frene: 'frêne'
+};
+const MONTHS_SHORT = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+const MONTHS_LONG = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+const HYDRO_LABEL = { dry: 'sec à frais', mesic: 'frais (mesique)', wet: 'humide à très humide' };
+const FOREST_LABEL = { 'true': 'sous-bois / forêt', 'false': 'prairie ouverte', 'edge': 'lisière, terrain dégagé' };
+const LAPSE_PER_M = 0.0065;   // gradient thermique standard : 6,5 °C/km (constante, pas une donnée d'espèce)
+
+function seasonLabelOf(months) {
+    if (!months || !months.length) return '';
+    const set = new Set(months);
+    let start = months[0];
+    for (const m of months) { if (!set.has(m === 1 ? 12 : m - 1)) { start = m; break; } }
+    const seq = []; let cur = start;
+    for (let k = 0; k < 12; k++) {
+        seq.push(cur);
+        const nx = cur === 12 ? 1 : cur + 1;
+        if (!set.has(nx)) break;
+        cur = nx;
+    }
+    if (seq.length === 1) return MONTHS_SHORT[seq[0] - 1];
+    return MONTHS_SHORT[seq[0] - 1] + '–' + MONTHS_SHORT[seq[seq.length - 1] - 1];
+}
+function phLabel(a, b) {
+    const mid = (a + b) / 2;
+    const q = mid < 5.2 ? 'très acide' : mid < 6.2 ? 'acide' : mid < 6.8 ? 'subacide' : mid < 7.3 ? 'neutre' : 'calcaire';
+    return 'pH ' + String(a).replace('.', ',') + '–' + String(b).replace('.', ',') + ' (' + q + ')';
+}
+function habitatLabelOf(sp) {
+    const cover = sp.forest === true ? 'sous-bois / forêt'
+        : sp.forest === false ? 'prairie ouverte' : 'lisière, terrain dégagé';
+    const pos = sp.tpi === 'cuvette' ? 'cuvettes et fonds de vallon'
+        : sp.tpi === 'versant' ? 'versants réguliers' : 'toute position dans le relief';
+    const asp = sp.aspect === 'n' ? 'exposition fraîche N' : sp.aspect === 's' ? 'exposition chaude S' : 'exposition indifférente';
+    return cover + ' · ' + pos + ' · ' + asp + ' · pentes ' + sp.slopeDeg[0] + '–' + sp.slopeDeg[1] + '°';
+}
+function preferredTreesOf(sp) {
+    const seen = new Set(), out = [];
+    (sp.hosts || []).forEach(code => {
+        const n = TREE_NAMES[code];
+        if (n && !seen.has(n)) { seen.add(n); out.push(n); }
+    });
+    if (!out.length) return sp.symbiotic ? [] : ['aucun hôte obligatoire (saprophyte)'];
+    return out;
+}
+
+const MUSHROOM_SPECIES = [
+    {
+        id: 'mush-cepe', name: 'Cèpe de Bordeaux', sci: 'Boletus edulis', color: '#8b5e3c', emoji: '🍄',
+        hosts: ['quercus', 'chene', 'fagus', 'hetre', 'picea', 'epicea', 'abies', 'sapin', 'castanea', 'chat'],
+        symbiotic: true, forest: true, soil: [4.5, 6.5], soilTol: 0.9, leafPref: 'mixed',
+        slopeDeg: [5, 30], aspect: 'n', hydro: 'mesic', tpi: 'versant', altM: [0, 1800],
+        months: [8, 9, 10, 11], metrics: 'Symbiose : chênes, hêtres, épicéas, sapins · sol acide bien drainé (pH 4,5–6,5) · versants frais N/NE, pentes 5–30° bien égouttées · 0–1800 m (optimum 400–1200) · poussée 8–14 j après 30–50 mm de pluie (sept.–nov.).'
+    },
+    {
+        id: 'mush-girolle', name: 'Girolle', sci: 'Cantharellus cibarius', color: '#e9c46a', emoji: '🌼',
+        hosts: ['fagus', 'hetre', 'quercus', 'chene', 'pinus', 'pin', 'abies', 'sapin', 'picea', 'epicea'],
+        symbiotic: true, forest: true, soil: [4.5, 6.5], soilTol: 1.0, leafPref: 'mixed',
+        slopeDeg: [0, 25], aspect: 'any', hydro: 'mesic', tpi: 'any', altM: [0, 1500],
+        months: [7, 8, 9, 10, 11], metrics: 'Symbiose très polyvalente (hêtre, chêne, pin, sapin) · sol acide · sous-bois bien développé, mousse et litière fraîche, mi-ombre · 0–1500 m · juil.–nov., pic sept.–oct.'
+    },
+    {
+        id: 'mush-trompette', name: 'Trompette des morts', sci: 'Craterellus cornucopioides', color: '#4a3f6b', emoji: '🎺',
+        hosts: ['quercus', 'chene', 'fagus', 'hetre', 'castanea', 'chat'],
+        symbiotic: true, forest: true, soil: [4.5, 6.5], soilTol: 1.0, leafPref: 'broadleaf',
+        slopeDeg: [0, 25], aspect: 'n', hydro: 'wet', tpi: 'cuvette', altM: [0, 1200],
+        months: [10, 11, 12], metrics: 'Symbiose : chênes et hêtres, sous-bois humide · sol acide · cuvettes et bas de versant qui restent frais · après la chute des feuilles (nov.–déc.), jusqu\'aux premières gelées.'
+    },
+    {
+        id: 'mush-piedmouton', name: 'Pied de mouton', sci: 'Hydnum repandum', color: '#cbb88f', emoji: '🐑',
+        hosts: ['quercus', 'chene', 'fagus', 'hetre', 'pinus', 'pin', 'abies', 'sapin'],
+        symbiotic: true, forest: true, soil: [5.0, 7.2], soilTol: 1.1, leafPref: 'mixed', frostHardy: true,
+        slopeDeg: [0, 20], aspect: 'any', hydro: 'mesic', tpi: 'any', altM: [0, 1200],
+        months: [10, 11, 12, 1], metrics: 'Symbiose : chêne, hêtre, pin · sol acide à légèrement neutre · pentes douces et lisières bien éclairées · très résistant au gel (jusqu\'à −3 °C) · oct.–janv.'
+    },
+    {
+        id: 'mush-lactaire', name: 'Lactaire délicieux', sci: 'Lactarius deliciosus', color: '#c1440e', emoji: '🥕',
+        hosts: ['pinus', 'pin', 'picea', 'epicea', 'abies', 'sapin'],
+        symbiotic: true, forest: true, soil: [4.5, 6.5], soilTol: 0.9, leafPref: 'conifer',
+        slopeDeg: [5, 30], aspect: 'n', hydro: 'mesic', tpi: 'versant', altM: [200, 1500],
+        months: [8, 9, 10, 11], metrics: 'Symbiose : pins, épicéas, sapins (résineux) · sol acide · versants bien drainés 200–1500 m · poussée après pluies régulières d\'automne (sept.–nov.).'
+    },
+    {
+        id: 'mush-morille', name: 'Morille', sci: 'Morchella esculenta', color: '#6b7a4f', emoji: '🧺',
+        hosts: ['quercus', 'chene', 'pinus', 'pin', 'salix', 'saule', 'populus', 'peuplier'],
+        symbiotic: false, forest: 'edge', soil: [6.2, 7.5], soilTol: 0.8,
+        slopeDeg: [0, 20], aspect: 's', hydro: 'dry', tpi: 'any', altM: [0, 1200],
+        months: [3, 4, 5], metrics: 'Printemps : chênes, pins, saules, ourlets · sol neutre à calcaire (brun calcique), bien réchauffé · lisières et clairières en S/O, sols secs exposés au soleil · 0–1200 m · mars–mai après houles douces.'
+    },
+    {
+        id: 'mush-pleurote', name: 'Pleurote en huit', sci: 'Pleurotus ostreatus', color: '#9e958b', emoji: '🪵',
+        hosts: ['populus', 'peuplier', 'salix', 'saule', 'fagus', 'hetre', 'quercus', 'chene', 'fraxinus', 'frene'],
+        symbiotic: false, forest: true, soil: [5.5, 7.5], soilTol: 1.3,
+        slopeDeg: [0, 12], aspect: 'n', hydro: 'wet', tpi: 'cuvette', altM: [0, 1000],
+        months: [12, 1, 2, 3, 4], metrics: 'Saprophyte sur bois mort : peuplier, saule, hêtre, chêne · ripisylves et cuvettes fraîches, humidité > 80 % · bords de cours d\'eau, fonds de vallon · automne–hiver (sept.–avr.).'
+    },
+    {
+        id: 'mush-coulemelle', name: 'Coulemelle', sci: 'Macrolepiota procera', color: '#ede4d3', emoji: '🎩',
+        hosts: [],
+        symbiotic: false, forest: 'edge', soil: [6.2, 7.4], soilTol: 1.0,
+        slopeDeg: [0, 12], aspect: 'any', hydro: 'mesic', tpi: 'any', altM: [0, 900],
+        months: [6, 7, 8, 9, 10, 11], metrics: 'Saprophyte des prairies, lisières et haies (ancienne « lépiote élevée ») · sol neutre riche en humus · terrain dégagé ou lisière de bois clair, jamais sous couvert dense · mai–nov.'
+    },
+    {
+        id: 'mush-rose', name: 'Rosé des prés', sci: 'Agaricus campestris', color: '#e0669a', emoji: '🌸',
+        hosts: [],
+        symbiotic: false, forest: false, soil: [6.5, 7.8], soilTol: 1.0,
+        slopeDeg: [0, 10], aspect: 's', hydro: 'mesic', tpi: 'any', altM: [0, 800],
+        months: [5, 6, 7, 8, 9, 10], metrics: 'Prairies et pâtures non fertilisées, sols neutres à calcaires · terrain ouvert (jamais sous bois) · colonies en cercle, humide au printemps puis après pluies d\'été · avr.–nov.'
+    },
+    {
+        // Ajoutée le 23/09/2026 à la place du Coprin chevelu — espèce distincte de la
+        // girolle (Cantharellus cibius) : la « chanterelle » des résineux de montagne.
+        id: 'mush-chanterelle', name: 'Chanterelle en tube', sci: 'Cantharellus tubaeformis', color: '#b07d2b', emoji: '🌲',
+        hosts: ['picea', 'epicea', 'abies', 'sapin', 'pinus', 'pin'],
+        symbiotic: true, forest: true, soil: [3.5, 5.5], soilTol: 1.0, leafPref: 'conifer', frostHardy: true,
+        slopeDeg: [0, 25], aspect: 'n', hydro: 'wet', tpi: 'any', altM: [200, 2000],
+        months: [8, 9, 10, 11, 12, 1], metrics: 'Symbiose : épicéas, sapins, pins (résineux de montagne) · sol acide, mousseux et humide · sous-bois d\'épicéa, cuvettes fraîches, landes à myrtilles · 200–2000 m · août–janvier, pic sept.–nov., fructifie aussi en hiver doux.'
+    }
+];
+
+// Champs de présentation DÉRIVÉS (aucune donnée écologique ajoutée).
+MUSHROOM_SPECIES.forEach(sp => {
+    sp.scientificName = sp.sci;
+    sp.description = sp.metrics;
+    sp.habitat = habitatLabelOf(sp);
+    sp.preferredTrees = preferredTreesOf(sp);
+    sp.soilPreferences = { range: sp.soil, tolerance: sp.soilTol, label: phLabel(sp.soil[0], sp.soil[1]) };
+    sp.moisturePreferences = { key: sp.hydro, label: HYDRO_LABEL[sp.hydro] || sp.hydro };
+    sp.altitudeRange = sp.altM;
+    sp.season = sp.months;
+    sp.seasonLabel = seasonLabelOf(sp.months);
+    sp.temperaturePreferences = { basis: 'dérivé de altitudeRange (gradient 6,5 °C/km) + température mesurée', window: null };
+});
+function getSpecies(id) { return MUSHROOM_SPECIES.find(s => s.id === id) || null; }
+
+/* ============================================================================
+ * 9. ENVIRONMENT DATA — relevés du lieu (indépendants de l'espèce et du jour)
+ * ---------------------------------------------------------------------------
+ * 4 fournisseurs, tous avec cache et requêtes groupées :
+ *   MNT   Open-Meteo Elevation  — max 100 points/requête (testé : 101 => HTTP 400)
+ *   Sol   SoilGrids/ISRIC       — 1 point/requête (GET uniquement : POST => 405)
+ *   Météo Open-Meteo Forecast   — 1 appel fusionné (past_days=10, forecast_days=16)
+ *   Couvert Overpass OSM        — 2 requêtes parallèles (géométrie / bâti-cultivé)
+ * Inconnu => facteur "neutre" (0.6) et drapeau "missing" : jamais de donnée
+ * fabriquée (§18).
+ * ==========================================================================*/
+
+const ELEV_URL = 'https://api.open-meteo.com/v1/elevation';
+const SOIL_URL = 'https://rest.isric.org/soilgrids/v2.0/properties/query';
+const WX_URL = 'https://api.open-meteo.com/v1/forecast';
+const TTL_ELEV = 30 * 864e5;     // 30 j — le MNT ne change pas
+const TTL_SOIL = 30 * 864e5;     // 30 j — SoilGrids quasi figé
+const TTL_WX = 36e5;             // 60 min
+const OV_HOSTS = [
+    'https://overpass-api.de/api/interpreter',
+    'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
+    'https://overpass.openstreetmap.ru/api/interpreter'
+];
+
+/* ---- 9.1 MNT : réseau de 500 m ------------------------------------------ */
+const elevInflight = new Map();    // pointKey -> Promise<number|null>
+
+function pointKey(lat, lon) { return Math.round(lat * 1e4) + '_' + Math.round(lon * 1e4); }
+
+/** Récupère les altitudes d'une liste de points, par lots de 100 (plafond API),
+ *  avec cache par point et partage des requêtes en vol. */
+async function getElevations(points) {
+    const out = new Array(points.length).fill(null);
+    const pending = [];
+    points.forEach((p, i) => {
+        const k = pointKey(p.lat, p.lon);
+        const hit = Store.get('elev_' + k, TTL_ELEV);
+        if (typeof hit === 'number') { out[i] = hit; return; }
+        const flight = elevInflight.get(k);
+        if (flight) { pending.push({ i, flight }); return; }
+        pending.push({ i, k, lat: p.lat, lon: p.lon, own: true });
+    });
+    const mine = pending.filter(x => x.own);
+    const others = pending.filter(x => x.flight);
+    const chunks = [];
+    for (let i = 0; i < mine.length; i += 100) chunks.push(mine.slice(i, i + 100));
+    // Parallélisation bornée + nouvelle tentative avec backoff court : Open-Meteo
+    // peut renvoyer 429 en cas de pic. Un repli sur Open-Elevation (autre
+    // fournisseur, même principe de requête groupée) évite de bloquer
+    // longtemps l'analyse si Open-Meteo est indisponible ou saturé.
+    await mapLimit(chunks, 3, async chunk => {
+        const url = ELEV_URL + '?latitude=' + chunk.map(c => c.lat.toFixed(5)).join(',') +
+            '&longitude=' + chunk.map(c => c.lon.toFixed(5)).join(',');
+        let arr = [];
+        const backoff = [0, 3000, 7000];
+        for (let attempt = 0; attempt < backoff.length && !arr.length; attempt++) {
+            if (backoff[attempt]) await new Promise(r => setTimeout(r, backoff[attempt]));
+            const j = await fetchJSONCached(url, { ttlMs: TTL_ELEV, timeout: 12000, big: false });
+            if (j && Array.isArray(j.elevation) && j.elevation.length) arr = j.elevation;
+        }
+        if (!arr.length) arr = await getElevationsFallback(chunk) || [];
+        chunk.forEach((c, n) => {
+            const v = arr[n];
+            const ok = typeof v === 'number' && isFinite(v) && v > -500 && v < 9000;
+            if (ok) { out[c.i] = v; Store.set('elev_' + c.k, v); }
+        });
+    });
+    await Promise.all(others.map(o => o.flight.then(v => { out[o.i] = v; }).catch(() => {})));
+    return out;
+}
+
+const ELEV_FALLBACK_URL = 'https://api.open-elevation.com/api/v1/lookup';
+
+/** Repli MNT si Open-Meteo échoue : Open-Elevation, même principe de lot
+ *  groupé, appelé une seule fois (pas de boucle de relance : sert déjà de
+ *  filet de secours après les tentatives sur la source principale). */
+async function getElevationsFallback(chunk) {
+    try {
+        const body = JSON.stringify({ locations: chunk.map(c => ({ latitude: c.lat, longitude: c.lon })) });
+        const res = await fetchWithTimeout(ELEV_FALLBACK_URL, {
+            method: 'POST', timeout: 15000,
+            headers: { 'Content-Type': 'application/json' }, body
+        });
+        if (!res || !res.ok) return null;
+        const j = await res.json();
+        if (!j || !Array.isArray(j.results)) return null;
+        return j.results.map(r => (r && typeof r.elevation === 'number') ? r.elevation : null);
+    } catch (e) { return null; }
+}
+
+/** Specification du reseau : pas de 500 m en lat/lon, demi-etendue 5500 m
+ *  (disque 5 km + marge pour les derivees aux bords).
+ *  Le pas est de 500 m (et non 250 m) car Open-Meteo n'autorise que ~7
+ *  requetes "Elevation" par minute, plafonnees a 100 coordonnees par requete :
+ *  23x23 = 529 points = 6 requetes. L'altitude reste mesuree sur le reseau,
+ *  les derivees (pente, exposition, TPI) sont calculees sur l'interpolation
+ *  bilineaire, continue et a pente constante par maille. */
+function latticeSpec(lat) {
+    const stepM = 500;
+    const dLat = stepM / 111320;
+    const dLon = stepM / (111320 * Math.cos(lat * Math.PI / 180));
+    const half = 11;                       // 11 x 500 m = 5500 m
+    return { stepM, dLat, dLon, half, n: 2 * half + 1 };
+}
+
+/** Construit le reseau MNT complet du lieu (23x23 = 529 pts => 6 requetes). */
+async function getElevationLattice(lat0, lon0) {
+    const spec = latticeSpec(lat0);
+    const pts = [];
+    for (let a = -spec.half; a <= spec.half; a++)
+        for (let b = -spec.half; b <= spec.half; b++)
+            pts.push({ lat: lat0 + a * spec.dLat, lon: lon0 + b * spec.dLon });
+    const vals = await getElevations(pts);
+    let ok = 0;
+    const arr = new Float32Array(pts.length);
+    for (let i = 0; i < pts.length; i++) {
+        if (vals[i] === null) { arr[i] = NaN; } else { arr[i] = vals[i]; ok++; }
+    }
+    // combler les trous par le voisin connu le plus proche (jamais d'altitude fabriquée :
+    // on recopie une mesure réelle, comme le repli de la source)
+    const known = [];
+    for (let i = 0; i < arr.length; i++) if (!isNaN(arr[i])) known.push(i);
+    if (known.length && ok < arr.length) {
+        for (let i = 0; i < arr.length; i++) {
+            if (!isNaN(arr[i])) continue;
+            const ai = Math.floor(i / spec.n), bi = i % spec.n;
+            let best = -1, bd = Infinity;
+            for (const j of known) {
+                const dj = Math.floor(j / spec.n) - ai, dk = (j % spec.n) - bi;
+                const d = dj * dj + dk * dk;
+                if (d < bd) { bd = d; best = j; }
+            }
+            arr[i] = arr[best];
+        }
+        ok = arr.length;
+    }
+    if (!known.length) return null;
+    return { spec, lat0, lon0, elev: arr, okCount: ok, total: arr.length };
+}
+
+/** Altitude par interpolation bilinéaire à partir de décalages métriques (N/E). */
+function elevAtM(L, dNorthM, dEastM) {
+    if (!L) return null;
+    const s = L.spec;
+    const ga = dNorthM / s.stepM, gb = dEastM / s.stepM;
+    const a0 = Math.max(-s.half, Math.min(s.half, Math.floor(ga)));
+    const b0 = Math.max(-s.half, Math.min(s.half, Math.floor(gb)));
+    const a1 = Math.min(s.half, a0 + 1), b1 = Math.min(s.half, b0 + 1);
+    const fa = Math.max(0, Math.min(1, ga - a0)), fb = Math.max(0, Math.min(1, gb - b0));
+    const g = (a, b) => L.elev[(a + s.half) * s.n + (b + s.half)];
+    const z00 = g(a0, b0), z01 = g(a0, b1), z10 = g(a1, b0), z11 = g(a1, b1);
+    if (isNaN(z00) || isNaN(z01) || isNaN(z10) || isNaN(z11)) return null;
+    return (z00 * (1 - fb) + z01 * fb) * (1 - fa) + (z10 * (1 - fb) + z11 * fb) * fa;
+}
+
+/** Altitude exacte au centre d'une case grossière (nœud pair du réseau). */
+function elevAtNode(L, a, b) {
+    if (!L) return null;
+    const s = L.spec;
+    const aa = Math.max(-s.half, Math.min(s.half, a));
+    const bb = Math.max(-s.half, Math.min(s.half, b));
+    const v = L.elev[(aa + s.half) * s.n + (bb + s.half)];
+    return isNaN(v) ? null : v;
+}
+
+/** Relief local : pente (°), exposition (0=N), humidité d'exposition et TPI.
+ *  Dérivées sur le réseau 500 m ; TPI = case − moyenne des 8 voisins à 500 m
+ *  (échelle métrique fixe : identique au niveau grossier et au niveau fin). */
+function reliefAt(L, dNorthM, dEastM) {
+    const res = { alt: null, slopeDeg: 0, aspectDeg: null, aspectMoist: 0.5, tpi: 0 };
+    if (!L) return res;
+    const alt = elevAtM(L, dNorthM, dEastM);
+    if (alt === null) return res;
+    res.alt = alt;
+    const zm = elevAtM(L, dNorthM, dEastM - 250), zp = elevAtM(L, dNorthM, dEastM + 250);
+    const zn = elevAtM(L, dNorthM + 250, dEastM), zs = elevAtM(L, dNorthM - 250, dEastM);
+    if (zm !== null && zp !== null && zn !== null && zs !== null) {
+        const dzdE = (zp - zm) / 500;
+        const dzdN = (zn - zs) / 500;
+        res.slopeDeg = Math.atan(Math.hypot(dzdE, dzdN)) * 180 / Math.PI;
+        res.aspectDeg = (Math.atan2(-dzdE, -dzdN) * 180 / Math.PI + 360) % 360;
+        res.aspectMoist = 0.5 + 0.5 * Math.cos(res.aspectDeg * Math.PI / 180);
+    }
+    const offs = [[-500, -500], [-500, 0], [-500, 500], [0, -500],
+                  [0, 500], [500, -500], [500, 0], [500, 500]];
+    let sum = 0, cnt = 0;
+    for (const o of offs) {
+        const z = elevAtM(L, dNorthM + o[0], dEastM + o[1]);
+        if (z !== null) { sum += z; cnt++; }
+    }
+    res.tpi = cnt ? alt - sum / cnt : 0;
+    return res;
+}
+
+/* ---- 9.2 Sol : pH + texture (SoilGrids / ISRIC) -------------------------- */
+/** Parseur robuste : l'API ne renvoie plus `values` mais `properties.layers[]`,
+ *  chaque couche portant ses profondeurs et un d_factor (pH×10, g/kg, etc.). */
+function parseSoilLayer(json, name) {
+    if (!json) return null;
+    try {
+        const layers = json.properties && json.properties.layers;
+        if (Array.isArray(layers)) {
+            const layer = layers.find(l => l && l.name === name) || layers[0];
+            if (layer && Array.isArray(layer.depths)) {
+                const df = (layer.unit_measure && layer.unit_measure.d_factor) || 1;
+                const keep = layer.depths.filter(d => d && d.range && d.range.bottom_depth <= 30);
+                const use = keep.length ? keep : layer.depths;
+                let sum = 0, n = 0;
+                use.forEach(d => {
+                    const v = d.values && (typeof d.values.mean === 'number' ? d.values.mean :
+                        (typeof d.values['Q0.5'] === 'number' ? d.values['Q0.5'] : null));
+                    if (typeof v === 'number' && isFinite(v)) { sum += v / df; n++; }
+                });
+                if (n) return sum / n;
+            }
+        }
+        // ancien format : { values: { "0": { mean: [ [643] ] } } }
+        const vals = json.values;
+        if (vals) {
+            const first = vals[Object.keys(vals)[0]];
+            let m = first && first.mean;
+            while (Array.isArray(m)) m = m[0];
+            if (typeof m === 'number' && isFinite(m)) return m > 14 ? m / 10 : m;
+        }
+    } catch (e) {}
+    return null;
+}
+const soilPhOf = j => parseSoilLayer(j, 'phh2o');
+const soilNumOf = (j, n) => parseSoilLayer(j, n);
+
+async function getSoilPoint(lat, lon, props) {
+    const key = 'soil_' + pointKey(lat, lon) + '_' + (props || 'phh2o');
+    const hit = Store.get(key, TTL_SOIL);
+    if (hit !== undefined) return hit;
+    let url = SOIL_URL + '?lon=' + lon.toFixed(5) + '&lat=' + lat.toFixed(5);
+    (props || 'phh2o').split(',').forEach(p => { url += '&property=' + p; });
+    const j = await retryAsync(
+        () => fetchJSONCached(url, { ttlMs: TTL_SOIL, timeout: 20000 }),
+        1, 2000
+    );
+    if (!j) return { ph: null };   // échec réseau : jamais mis en cache (on retentera au prochain lancement)
+    const res = { ph: soilPhOf(j), sand: soilNumOf(j, 'sand'), silt: soilNumOf(j, 'silt'), clay: soilNumOf(j, 'clay'), soc: soilNumOf(j, 'soc') };
+    Store.set(key, res);
+    return res;
+}
+
+/** 9 sondes 3×3 étalées à ±0,85 des demi-bords du disque (méthode source
+ *  appliquée à notre domaine de 5 km => ±4,25 km), interpolées en IDW. */
+async function getSoilField(lat, lon, dLat, dLon) {
+    const pts = [];
+    [-0.85, 0, 0.85].forEach(fy => [-0.85, 0, 0.85].forEach(fx => {
+        pts.push({ lat: lat + fy * dLat, lon: lon + fx * dLon });
+    }));
+    const vals = await mapLimit(pts, 4, p => getSoilPoint(p.lat, p.lon, 'phh2o'));
+    const samples = [];
+    vals.forEach((v, i) => {
+        if (v && typeof v.ph === 'number') samples.push({ lat: pts[i].lat, lon: pts[i].lon, ph: v.ph });
+    });
+    return { samples, count: samples.length, ok: samples.length > 0 };
+}
+function phAt(field, lat, lon) {
+    if (!field || !field.samples.length) return null;
+    if (field.samples.length === 1) return field.samples[0].ph;
+    let wSum = 0, vSum = 0;
+    for (const p of field.samples) {
+        const dl = (p.lon - lon) * 111.32 * Math.cos(lat * Math.PI / 180), dn = (p.lat - lat) * 111.32;
+        const d2 = dl * dl + dn * dn;
+        const w = 1 / (d2 + 0.01);
+        wSum += w; vSum += w * p.ph;
+    }
+    return wSum ? vSum / wSum : null;
+}
+
+/* ---- 9.3 Météo : un seul appel fusionné --------------------------------- */
+async function getWeather(lat, lon) {
+    const url = WX_URL + '?latitude=' + lat.toFixed(4) + '&longitude=' + lon.toFixed(4) +
+        '&past_days=10&forecast_days=16' +
+        '&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,wind_direction_10m,soil_moisture_0_to_7cm,soil_temperature_0cm,weather_code' +
+        '&daily=precipitation_sum,temperature_2m_max,temperature_2m_min' +
+        '&hourly=relative_humidity_2m,wind_speed_10m,wind_direction_10m' +
+        '&timezone=auto';
+    const j = await retryAsync(
+        () => fetchJSONCached(url, { ttlMs: TTL_WX, timeout: 15000 }),
+        2, 1500
+    );
+    if (!j || !j.daily || !j.daily.time) return null;
+    const byDate = new Map();
+    const d = j.daily;
+    for (let i = 0; i < d.time.length; i++) {
+        byDate.set(d.time[i], {
+            precip: (d.precipitation_sum || [])[i],
+            tmax: (d.temperature_2m_max || [])[i],
+            tmin: (d.temperature_2m_min || [])[i]
+        });
+    }
+    if (j.hourly && j.hourly.time) {
+        const acc = {};
+        j.hourly.time.forEach((t, i) => {
+            const day = t.slice(0, 10);
+            const a = acc[day] || (acc[day] = { rh: [], ws: [], wd: [] });
+            const rh = (j.hourly.relative_humidity_2m || [])[i];
+            const ws = (j.hourly.wind_speed_10m || [])[i];
+            const wd = (j.hourly.wind_direction_10m || [])[i];
+            if (typeof rh === 'number') a.rh.push(rh);
+            if (typeof ws === 'number') a.ws.push(ws);
+            if (typeof wd === 'number') a.wd.push(wd);
+        });
+        Object.keys(acc).forEach(day => {
+            const r = byDate.get(day) || (byDate.set(day, {}), byDate.get(day));
+            const avg = arr => arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : null;
+            r.hum = avg(acc[day].rh);
+            if (acc[day].ws.length && acc[day].wd.length) {
+                let sx = 0, sy = 0, sw = 0;
+                acc[day].wd.forEach((deg, i) => {
+                    const spd = acc[day].ws[i];
+                    if (typeof spd !== 'number') return;
+                    const rad = deg * Math.PI / 180;
+                    sx += Math.sin(rad) * spd; sy += Math.cos(rad) * spd; sw += spd;
+                });
+                if (sw > 0) {
+                    r.windDirDeg = (Math.atan2(sx, sy) * 180 / Math.PI + 360) % 360;
+                    r.windSpeed = sw / acc[day].wd.length;
+                }
+            }
+        });
+    }
+    return { raw: j, daily: d, byDate, current: j.current || null };
+}
+
+function addDays(iso, n) {
+    return new Date(Date.parse(iso + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10);
+}
+
+/** Mémoire hydrique centrée sur une date — formule exacte de la source
+ *  (0,34·pluie 10 j + 0,22·pluie 7 j + 0,22·température + 0,22·humidité). */
+function hydroForDate(wx, dateISO) {
+    const base = { hydro: 0.5, p10: null, p7: null, hum: null, tMean: null, frostRecent: false, complete: false };
+    if (!wx) return base;
+    const target = Date.parse(dateISO + 'T12:00:00Z');
+    if (!isFinite(target)) return base;
+    let p10 = 0, n10 = 0, tSum = 0, tN = 0, hSum = 0, hN = 0, frost = false;
+    for (let k = 9; k >= 0; k--) {
+        const r = wx.byDate.get(addDays(dateISO, -k));
+        if (!r) continue;
+        if (typeof r.precip === 'number') { p10 += r.precip; n10++; }
+        if (typeof r.tmax === 'number' && typeof r.tmin === 'number') { tSum += (r.tmax + r.tmin) / 2; tN++; }
+        if (typeof r.hum === 'number') { hSum += r.hum; hN++; }
+        if (typeof r.tmin === 'number' && r.tmin <= -2) frost = true;
+    }
+    let p7 = 0, n7 = 0;
+    for (let k = 0; k <= 6; k++) {
+        const r = wx.byDate.get(addDays(dateISO, k));
+        if (r && typeof r.precip === 'number') { p7 += r.precip; n7++; }
+    }
+    if (!n10 && !n7 && !tN && !hN) return base;
+    if (n10 && n10 < 10) p10 = p10 * 10 / n10;
+    if (n7 && n7 < 7) p7 = p7 * 7 / n7;
+    const tMean = tN ? tSum / tN : null;
+    const hum = hN ? hSum / hN : null;
+    let tempOk = 0.3;
+    if (tMean !== null) {
+        if (tMean >= 8 && tMean <= 18) tempOk = 1;
+        else if (tMean > 18 && tMean <= 24) tempOk = 1 - (tMean - 18) / 8;
+        else if (tMean >= 3 && tMean < 8) tempOk = 0.3 + (tMean - 3) / 10;
+        else tempOk = 0.05;
+    }
+    const hydro = clamp(
+        0.34 * clamp(p10 / 45, 0, 1) +
+        0.22 * clamp(p7 / 30, 0, 1) +
+        0.22 * tempOk +
+        0.22 * (hum !== null ? clamp((hum - 65) / 25, 0, 1) : 0.5), 0, 1);
+    return { hydro, p10: n10 ? p10 : null, p7: n7 ? p7 : null, hum, tMean, tempOk, frostRecent: frost, complete: n10 === 10 && n7 === 7 };
+}
+
+/** Vent moyen vectoriel + humidité sur la fenêtre 10 j (pour l'assèchement local). */
+function windForDate(wx, dateISO) {
+    let sx = 0, sy = 0, sw = 0, n = 0;
+    for (let k = 0; k < 10; k++) {
+        const r = wx.byDate.get(addDays(dateISO, -k));
+        if (r && typeof r.windSpeed === 'number' && typeof r.windDirDeg === 'number') {
+            const rad = r.windDirDeg * Math.PI / 180;
+            sx += Math.sin(rad) * r.windSpeed; sy += Math.cos(rad) * r.windSpeed; sw += r.windSpeed; n++;
+        }
+    }
+    if (!n || !sw) return { windDirDeg: 0, windSpeed: 0 };
+    return { windDirDeg: (Math.atan2(sx, sy) * 180 / Math.PI + 360) % 360, windSpeed: sw / n };
+}
+
+/* ---- 9.4 Couvert OSM (Overpass) ----------------------------------------- */
+function buildOverpassQuery(bb, kind) {
+    const K = {
+        cover: '[out:json][timeout:30];(' +
+            'way["landuse"~"^(forest|meadow|grassland|grass)$"]' + bb + ';' +
+            'way["natural"~"^(wood|scrub)$"]' + bb + ';' +
+            'way["leisure"="park"]' + bb + ';' +
+            'relation["landuse"~"^(forest|meadow|grassland|grass)$"]' + bb + ';' +
+            'relation["natural"~"^(wood|scrub)$"]' + bb + ';' +
+            'relation["leisure"="park"]' + bb + ';' +
+            'way["highway"~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|track|service)$"]' + bb + ';' +
+            'way["railway"~"^(rail|light_rail|tram|narrow_gauge)$"]' + bb + ';' +
+            ');out geom 3000;',
+        use: '[out:json][timeout:30];(' +
+            'way["landuse"~"^(farmland|orchard|vineyard|allotments)$"]' + bb + ';' +
+            'relation["landuse"~"^(farmland|orchard|vineyard|allotments)$"]' + bb + ';' +
+            'way["landuse"~"^(residential|industrial|commercial|retail)$"]' + bb + ';' +
+            'relation["landuse"~"^(residential|industrial|commercial|retail)$"]' + bb + ';' +
+            ');out geom 2000;'
+    };
+    return K[kind];
+}
+
+/** Requête Overpass : POST (le GET est bloqué par CORS sur plusieurs miroirs). */
+async function overpassRequest(query) {
+    const res = await hedgedFetch(host => host, OV_HOSTS, {
+        timeout: 12000, stagger: 450, retries: 1,
+        init: {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'data=' + encodeURIComponent(query)
+        }
+    });
+    if (!res) return null;
+    try { return await res.json(); } catch (e) { return null; }
+}
+
+/** Analyse d'un élément OSM => { kind, ring, speciesStr, leaf, hole }. */
+function pushRings(el, out) {
+    const t = el.tags || {};
+    let kind = null;
+    if (t.landuse === 'forest' || t.natural === 'wood') kind = 'forest';
+    else if (t.landuse === 'meadow' || t.landuse === 'grassland' || t.landuse === 'grass' || t.leisure === 'park' || t.natural === 'scrub') kind = 'open';
+    else if (/^(farmland|orchard|vineyard|allotments)$/.test(t.landuse || '')) kind = 'cult';
+    else if (/^(residential|industrial|commercial|retail)$/.test(t.landuse || '')) kind = 'built';
+    if (!kind) return;
+    const speciesParts = [];
+    ['species', 'genus', 'species:latin', 'natural:species'].forEach(k => {
+        if (t[k]) speciesParts.push(String(t[k]).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
+    });
+    const speciesStr = speciesParts.join(' ');
+    const leaf = typeof t.leaf_type === 'string' ? t.leaf_type.toLowerCase() : '';
+    const add = (ring, hole) => {
+        if (!ring || ring.length < 3) return;
+        let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
+        ring.forEach(p => {
+            if (p.lat < minLat) minLat = p.lat;
+            if (p.lat > maxLat) maxLat = p.lat;
+            if (p.lon < minLon) minLon = p.lon;
+            if (p.lon > maxLon) maxLon = p.lon;
+        });
+        out.polys.push({ ring, kind, speciesStr, leaf, hole: !!hole, minLat, maxLat, minLon, maxLon });
+    };
+    if (el.type === 'way' && Array.isArray(el.geometry)) add(el.geometry, false);
+    else if (el.type === 'relation' && Array.isArray(el.members)) {
+        el.members.forEach(m => { if (m.geometry && m.geometry.length >= 3) add(m.geometry, m.role === 'inner'); });
+    }
+}
+
+async function getLandCover(lat, lon) {
+    const dLat = 5000 / 111320, dLon = 5000 / (111320 * Math.cos(lat * Math.PI / 180));
+    const north = lat + dLat, south = lat - dLat, east = lon + dLon, west = lon - dLon;
+    const bb = '(' + south.toFixed(5) + ',' + west.toFixed(5) + ',' + north.toFixed(5) + ',' + east.toFixed(5) + ')';
+    const [j1, j2] = await Promise.all([
+        overpassRequest(buildOverpassQuery(bb, 'cover')),
+        overpassRequest(buildOverpassQuery(bb, 'use'))
+    ]);
+    const polys = [], roads = [];
+    let elements = 0, truncated = false;
+    [j1, j2].forEach(j => {
+        if (!j || !Array.isArray(j.elements)) return;
+        if (j.remark) truncated = true;
+        j.elements.forEach(el => {
+            elements++;
+            const t = el.tags || {};
+            if (el.type === 'way' && (t.highway || t.railway) && Array.isArray(el.geometry) && el.geometry.length > 1) {
+                const major = t.railway ? true : /^(motorway|trunk|primary|secondary|tertiary)$/.test(t.highway);
+                roads.push({ pts: el.geometry, bufferCells: major ? 2 : 1 });
+                return;
+            }
+            pushRings(el, { polys });
+        });
+    });
+    return { polys, roads, elements, truncated, ok: (j1 || j2) !== null && elements > 0, north, south, east, west };
+}
+
+/* ============================================================================
+ * 10. SPATIAL GRID — grille à 2 niveaux dans un rayon de 5 km
+ * -----------------------------------------------------------------------------
+ * Niveau 1 : 500 m (~317 cases dont le centre tombe dans le disque).
+ * Niveau 2 : sous-cellules 5×5 de 100 m dans les cases promues (score ≥ 35 %).
+ *            Max 317 × 25 = 7925 sous-cellules.
+ * Rendu : un raster 105×105 px (100 m/px, 10 500 m d'envergure) où chaque pixel
+ *            prend le score du niveau 2 si la case parente est promue, sinon le
+ *            score du niveau 1 — une valeur unique par pixel, règle « strictement
+ *            > 50 % » appliquée uniformément, pas de superposition contradictoire.
+ * ==========================================================================*/
+const GRID = {
+    RADIUS_M: 5000, COARSE_M: 500, FINE_M: 100,
+    PROMOTE_MIN: 35, DISPLAY_MIN: 51,
+    PX: 105, HALF_EXT_M: 5250
+};
+
+function pointInRing(lat, lon, ring) {
+    let inside = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const yi = ring[i].lat, xi = ring[i].lon, yj = ring[j].lat, xj = ring[j].lon;
+        if (((yi > lat) !== (yj > lat)) && (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi)) inside = !inside;
+    }
+    return inside;
+}
+
+/** Index spatial des polygones OSM : un seau par tranche de ~500 m, pour que
+ *  chaque test de case ne parcoure que les polygones voisins. */
+function buildPolyIndex(polys, originLat, originLon) {
+    const stepLat = 500 / 111320;
+    const stepLon = 500 / (111320 * Math.cos(originLat * Math.PI / 180));
+    const buckets = new Map();
+    const key = (i, j) => i + '_' + j;
+    polys.forEach((p, idx) => {
+        const i0 = Math.floor((p.minLat - originLat) / stepLat), i1 = Math.floor((p.maxLat - originLat) / stepLat);
+        const j0 = Math.floor((p.minLon - originLon) / stepLon), j1 = Math.floor((p.maxLon - originLon) / stepLon);
+        for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) {
+            const k = key(i, j);
+            let arr = buckets.get(k);
+            if (!arr) { arr = []; buckets.set(k, arr); }
+            arr.push(idx);
+        }
+    });
+    return {
+        buckets,
+        candidates(lat, lon) {
+            const i = Math.floor((lat - originLat) / stepLat), j = Math.floor((lon - originLon) / stepLon);
+            return buckets.get(key(i, j)) || null;
+        }
+    };
+}
+
+/** Vote majoritaire du couvert sur 4 échantillons (comme la source) :
+ *  'forest' | 'open' | 'cult' | 'built', plus l'essence/leaf_type rencontrés. */
+function voteCover(polys, index, lat, lon, dLatSub, dLonSub) {
+    const votes = { forest: 0, open: 0, cult: 0, built: 0 };
+    let speciesStr = '', leaf = '';
+    for (let s = 0; s < 4; s++) {
+        const sLat = lat + (s < 2 ? -1 : 1) * dLatSub;
+        const sLon = lon + (s % 2 === 0 ? -1 : 1) * dLonSub;
+        let sKind = null;
+        const idxs = index ? index.candidates(sLat, sLon) : null;
+        const n = idxs ? idxs.length : 0;
+        for (let t = 0; t < n; t++) {
+            const poly = polys[idxs[t]];
+            if (poly.hole) continue;
+            if (sLat < poly.minLat || sLat > poly.maxLat || sLon < poly.minLon || sLon > poly.maxLon) continue;
+            if (!pointInRing(sLat, sLon, poly.ring)) continue;
+            if (!sKind) sKind = poly.kind;
+            if (poly.speciesStr && !speciesStr) speciesStr = poly.speciesStr;
+            if (poly.leaf && !leaf) leaf = poly.leaf;
+        }
+        if (sKind) {
+            const m = idxs ? idxs.length : 0;
+            for (let t = 0; t < m; t++) {
+                const poly = polys[idxs[t]];
+                if (!poly.hole) continue;
+                if (sLat < poly.minLat || sLat > poly.maxLat || sLon < poly.minLon || sLon > poly.maxLon) continue;
+                if (pointInRing(sLat, sLon, poly.ring)) { sKind = null; break; }
+            }
+        }
+        if (sKind) votes[sKind]++;
+    }
+    let kind = null, best = 1;
+    ['forest', 'open', 'cult', 'built'].forEach(kk => { if (votes[kk] > best) { best = votes[kk]; kind = kk; } });
+    return { kind, speciesStr, leaf };
+}
+
+/** Index pixel (0..104) depuis lat/lon — repère identique au raster de rendu :
+ *  origine au coin SW du carré de 10 500 m, pas de 100 m, centre du pixel i
+ *  à −5200 + 100·i m par rapport au centre de recherche. */
+function pixelIndexFor(lat0, lon0) {
+    const stepLat = GRID.FINE_M / 111320;
+    const stepLon = GRID.FINE_M / (111320 * Math.cos(lat0 * Math.PI / 180));
+    const originLat = lat0 - (GRID.HALF_EXT_M / 111320);
+    const originLon = lon0 - (GRID.HALF_EXT_M / (111320 * Math.cos(lat0 * Math.PI / 180)));
+    return (lat, lon) => {
+        const i = Math.floor((lat - originLat) / stepLat);
+        const j = Math.floor((lon - originLon) / stepLon);
+        if (i < 0 || j < 0 || i >= GRID.PX || j >= GRID.PX) return -1;
+        return i * GRID.PX + j;
+    };
+}
+
+/** Rastérisation des routes/voies ferrées sur le fine 100 m : un tronçon est
+ *  échantillonné tous les 50 m, la case obtenue (+ halo pour les axes majeurs)
+ *  est marquée route. */
+function rasterizeRoads(roads, lat0, lon0) {
+    const set = new Set();
+    const pixelIndex = pixelIndexFor(lat0, lon0);
+    const mark = (lat, lon, buf) => {
+        const p = pixelIndex(lat, lon);
+        if (p < 0) return;
+        const i = Math.floor(p / GRID.PX), j = p % GRID.PX;
+        for (let di = -buf; di <= buf; di++) for (let dj = -buf; dj <= buf; dj++) {
+            const ii = i + di, jj = j + dj;
+            if (ii < 0 || jj < 0 || ii >= GRID.PX || jj >= GRID.PX) continue;
+            set.add(ii * GRID.PX + jj);
+        }
+    };
+    roads.forEach(rw => {
+        for (let s = 0; s < rw.pts.length - 1; s++) {
+            const a = rw.pts[s], b = rw.pts[s + 1];
+            const distM = Math.hypot((b.lat - a.lat) * 111320, (b.lon - a.lon) * 111320 * Math.cos(a.lat * Math.PI / 180));
+            const steps = Math.max(1, Math.ceil(distM / 50));
+            for (let st = 0; st <= steps; st++) {
+                const f = st / steps;
+                mark(a.lat + (b.lat - a.lat) * f, a.lon + (b.lon - a.lon) * f, rw.bufferCells >= 2 ? 1 : 0);
+            }
+        }
+    });
+    return set;
+}
+
+/** Construction complète : niveau 1 -> promotion -> niveau 2. */
+function buildGrid(env) {
+    const lat0 = env.lat, lon0 = env.lon;
+    const dLatC = GRID.COARSE_M / 111320;
+    const dLonC = GRID.COARSE_M / (111320 * Math.cos(lat0 * Math.PI / 180));
+    const dLat5 = GRID.RADIUS_M / 111320;
+    const dLon5 = GRID.RADIUS_M / (111320 * Math.cos(lat0 * Math.PI / 180));
+    const coarse = [];
+    const maxC = Math.ceil(GRID.RADIUS_M / GRID.COARSE_M) + 1;
+    for (let ci = -maxC; ci <= maxC; ci++) {
+        for (let cj = -maxC; cj <= maxC; cj++) {
+            const dN = ci * GRID.COARSE_M, dE = cj * GRID.COARSE_M;
+            if (Math.hypot(dN, dE) > 5400) continue;    // toutes cases parentes des pixels ≤ 5 km
+            coarse.push(makeCell(ci, cj, dN, dE));
+        }
+    }
+
+    function makeCell(ci, cj, dN, dE) {
+        const lat = lat0 + ci * dLatC, lon = lon0 + cj * dLonC;
+        const rel = reliefAt(env.dem, dN, dE);
+        const cand = env.cover ? (env.cover.index.candidates(lat, lon) || null) : null;
+        const dSub = (GRID.COARSE_M / 4) / 111320;
+        const dSubLon = (GRID.COARSE_M / 4) / (111320 * Math.cos(lat * Math.PI / 180));
+        const v = env.cover ? voteCover(env.cover.polys, env.cover.index, lat, lon, dSub, dSubLon)
+            : { kind: null, speciesStr: '', leaf: '' };
+        const pidx = env.pixelIndex(lat, lon);
+        const roadFrac = env.roadFine ? roadFraction(env.roadFine, ci, cj) : 0;
+        const builtPoly = v.kind === 'built';
+        return {
+            ci, cj, dN, dE, lat, lon, pidx,
+            alt: rel.alt, slopeDeg: rel.slopeDeg, aspectDeg: rel.aspectDeg,
+            aspectMoist: rel.aspectMoist, tpi: rel.tpi,
+            kind: v.kind, speciesStr: v.speciesStr, leaf: v.leaf,
+            forest: v.kind === 'forest', open: v.kind === 'open', cult: v.kind === 'cult',
+            roadFrac, built: builtPoly || roadFrac >= 0.5,
+            coverKnown: env.coverKnown,
+            ph: phAt(env.soil, lat, lon),
+            moistStruct: 0.35 * rel.aspectMoist + 0.30 * (1 - clamp(rel.slopeDeg / 30, 0, 1)) +
+                0.35 * clamp(0.5 - rel.tpi / 4, 0, 1),
+            children: null, promoted: false, level: 1
+        };
+    }
+
+    function roadFraction(set, ci, cj) {
+        if (!set || !set.size) return 0;
+        let n = 0;
+        for (let k = -2; k <= 2; k++) for (let l = -2; l <= 2; l++) {
+            const i = ci * 5 + k + 52, j = cj * 5 + l + 52;
+            if (i < 0 || j < 0 || i >= GRID.PX || j >= GRID.PX) continue;
+            if (set.has(i * GRID.PX + j)) n++;
+        }
+        return n / 25;
+    }
+
+    const byKey = new Map();
+    coarse.forEach(c => byKey.set(c.ci + '_' + c.cj, c));
+    return { lat0, lon0, dLatC, dLonC, dLat5, dLon5, coarse, byKey, env, children: new Map() };
+}
+
+/** Promotion des cases grossières (score max des espèces sélectionnées ≥ 35 %)
+ *  puis calcul des 25 sous-cellules 100 m de chacune. */
+function promoteAndRefine(grid, selected) {
+    const env = grid.env;
+    let promoted = 0, fineCount = 0;
+    grid.coarse.forEach(c => {
+        let best = 0;
+        selected.forEach(sp => {
+            const s = scoreCoarse(sp, c, env.ctx);
+            if (s > best) best = s;
+        });
+        c.bestCoarse = best;
+        c.promoted = Math.hypot(c.dN, c.dE) <= GRID.RADIUS_M && best >= GRID.PROMOTE_MIN;
+        if (!c.promoted) return;
+        promoted++;
+        const kids = [];
+        const childIndex = new Map();
+        for (let k = -2; k <= 2; k++) for (let l = -2; l <= 2; l++) {
+            const dN = c.dN + k * GRID.FINE_M, dE = c.dE + l * GRID.FINE_M;
+            if (Math.hypot(dN, dE) > GRID.RADIUS_M) continue;
+            const lat = grid.lat0 + dN / 111320;
+            const lon = grid.lon0 + dE / (111320 * Math.cos(grid.lat0 * Math.PI / 180));
+            const rel = reliefAt(env.dem, dN, dE);
+            const cand = env.cover ? (env.cover.index.candidates(lat, lon) || null) : null;
+            const dSub = (GRID.FINE_M / 4) / 111320;
+            const dSubLon = (GRID.FINE_M / 4) / (111320 * Math.cos(lat * Math.PI / 180));
+            const v = env.cover ? voteCover(env.cover.polys, env.cover.index, lat, lon, dSub, dSubLon)
+                : { kind: null, speciesStr: '', leaf: '' };
+            const pidx = env.pixelIndex(lat, lon);
+            const isRoad = env.roadFine ? env.roadFine.has(pidx) : false;
+            const kid = {
+                ci: c.ci, cj: c.cj, k, l, dN, dE, lat, lon, pidx, level: 2,
+                alt: rel.alt, slopeDeg: rel.slopeDeg, aspectDeg: rel.aspectDeg,
+                aspectMoist: rel.aspectMoist, tpi: rel.tpi,
+                kind: v.kind, speciesStr: v.speciesStr || c.speciesStr, leaf: v.leaf || c.leaf,
+                forest: v.kind === 'forest', open: v.kind === 'open', cult: v.kind === 'cult',
+                built: v.kind === 'built' || isRoad,
+                coverKnown: env.coverKnown,
+                ph: phAt(env.soil, lat, lon),
+                moistStruct: 0.35 * rel.aspectMoist + 0.30 * (1 - clamp(rel.slopeDeg / 30, 0, 1)) +
+                    0.35 * clamp(0.5 - rel.tpi / 4, 0, 1),
+                parent: c, level: 2
+            };
+            kids.push(kid);
+            childIndex.set(k + ',' + l, kid);
+            fineCount++;
+        }
+        c.children = kids;
+        c.childIndex = childIndex;
+    });
+    return { promoted, fineCount };
+}
+
+/** Score (0–100) d'une case grossière — utilisé pour la promotion. */
+function scoreCoarse(sp, c, ctx) { return scoreCell(sp, c, ctx); }
+
+/* ============================================================================
+ * 11. MUSHROOM SCORING — modèle explicatif, repris à l'identique du module
+ * source (pondérations, portes d'habitat, saison, gel, hydrométrie) mais
+ * exprimé en 0–100 % au lieu de 0–4 : score = arrondi(produit × 100).
+ * Chaque facteur est conservé pour être affiché à l'utilisateur (§17/§18).
+ * ==========================================================================*/
+const W = { host: 0.24, land: 0.13, hydro: 0.16, slope: 0.10, aspect: 0.08, soil: 0.12, alt: 0.09, tpi: 0.08 };
+const FACTOR_LABELS = {
+    host: 'Hôte / essence', land: 'Couvert', hydro: 'Hydrométrie', slope: 'Pente',
+    aspect: 'Exposition', soil: 'Sol (pH)', alt: 'Altitude', tpi: 'Position topographique'
+};
+const HYDRO_TARGET = { dry: 0.28, mesic: 0.55, wet: 0.78 };
+
+function seasonFactor(sp, month) {
+    if (sp.months.indexOf(month) !== -1) return { f: 1, label: 'saison active' };
+    const prev = ((month - 2 + 12) % 12) + 1, next = (month % 12) + 1;
+    if (sp.months.indexOf(prev) !== -1 || sp.months.indexOf(next) !== -1) return { f: 0.72, label: 'saison limétrope' };
+    return { f: 0.45, label: 'hors saison' };
+}
+function phScore(ph, sp) {
+    if (ph === null || ph === undefined) return 0.6;              // pH inconnu -> neutre
+    const [a, b] = sp.soil;
+    if (ph >= a && ph <= b) return 1;
+    const d = ph < a ? a - ph : ph - b;
+    return clamp(1 - d / sp.soilTol, 0, 1);
+}
+function slopeScore(s, sp) {
+    const [a, b] = sp.slopeDeg;
+    if (s >= a && s <= b) return 1;
+    const d = s < a ? a - s : s - b;
+    return clamp(1 - d / 10, 0, 1);
+}
+function altScore(alt, sp) {
+    if (alt === null || alt === undefined || typeof alt !== 'number' || isNaN(alt)) return 0.6; // MNT absent
+    const [a, b] = sp.altM;
+    if (alt >= a && alt <= b) return 1;
+    const d = alt < a ? a - alt : alt - b;
+    return clamp(1 - d / 250, 0, 1);
+}
+
+/** Vent local (assèchement) — 0 si l'exposition ou le vent est inconnu. */
+function windExposure(cell, ctx) {
+    if (cell.aspectDeg === null || !ctx.windSpeed) return 0;
+    return Math.max(0, Math.cos((cell.aspectDeg - ctx.windDirDeg) * Math.PI / 180)) * clamp(ctx.windSpeed / 8, 0, 1);
+}
+
+/** Humidité spatiale d'une case : structurel (exposition/pente/cuvette) ×
+ *  mémoire hydrique du jour + texture bornée à ±0,10 (documentée, commune à
+ *  toutes les espèces : ce n'est pas une préférence d'espèce). */
+function cellMoist(cell, ctx) {
+    return clamp((cell.moistStruct - 0.18 * windExposure(cell, ctx)) * (0.55 + 0.45 * ctx.hydro) + ctx.texAdj, 0, 1);
+}
+function applyContext(grid, ctx) {
+    const touch = c => { c.moist = cellMoist(c, ctx); };
+    grid.coarse.forEach(c => { touch(c); if (c.children) c.children.forEach(touch); });
+}
+
+/** Score + détail complet d'une case pour une espèce (facteurs, portes,
+ *  multiplicateurs) : c'est cette structure qui alimente le panneau « pourquoi ». */
+function scoreDetail(sp, cell, ctx) {
+    const coverKnown = cell.coverKnown !== false;
+    const out = {
+        score: 0, built: !!cell.built, coverKnown, parts: [],
+        gate: 1, season: null, globalHyd: 0.70 + 0.30 * ctx.hydro, frost: 1, raw: 0
+    };
+
+    // --- Hôte / essence
+    let hostS, hostTxt;
+    if (!coverKnown) { hostS = sp.symbiotic && sp.hosts.length ? 0.5 : 0.8; hostTxt = 'couvert inconnu'; }
+    else if (!sp.symbiotic || !sp.hosts.length) { hostS = 0.8; hostTxt = 'aucun hôte obligatoire'; }
+    else if (cell.speciesStr) {
+        hostS = 0.2;
+        for (let i = 0; i < sp.hosts.length; i++) if (cell.speciesStr.indexOf(sp.hosts[i]) !== -1) { hostS = 1; break; }
+        hostTxt = hostS === 1 ? 'essence OSM « ' + cell.speciesStr + ' »' : 'essence OSM « ' + cell.speciesStr + ' » sans hôte';
+    } else if (cell.leaf && sp.leafPref && sp.leafPref !== 'mixed') {
+        const wants = sp.leafPref === 'conifer';
+        if (cell.leaf === 'needleleaved') { hostS = wants ? 0.85 : 0.15; hostTxt = 'résineux (' + cell.leaf + ')'; }
+        else if (cell.leaf === 'broadleaved') { hostS = wants ? 0.15 : 0.85; hostTxt = 'feuillus (' + cell.leaf + ')'; }
+        else { hostS = 0.5; hostTxt = 'feuillage mixte'; }
+    } else if (cell.forest) { hostS = 0.62; hostTxt = 'forêt sans essence renseignée'; }
+    else { hostS = 0.15; hostTxt = 'hors forêt'; }
+
+    // --- Couvert
+    let landS, landTxt, gate;
+    const cov = !coverKnown ? 'inconnu' : cell.built ? 'bâti / route' : cell.forest ? 'forêt' :
+        cell.open ? 'prairie' : cell.cult ? 'cultivé' : 'aucun couvert';
+    if (!coverKnown) { landS = 0.5; gate = 1; landTxt = 'couvert inconnu (portes neutralisées)'; }
+    else if (sp.forest === true) {
+        landS = cell.forest ? 1 : (cell.open ? 0.25 : (cell.cult ? 0.15 : 0.1));
+        gate = cell.forest ? 1 : (cell.open ? 0.45 : (cell.cult ? 0.2 : 0.26));
+    } else if (sp.forest === false) {
+        landS = cell.forest ? 0.1 : (cell.cult ? 0.3 : 1);
+        gate = cell.forest ? 0.30 : (cell.cult ? 0.35 : 1);
+    } else {
+        landS = cell.forest ? 0.45 : (cell.open ? 1 : (cell.cult ? 0.4 : 0.7));
+        gate = cell.forest ? 0.55 : (cell.cult ? 0.5 : 1);
+    }
+    landTxt = cov + (coverKnown ? '' : '');
+
+    // --- Autres facteurs
+    const target = HYDRO_TARGET[sp.hydro];
+    // Humidit� structurale : calcul�e � la vol�e si le contexte n'a pas encore
+    // �t� appliqu� (promotion des cases AVANT analyzeGrid).
+    const moist = (typeof cell.moist === 'number' && !isNaN(cell.moist)) ? cell.moist : cellMoist(cell, ctx);
+    const hydroS = clamp(1 - Math.abs(moist - target) / 0.4, 0, 1);
+    const slopeS = slopeScore(cell.slopeDeg, sp);
+    let aspectS = 0.75;
+    if (sp.aspect === 'n') aspectS = cell.aspectMoist;
+    else if (sp.aspect === 's') aspectS = 1 - cell.aspectMoist;
+    const soilS = phScore(cell.ph, sp);
+    const altS = altScore(cell.alt, sp);
+    const tpiN = clamp(cell.tpi / 5, -1, 1);
+    let tpiS = 0.7;
+    if (sp.tpi === 'cuvette') tpiS = 0.5 - 0.5 * tpiN;
+    else if (sp.tpi === 'versant') tpiS = 0.5 + 0.5 * tpiN;
+
+    const vals = {
+        host: { sub: hostS, txt: hostTxt },
+        land: { sub: landS, txt: landTxt },
+        hydro: { sub: hydroS, txt: 'humidité de la case ' + Math.round(moist * 100) + ' % (cible ' + Math.round(target * 100) + ' %)' },
+        slope: { sub: slopeS, txt: (cell.slopeDeg === null ? 'pente inconnue' : Math.round(cell.slopeDeg) + '° (préf. ' + sp.slopeDeg[0] + '–' + sp.slopeDeg[1] + '°)') },
+        aspect: { sub: aspectS, txt: cell.aspectDeg === null ? 'exposition inconnue' : Math.round(cell.aspectDeg) + '° (0 = nord)' },
+        soil: { sub: soilS, txt: cell.ph === null ? 'pH inconnu' : 'pH ' + cell.ph.toFixed(1) + ' (préf. ' + sp.soil[0] + '–' + sp.soil[1] + ')' },
+        alt: { sub: altS, txt: cell.alt === null ? 'altitude inconnue' : Math.round(cell.alt) + ' m (préf. ' + sp.altM[0] + '–' + sp.altM[1] + ' m)' },
+        tpi: { sub: tpiS, txt: (cell.tpi >= 0 ? '+' : '') + cell.tpi.toFixed(1) + ' m vs voisinage 500 m' }
+    };
+    let raw = 0;
+    Object.keys(W).forEach(k => {
+        const sub = vals[k].sub;
+        raw += W[k] * sub;
+        out.parts.push({ key: k, label: FACTOR_LABELS[k], weight: W[k], sub, txt: vals[k].txt, contribution: W[k] * sub });
+    });
+    out.raw = raw;
+    out.gate = gate;
+    out.season = seasonFactor(sp, ctx.nowMonth);
+    out.frost = (ctx.frostRecent && !sp.frostHardy) ? 0.55 : 1;
+    if (cell.built) { out.score = 0; out.gate = 0; return out; }
+    const prod = raw * gate * out.globalHyd * out.season.f * out.frost;
+    out.score = clamp(Math.round(prod * 100), 0, 100);
+    out.product = prod;
+    return out;
+}
+function scoreCell(sp, cell, ctx) { return scoreDetail(sp, cell, ctx).score; }
+
+/* ---- 11.1 Passage en revue de tous les pixels du raster ------------------ */
+function cellForPixel(grid, p, q) {
+    const dN = -5200 + 100 * p, dE = -5200 + 100 * q;
+    if (Math.hypot(dN, dE) > GRID.RADIUS_M) return null;
+    const ci = Math.round(dN / GRID.COARSE_M), cj = Math.round(dE / GRID.COARSE_M);
+    const parent = grid.byKey.get(ci + '_' + cj);
+    if (!parent) return null;
+    if (parent.promoted && parent.children) {
+        const k = Math.round((dN - ci * GRID.COARSE_M) / GRID.FINE_M);
+        const l = Math.round((dE - cj * GRID.COARSE_M) / GRID.FINE_M);
+        const ch = parent.childIndex && parent.childIndex.get(k + ',' + l);
+        if (ch) return ch;
+    }
+    return parent;
+}
+
+/** Scoring complet : une valeur 0–100 par pixel et par espèce sélectionnée. */
+function analyzeGrid(grid, ctx, selected) {
+    applyContext(grid, ctx);
+    const n = GRID.PX * GRID.PX;
+    const results = new Map();
+    const cells = new Array(n);
+    for (let p = 0; p < GRID.PX; p++)
+        for (let q = 0; q < GRID.PX; q++) cells[p * GRID.PX + q] = cellForPixel(grid, p, q);
+    grid.pixelCells = cells;
+
+    selected.forEach(sp => {
+        const scores = new Uint8Array(n);
+        let count = 0, sum = 0, scored = 0, best = 0, bestCell = null;
+        for (let i = 0; i < n; i++) {
+            const cell = cells[i];
+            if (!cell) continue;
+            const s = scoreCell(sp, cell, ctx);
+            scores[i] = s;
+            scored++;
+            sum += s;
+            if (s > best) { best = s; bestCell = cell; }
+            if (s >= GRID.DISPLAY_MIN) count++;            // 1 pixel = 1 ha (100 × 100 m)
+        }
+        results.set(sp.id, {
+            id: sp.id, scores, count, best,
+            mean: scored ? Math.round(sum / scored) : 0,
+            bestCell, ha: count
+        });
+    });
+    return results;
+}
+
+/* ============================================================================
+ * 12. ENVIRONMENT ORCHESTRATION — chargement des 4 relevés en parallèle
+ *  (progression affichée, séquence anti-course si le lieu change pendant
+ *   l'analyse, caché au premier passage, réutilisé ensuite)
+ * ==========================================================================*/
+function nextFrame() {
+    return new Promise(r => {
+        let done = false;
+        const fin = () => { if (!done) { done = true; r(); } };
+        requestAnimationFrame(() => setTimeout(fin, 0));
+        setTimeout(fin, 60);               // filet : rAF peut �tre �toil� (onglet en arri�re-plan)
+    });
+}
+
+async function ensureEnvironment(seq) {
+    const key = locKey(state.lat, state.lon);
+    if (state.env && state.env.key === key) return state.env;
+
+    const lat0 = state.lat, lon0 = state.lon;
+    const cos = Math.cos(lat0 * Math.PI / 180);
+    const dLat5 = GRID.RADIUS_M / 111320, dLon5 = GRID.RADIUS_M / (111320 * cos);
+    let done = 0;
+    const tick = label => { done++; setProgress(0.06 + 0.72 * (done / 4), label); };
+    setProgress(0.04, 'Lancement des 4 relevés en parallèle…');
+
+    const pDem = getElevationLattice(lat0, lon0).then(v => (tick('MNT 500 m reçu'), v)).catch(() => (tick('MNT indisponible'), null));
+    const pWx = getWeather(lat0, lon0).then(v => (tick('Météo reçue'), v)).catch(() => (tick('Météo indisponible'), null));
+    const pCov = getLandCover(lat0, lon0).then(v => (tick('Couvert OSM reçu'), v)).catch(() => (tick('Couvert OSM indisponible'), null));
+    const pSoil = getSoilField(lat0, lon0, dLat5 * 0.85, dLon5 * 0.85)
+        .then(v => (tick('pH du sol reçu'), v)).catch(() => (tick('pH du sol indisponible'), { samples: [], count: 0, ok: false }));
+    const pTex = getSoilPoint(lat0, lon0, 'clay').catch(() => null);
+
+    const [dem, wx, cover, soil, tex] = await Promise.all([pDem, pWx, pCov, pSoil, pTex]);
+    if (seq !== state.seq) return null;
+
+    const polys = cover && cover.ok ? cover.polys : [];
+    const coverOk = !!(cover && cover.ok && polys.length > 0);
+    const env = {
+        key, lat: lat0, lon: lon0,
+        dem, wx, soil: soil || { samples: [], count: 0, ok: false },
+        clay: tex && typeof tex.clay === 'number' ? tex.clay : null,
+        coverKnown: coverOk,
+        cover: {
+            polys, roads: cover ? cover.roads : [], ok: coverOk,
+            elements: cover ? cover.elements : 0, truncated: !!(cover && cover.truncated),
+            index: buildPolyIndex(polys, lat0, lon0)
+        },
+        roadFine: cover && cover.roads && cover.roads.length ? rasterizeRoads(cover.roads, lat0, lon0) : new Set(),
+        pixelIndex: pixelIndexFor(lat0, lon0),
+        sources: {
+            dem: dem ? 'ok' : 'fail',
+            weather: wx ? 'ok' : 'fail',
+            cover: coverOk ? 'ok' : (cover ? 'empty' : 'fail'),
+            soil: soil && soil.ok ? 'ok' : 'fail'
+        },
+        missing: []
+    };
+    if (!dem) env.missing.push('relief (MNT)');
+    if (!wx) env.missing.push('météo');
+    if (!coverOk) env.missing.push('couvert végétal OSM');
+    if (!env.sources.soil || env.sources.soil === 'fail') env.missing.push('pH du sol (SoilGrids)');
+    if (env.clay === null) env.missing.push('texture du sol');
+
+    state.env = env;
+    return env;
+}
+
+/** Contexte de calcul (dépend de la date cible, pas du lieu). */
+function buildContext(env, dateISO) {
+    const hyd = hydroForDate(env.wx, dateISO);
+    const wind = env.wx ? windForDate(env.wx, dateISO) : { windDirDeg: 0, windSpeed: 0 };
+    const clayPct = env.clay === null ? null : env.clay;
+    const texAdj = clayPct === null ? 0 : 0.10 * clamp((clayPct - 30) / 30, -1, 1);
+    return {
+        dateISO,
+        nowMonth: parseInt(dateISO.slice(5, 7), 10),
+        hydro: hyd.hydro,
+        hydroDetail: hyd,
+        windDirDeg: wind.windDirDeg,
+        windSpeed: wind.windSpeed,
+        texAdj, clayPct,
+        frostRecent: !!hyd.frostRecent
+    };
+}
+
+/* ---- 12.1 Point d'entrée : analyser le lieu ------------------------------ */
+async function runAnalysis() {
+    if (state.busy) return;
+    if (!state.selected.size) {
+        UI.toast('Sélectionnez au moins une espèce à analyser.');
+        return;
+    }
+    const seq = state.seq;
+    state.busy = true;
+    _analyzedOnce = true;
+    showProgress(true);
+    setProgress(0.02, 'Préparation de l’analyse…');
+    try {
+        const env = await ensureEnvironment(seq);
+        if (!env || seq !== state.seq) return;
+        setProgress(0.80, 'Construction de la grille 500 m…');
+        await nextFrame();
+        const grid = buildGrid(env);
+        if (seq !== state.seq) return;
+
+        const ctx = buildContext(env, state.targetDate);
+        env.ctx = ctx;
+        const sel = MUSHROOM_SPECIES.filter(s => state.selected.has(s.id));
+        setProgress(0.86, 'Promotion des zones favorables…');
+        await nextFrame();
+        const promo = promoteAndRefine(grid, sel);
+        if (seq !== state.seq) return;
+        setProgress(0.93, 'Calcul des scores (niveau 100 m)…');
+        await nextFrame();
+        state.grid = grid;
+        state.ctx = ctx;
+        state.results = analyzeGrid(grid, ctx, sel);
+        state.analyzed = true;
+        setProgress(1, 'Analyse terminée');
+        await nextFrame();
+        state.promo = promo;
+        renderResults();
+        renderOverlay();
+        renderExplanation();
+        renderMapSub();
+        renderSources();
+    } catch (e) {
+        console.error(e);
+        UI.toast('Analyse interrompue : ' + (e && e.message ? e.message : 'erreur inconnue'));
+    } finally {
+        state.busy = false;
+        setTimeout(() => showProgress(false), 400);
+    }
+}
+
+/* ============================================================================
+ * 13. RESULTS & RENDER — liste des espèces, raster coloré, explication
+ * ==========================================================================*/
+function hexToRgb(hex) {
+    const h = hex.replace('#', '');
+    return [parseInt(h.substring(0, 2), 16), parseInt(h.substring(2, 4), 16), parseInt(h.substring(4, 6), 16)];
+}
+const BANDS = [
+    { min: 51, max: 60, alpha: 0.55, label: '51–60 %' },
+    { min: 61, max: 70, alpha: 0.66, label: '61–70 %' },
+    { min: 71, max: 80, alpha: 0.78, label: '71–80 %' },
+    { min: 81, max: 90, alpha: 0.90, label: '81–90 %' },
+    { min: 91, max: 100, alpha: 1.00, label: '91–100 %' }
+];
+function bandOf(score) { return BANDS.find(b => score >= b.min && score <= b.max) || null; }
+
+function showProgress(on) {
+    const el = document.getElementById('progress-card');
+    if (el) el.hidden = !on;
+}
+const STEP_DEFS = [
+    { until: 0.80, label: 'Relevés en parallèle : MNT 500 m, météo 10+7 j, sol, OpenStreetMap' },
+    { until: 0.93, label: 'Grille 500 m, promotion des zones > 35 % en 100 m' },
+    { until: 1.0, label: 'Scores 0–100 % par espèce sélectionnée' },
+    { until: 1.1, label: 'Rendu carte, liste et explication du modèle' }
+];
+function setProgress(frac, label) {
+    const f = clamp(frac, 0, 1);
+    const t = document.getElementById('progress-title');
+    const s = document.getElementById('progress-sub');
+    if (t) t.textContent = label || 'Analyse en cours…';
+    if (s) s.textContent = Math.round(f * 100) + ' % — requêtes groupées et mises en cache.';
+    const bar = document.getElementById('progress-bar');
+    if (bar) bar.style.width = Math.round(f * 100) + '%';
+    const ul = document.getElementById('progress-steps');
+    if (ul) {
+        let passed = true;
+        ul.innerHTML = STEP_DEFS.map(st => {
+            const done = passed && f >= st.until - 1e-9;
+            const active = !done && passed;
+            passed = passed && f >= st.until - 1e-9;
+            return '<li class="step ' + (done ? 'done' : (active ? 'active' : '')) + '">' +
+                '<span class="step-dot"></span><span>' + escapeHtml(st.label) + '</span></li>';
+        }).join('');
+    }
+}
+
+const UI = {
+    toast(msg) {
+        let t = document.getElementById('mt-toast');
+        if (!t) {
+            t = document.createElement('div');
+            t.id = 'mt-toast';
+            t.className = 'mt-toast';
+            document.body.appendChild(t);
+        }
+        t.textContent = msg;
+        t.classList.add('is-on');
+        clearTimeout(t._h);
+        t._h = setTimeout(() => t.classList.remove('is-on'), 4200);
+    }
+};
+
+function hideResults() {
+    const r = document.getElementById('results-section');
+    if (r) r.hidden = true;
+    const e = document.getElementById('explain-section');
+    if (e) e.hidden = true;
+    const n = document.getElementById('no-zones');
+    if (n) n.classList.add('is-hidden');
+}
+function clearOverlays() {
+    if (Map_.map && Map_._ov) { try { Map_.map.removeLayer(Map_._ov); } catch (e) {} Map_._ov = null; }
+}
+
+function renderWeatherPills() {
+    const row = document.getElementById('wx-pills');
+    if (!row) return;
+    const key = locKey(state.lat, state.lon);
+    const env = state.env && state.env.key === key ? state.env : null;
+    const hero = state.heroWx && state.heroWx.key === key ? state.heroWx.wx : null;
+    const wx = (env && env.wx) || hero;
+    const cur = wx && wx.current;
+    if (!cur) {
+        row.innerHTML = '<span class="pill muted">Conditions du moment : chargement…</span>';
+        return;
+    }
+    const parts = [
+        '<span class="pill">🌡 ' + Math.round(cur.temperature_2m) + ' °C</span>',
+        '<span class="pill">💧 ' + Math.round(cur.relative_humidity_2m) + ' % hygrométrie</span>',
+        '<span class="pill">🌧 ' + (typeof cur.precipitation === 'number' ? cur.precipitation.toFixed(1) : '0,0') + ' mm aujourd’hui</span>',
+        '<span class="pill">🌬 ' + (typeof cur.wind_speed_10m === 'number' ? Math.round(cur.wind_speed_10m) : '–') + ' km/h</span>'
+    ];
+    if (typeof cur.soil_moisture_0_to_7cm === 'number')
+        parts.push('<span class="pill">🌱 sol ' + Math.round(cur.soil_moisture_0_to_7cm * 100) + ' % (0–7 cm)</span>');
+    if (typeof cur.soil_temperature_0cm === 'number')
+        parts.push('<span class="pill">🌡 sol ' + Math.round(cur.soil_temperature_0cm) + ' °C</span>');
+    if (env && env.ctx)
+        parts.push('<span class="pill accent">💧 hydrométrie du moment : ' + Math.round(env.ctx.hydro * 100) + ' %</span>');
+    row.innerHTML = parts.join('');
+}
+
+async function loadWeatherForHero(lat, lon, seq) {
+    try {
+        const wx = await getWeather(lat, lon);
+        if (seq !== undefined && seq !== state.seq) return;
+        state.heroWx = { wx, key: locKey(lat, lon) };
+        if (state.env && state.env.key === state.heroWx.key) state.env.wx = wx;
+        renderWeatherPills();
+    } catch (e) { renderWeatherPills(); }
+}
+
+/* ---- 13.1 Liste de résultats -------------------------------------------- */
+function renderResults() {
+    const sec = document.getElementById('results-section');
+    const list = document.getElementById('results-list');
+    const sum = document.getElementById('results-summary');
+    if (!sec || !list) return;
+    if (!state.results || !state.results.size) { hideResults(); return; }
+    sec.hidden = false;
+
+    const rows = MUSHROOM_SPECIES.filter(s => state.selected.has(s.id)).map(sp => ({
+        sp, res: state.results.get(sp.id)
+    })).filter(r => r.res).sort((a, b) => (b.res.count - a.res.count) || (b.res.best - a.res.best));
+
+    const totalHa = rows.reduce((s, r) => s + r.res.count, 0);
+    const withZones = rows.filter(r => r.res.count > 0).length;
+    const promo = state.promo;
+    sum.textContent = withZones === 0
+        ? 'Aucune zone strictement supérieure à 50 % pour les ' + rows.length + ' espèces sélectionnées.'
+        : withZones + ' espèce' + (withZones > 1 ? 's' : '') + ' avec zone > 50 % · ' + totalHa +
+          ' ha cartographiés' + (promo ? ' · ' + promo.promoted + ' cases 500 m affinées en 100 m (' + promo.fineCount + ' sous-cellules)' : '');
+
+    list.innerHTML = '';
+    rows.forEach(({ sp, res }) => {
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'result-row' + (sp.id === state.activeSpecies ? ' is-active' : '');
+        row.innerHTML =
+            '<span class="result-emoji">' + sp.emoji + '</span>' +
+            '<span class="result-name"></span>' +
+            '<span class="result-score"><span class="val"></span><span class="lab">' + (res.count ? 'max' : 'max') + '</span></span>' +
+            '<span class="result-stats"></span>' +
+            '<span class="result-bar"><i style="width:' + res.best + '%"></i></span>';
+        row.querySelector('.result-name').textContent = sp.name;
+        const sci = document.createElement('span');
+        sci.className = 'sci'; sci.textContent = sp.sci;
+        row.querySelector('.result-name').appendChild(sci);
+        row.querySelector('.result-score .val').textContent = res.count ? res.best + '%' : res.best + '%';
+        row.querySelector('.result-stats').textContent = res.count
+            ? res.count + ' ha strictement au-dessus de 50 % · moyenne des zones affichées ' + res.mean + ' %'
+            : 'aucune zone > 50 % (meilleure cellule ' + res.best + ' %)';
+        row.addEventListener('click', () => selectActiveSpecies(sp.id));
+        list.appendChild(row);
+    });
+
+    const nz = document.getElementById('no-zones');
+    if (nz) {
+        if (withZones === 0) { nz.classList.remove('is-hidden'); nz.textContent = 'Aucune zone affichée : aucun pixel ne dépasse 50 % pour ces espèces à cette date.'; }
+        else nz.classList.add('is-hidden');
+    }
+    renderMapChips(rows.map(r => r.sp));
+    renderLegend(rows[0] && rows[0].sp);
+}
+
+function selectActiveSpecies(id) {
+    state.activeSpecies = id;
+    document.querySelectorAll('#results-list .result-row').forEach(el => el.classList.remove('is-active'));
+    const rows = Array.from(document.querySelectorAll('#results-list .result-row'));
+    const list = MUSHROOM_SPECIES.filter(s => state.selected.has(s.id))
+        .sort((a, b) => {
+            const ra = state.results.get(a.id), rb = state.results.get(b.id);
+            return (rb.count - ra.count) || (rb.best - ra.best);
+        });
+    const idx = list.findIndex(s => s.id === id);
+    if (idx >= 0 && rows[idx]) rows[idx].classList.add('is-active');
+    document.querySelectorAll('#map-species-chips .species-chip').forEach((el, i) => {
+        el.classList.toggle('active', list[i] && list[i].id === id);
+    });
+    renderOverlay();
+    renderExplanation();
+}
+
+/* ---- 13.2 Raster coloré -------------------------------------------------- */
+function renderOverlay() {
+    if (!Map_.map || !state.grid || !state.results) return;
+    const sp = getSpecies(state.activeSpecies) || MUSHROOM_SPECIES.find(s => state.selected.has(s.id));
+    if (!sp) return;
+    const res = state.results.get(sp.id);
+    if (!res) return;
+
+    const c = document.createElement('canvas');
+    c.width = GRID.PX; c.height = GRID.PX;
+    const cx = c.getContext('2d');
+    cx.clearRect(0, 0, GRID.PX, GRID.PX);
+    const [r, g, b] = hexToRgb(sp.color);
+    const cells = state.grid.pixelCells;
+    for (let p = 0; p < GRID.PX; p++) {
+        for (let q = 0; q < GRID.PX; q++) {
+            const i = p * GRID.PX + q;
+            if (!cells[i]) continue;
+            const s = res.scores[i];
+            const band = bandOf(s);
+            if (!band) continue;
+            cx.fillStyle = 'rgba(' + r + ',' + g + ',' + b + ',' + band.alpha + ')';
+            cx.fillRect(q, p, 1, 1);
+        }
+    }
+
+    const lat0 = state.grid.lat0, lon0 = state.grid.lon0;
+    const cos = Math.cos(lat0 * Math.PI / 180);
+    const dLat = GRID.HALF_EXT_M / 111320, dLon = GRID.HALF_EXT_M / (111320 * cos);
+    const bounds = [[lat0 - dLat, lon0 - dLon], [lat0 + dLat, lon0 + dLon]];
+    const url = c.toDataURL();
+    clearOverlays();
+    Map_._ov = L.imageOverlay(url, bounds, { opacity: 0.94, interactive: true }).addTo(Map_.map);
+    Map_._ov.bringToFront();
+    bindOverlayEvents(Map_._ov);
+    renderLegend(sp);
+}
+
+function pixelFromLatLng(ll) {
+    const grid = state.grid;
+    if (!grid) return -1;
+    const cos = Math.cos(grid.lat0 * Math.PI / 180);
+    const dN = (ll.lat - grid.lat0) * 111320;
+    const dE = (ll.lng - grid.lon0) * 111320 * cos;
+    const p = Math.floor((dN + 5250) / 100), q = Math.floor((dE + 5250) / 100);
+    if (p < 0 || q < 0 || p >= GRID.PX || q >= GRID.PX) return -1;
+    return p * GRID.PX + q;
+}
+
+function bindOverlayEvents(layer) {
+    const readout = document.getElementById('map-readout');
+    layer.on('mousemove', e => {
+        const i = pixelFromLatLng(e.latlng);
+        const grid = state.grid;
+        if (i < 0 || !grid || !grid.pixelCells[i] || !readout) { if (readout) readout.textContent = 'Hors zone analysée.'; return; }
+        const cell = grid.pixelCells[i];
+        const sp = getSpecies(state.activeSpecies) || MUSHROOM_SPECIES[0];
+        const res = state.results.get(sp.id);
+        const s = res ? res.scores[i] : 0;
+        readout.innerHTML = '<b>' + escapeHtml(sp.name) + '</b> · <b>' + s + ' %</b> — ' +
+            (cell.built ? 'route / bâti (exclu)' :
+                (cell.level === 2 ? 'sous-cellule 100 m' : 'case 500 m (non affinée)')) +
+            ' · alt ' + (cell.alt === null ? 'n.d.' : Math.round(cell.alt) + ' m') +
+            ' · ' + (cell.coverKnown ? (cell.forest ? 'forêt' : cell.open ? 'prairie' : cell.cult ? 'cultivé' : 'sans couvert') : 'couvert inconnu');
+    });
+    layer.on('mouseout', () => { const r = document.getElementById('map-readout'); if (r) r.textContent = 'Survolez une zone colorée pour voir son score exact.'; });
+    layer.on('click', e => openCellPopup(e.latlng));
+}
+
+function openCellPopup(ll) {
+    const i = pixelFromLatLng(ll);
+    const grid = state.grid;
+    if (i < 0 || !grid || !grid.pixelCells[i]) return;
+    const cell = grid.pixelCells[i];
+    const sp = getSpecies(state.activeSpecies) || MUSHROOM_SPECIES[0];
+    const res = state.results.get(sp.id);
+    const score = res ? res.scores[i] : 0;
+    const detail = scoreDetail(sp, cell, state.ctx);
+
+    const bars = detail.parts.map(p =>
+        '<div class="pc-row"><span class="pc-label">' + escapeHtml(p.label) + '</span>' +
+        '<span class="pc-w">' + Math.round(p.weight * 100) + '%</span>' +
+        '<span class="pc-track"><i style="width:' + Math.round(p.sub * 100) + '%"></i></span>' +
+        '<span class="pc-sub">' + Math.round(p.sub * 100) + '</span></div>').join('');
+
+    const html =
+        '<div class="pc-head"><span class="pc-dot" style="background:' + sp.color + '"></span>' +
+        '<b>' + escapeHtml(sp.name) + '</b><span class="pc-score">' + score + ' %</span></div>' +
+        '<div class="pc-where">' + cell.lat.toFixed(5) + '°, ' + cell.lon.toFixed(5) + '° · ' +
+        (cell.level === 2 ? 'sous-cellule 100 m' : 'case 500 m') + '</div>' +
+        bars +
+        '<div class="pc-mult">portes d’habitat ×' + detail.gate.toFixed(2) +
+        ' · hydrométrie globale ×' + detail.globalHyd.toFixed(2) +
+        ' · ' + detail.season.label + ' ×' + detail.season.f +
+        (detail.frost < 1 ? ' · gel récent ×0,55' : '') + '</div>' +
+        '<div class="pc-note">' + (cell.built ? 'Route, voie ferrée ou bâti : exclusion dure.' :
+            (!cell.coverKnown ? 'Couvert OSM indisponible : ni pénalité ni bonus appliqué.' : '')) + '</div>';
+
+    L.popup({ maxWidth: 340, className: 'mt-popup' })
+        .setLatLng(ll)
+        .setContent(html)
+        .openOn(Map_.map);
+}
+
+function renderLegend(sp) {
+    const box = document.getElementById('map-legend');
+    const bands = document.getElementById('legend-bands');
+    const spec = document.getElementById('legend-species');
+    if (!box || !bands) return;
+    if (!state.analyzed) { box.hidden = true; return; }
+    box.hidden = false;
+    const s = sp || MUSHROOM_SPECIES[0];
+    bands.innerHTML = BANDS.map(b =>
+        '<span class="legend-band"><span class="legend-swatch" style="background:' + s.color + ';opacity:' + b.alpha + '"></span>' + b.label + '</span>'
+    ).join('');
+    if (spec) spec.textContent = 'espèce affichée : ' + s.emoji + ' ' + s.name;
+}
+
+function renderMapChips(species) {
+    const row = document.getElementById('map-species-chips');
+    const bar = document.getElementById('map-toolbar');
+    if (!row) return;
+    if (bar) bar.hidden = false;
+    row.innerHTML = '';
+    species.forEach(sp => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'species-chip' + (sp.id === state.activeSpecies ? ' active' : '');
+        b.innerHTML = '<span class="species-dot" style="background:' + sp.color + '"></span>';
+        b.appendChild(document.createTextNode(sp.name));
+        b.title = sp.sci;
+        b.addEventListener('click', () => selectActiveSpecies(sp.id));
+        row.appendChild(b);
+    });
+}
+
+function renderMapSub() {
+    const el = document.getElementById('map-sub');
+    if (!el) return;
+    if (!state.analyzed) { el.textContent = 'Lieu : ' + state.name + ' — sélectionnez des espèces puis lancez l’analyse.'; return; }
+    const n = state.results ? Array.from(state.results.values()).reduce((s, r) => s + r.count, 0) : 0;
+    el.textContent = 'Lieu : ' + state.name + ' — ' + n + ' ha au-dessus de 50 % · rayon 5 km · grille 500 m affinée en 100 m.';
+}
+
+function renderSources() {
+    const banner = document.getElementById('partial-banner');
+    const text = document.getElementById('partial-text');
+    const list = document.getElementById('partial-list');
+    if (!banner) return;
+    const env = state.env;
+    if (!env || !env.missing.length) { banner.hidden = true; return; }
+    banner.hidden = false;
+    if (text) text.textContent = ' Il manque :';
+    if (list) list.innerHTML = env.missing.map(m => '<li>' + escapeHtml(m) + '</li>').join('');
+}
+
+/* ============================================================================
+ * 14. EXPLANATION — « Pourquoi ce score ? » : facteurs pondérés, portes
+ *  d'habitat, multiplicateurs et caractéristiques de l'espèce (champs dérivés).
+ * ==========================================================================*/
+function temperatureWindow(sp) {
+    const env = state.env;
+    const cur = env && env.wx && env.wx.current;
+    if (!cur || typeof cur.temperature_2m !== 'number' || state.altitude === null) return null;
+    const tAt = alt => cur.temperature_2m - LAPSE_PER_M * (alt - state.altitude);
+    const a = tAt(sp.altM[0]), b = tAt(sp.altM[1]);
+    return { min: Math.min(a, b), max: Math.max(a, b), tRef: cur.temperature_2m };
+}
+const f1 = v => (Math.round(v * 10) / 10).toString().replace('.', ',');
+
+function renderExplanation() {
+    const sec = document.getElementById('explain-section');
+    if (!sec) return;
+    if (!state.analyzed || !state.results || !state.results.size) { sec.hidden = true; return; }
+    const sp = getSpecies(state.activeSpecies) || MUSHROOM_SPECIES.find(s => state.selected.has(s.id));
+    const res = sp ? state.results.get(sp.id) : null;
+    if (!sp || !res || !res.bestCell) { sec.hidden = true; return; }
+    sec.hidden = false;
+
+    const cell = res.bestCell;
+    const d = scoreDetail(sp, cell, state.ctx);
+
+    document.getElementById('explain-dot').style.background = sp.color;
+    document.getElementById('explain-species').textContent = sp.emoji + ' ' + sp.name + ' — ' + sp.sci;
+    document.getElementById('explain-where').textContent =
+        'zone la mieux notée : ' + cell.lat.toFixed(5) + '°, ' + cell.lon.toFixed(5) + '° · ' +
+        (cell.level === 2 ? 'sous-cellule 100 m' : 'case 500 m') +
+        (res.count ? ' · ' + res.count + ' ha > 50 %' : '');
+    document.getElementById('explain-score').textContent = res.best + ' %';
+    document.getElementById('explain-score').style.color = sp.color;
+
+    const bars = document.getElementById('explain-bars');
+    bars.innerHTML = d.parts.map(p => {
+        const pct = Math.round(p.sub * 100);
+        const unknown = (p.key === 'soil' && cell.ph === null) || (p.key === 'alt' && cell.alt === null) || !d.coverKnown;
+        return '<div class="ex-row" title="' + escapeHtml(p.txt) + '">' +
+            '<span class="ex-label">' + escapeHtml(p.label) + '</span>' +
+            '<span class="ex-weight">×' + p.weight.toFixed(2) + '</span>' +
+            '<span class="ex-track"><i style="width:' + pct + '%;background:' + sp.color + '"></i></span>' +
+            '<span class="ex-val' + (unknown ? ' is-unknown' : '') + '">' + pct + (unknown ? ' ?' : '') + '</span>' +
+            '<span class="ex-txt">' + escapeHtml(p.txt) + '</span></div>';
+    }).join('');
+
+    const mult = document.getElementById('explain-multi');
+    const multItems = [
+        ['Porte d’habitat', '×' + d.gate.toFixed(2), d.gate < 1],
+        ['Hydrométrie globale', '×' + d.globalHyd.toFixed(2), false],
+        ['Saison', '×' + d.season.f + ' (' + d.season.label + ')', d.season.f < 1]
+    ];
+    if (d.frost < 1) multItems.push(['Gel récent ≤ −2 °C', '×0,55', true]);
+    if (!d.coverKnown) multItems.push(['Couvert OSM', 'inconnu → neutralisé', true]);
+    mult.innerHTML = multItems.map(m =>
+        '<span class="ex-mult' + (m[2] ? ' is-warn' : '') + '"><b>' + escapeHtml(m[0]) + '</b>' + escapeHtml(m[1]) + '</span>'
+    ).join('');
+
+    document.getElementById('explain-formula').textContent =
+        'score % = arrondi( (' + d.parts.map(p => p.weight.toFixed(2) + '×' + p.sub.toFixed(2)).join(' + ') +
+        ') × ' + d.gate.toFixed(2) + ' × ' + d.globalHyd.toFixed(2) + ' × ' + d.season.f +
+        ' × ' + d.frost + ' × 100 ) = ' + d.score + ' %';
+
+    const facts = document.getElementById('explain-facts');
+    const tw = temperatureWindow(sp);
+    const factRows = [
+        ['Nom scientifique', sp.scientificName],
+        ['Habitat', sp.habitat],
+        ['Arbres hôtes', sp.preferredTrees.length ? sp.preferredTrees.join(', ') : 'aucun (saprophyte)'],
+        ['Sol', sp.soilPreferences.label],
+        ['Humidité', sp.moisturePreferences.label],
+        ['Altitude', sp.altitudeRange[0] + ' – ' + sp.altitudeRange[1] + ' m'],
+        ['Saison', sp.seasonLabel + ' (' + sp.months.map(m => MONTHS_LONG[m - 1]).join(', ') + ')'],
+        ['Température', tw ? '≈ ' + f1(tw.min) + ' °C à ' + f1(tw.max) + ' °C' : 'à afficher après analyse (relevé du moment)'],
+        ['Mémoire hydrique', state.ctx ? Math.round(state.ctx.hydro * 100) + ' % (pluie 10 j + 7 j, T°, hygrométrie)' : '—'],
+        ['Gel récent', state.ctx && state.ctx.frostRecent ? 'oui (≤ −2 °C) : espèce non résistante pénalisée' : 'non']
+    ];
+    if (tw) factRows[7][1] += ' — dérivé de altitudeRange via gradient 6,5 °C/km + T° mesurée ' + f1(tw.tRef) + ' °C';
+    facts.innerHTML = factRows.map(r =>
+        '<div class="ex-fact"><span class="ex-fact-k">' + escapeHtml(r[0]) + '</span><span class="ex-fact-v">' + escapeHtml(r[1]) + '</span></div>'
+    ).join('');
+
+    const card = document.getElementById('explain-species-card');
+    if (card) {
+        const soilTxt = sp.soilPreferences.label + ' (tolérance ±' + String(sp.soilTol).replace('.', ',') + ')';
+        card.innerHTML =
+            '<div class="sp-card-title"><span class="sp-swatch" style="background:' + sp.color + '"></span>' +
+            '<b>' + escapeHtml(sp.name) + '</b><span class="sp-sci">' + escapeHtml(sp.sci) + '</span></div>' +
+            '<p class="sp-desc">' + escapeHtml(sp.description) + '</p>' +
+            '<div class="sp-tags">' +
+            ['Habitat : ' + sp.habitat, 'Hôtes : ' + (sp.preferredTrees.join(', ') || 'aucun'), 'Sol : ' + soilTxt,
+             'Humidité : ' + sp.moisturePreferences.label, 'Altitude : ' + sp.altitudeRange[0] + '–' + sp.altitudeRange[1] + ' m',
+             'Saison : ' + sp.seasonLabel, 'Mode : ' + (sp.symbiotic ? 'symbiotique (mycorhize)' : 'saprophyte')]
+                .map(t => '<span class="tag">' + escapeHtml(t) + '</span>').join('') +
+            '</div>';
+    }
+    document.getElementById('explain-sub').textContent =
+        'Détail du calcul pour la zone la mieux notée de ' + sp.name + ' à la date du ' +
+        new Date(state.targetDate + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) + '.';
+}
+
+/* ============================================================================
+ * 15. UI — grille d'espèces, date cible, câblage, démarrage
+ * ==========================================================================*/
+function renderSpeciesGrid() {
+    const grid = document.getElementById('species-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    MUSHROOM_SPECIES.forEach(sp => {
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'species-card' + (state.selected.has(sp.id) ? ' active' : '');
+        card.dataset.id = sp.id;
+        card.innerHTML =
+            '<span class="species-top">' +
+            '<span class="species-dot" style="background:' + sp.color + '"></span>' +
+            '<span class="species-emoji">' + sp.emoji + '</span>' +
+            '<span class="species-name"></span></span>' +
+            '<span class="species-sci"></span>' +
+            '<span class="species-desc"></span>' +
+            '<span class="species-tags"></span>';
+        card.querySelector('.species-name').textContent = sp.name;
+        card.querySelector('.species-sci').textContent = sp.sci;
+        card.querySelector('.species-desc').textContent = sp.habitat;
+        card.querySelector('.species-tags').innerHTML =
+            '<span class="species-tag">' + escapeHtml(sp.soilPreferences.label) + '</span>' +
+            '<span class="species-tag">' + escapeHtml(sp.moisturePreferences.label) + '</span>' +
+            '<span class="species-tag">' + sp.altitudeRange[0] + '–' + sp.altitudeRange[1] + ' m</span>' +
+            '<span class="species-tag">' + escapeHtml(sp.seasonLabel) + '</span>';
+        card.addEventListener('click', () => toggleSpecies(sp.id));
+        grid.appendChild(card);
+    });
+    updateAnalyzeButton();
+}
+
+function toggleSpecies(id) {
+    if (state.selected.has(id)) state.selected.delete(id); else state.selected.add(id);
+    if (!state.activeSpecies || !state.selected.has(state.activeSpecies)) {
+        state.activeSpecies = state.selected.values().next().value || null;
+    }
+    document.querySelectorAll('.species-card').forEach(el => {
+        el.classList.toggle('active', state.selected.has(el.dataset.id));
+    });
+    updateAnalyzeButton();
+}
+
+function updateAnalyzeButton() {
+    const btn = document.getElementById('btn-analyze');
+    const hint = document.getElementById('analyze-hint');
+    if (btn) btn.disabled = !state.selected.size;
+    if (hint) hint.textContent = state.selected.size
+        ? state.selected.size + ' espèce' + (state.selected.size > 1 ? 's' : '') + ' sélectionnée' + (state.selected.size > 1 ? 's' : '') + ' · rayon 5 km · zones affichées si > 50 %.'
+        : 'Sélectionnez au moins une espèce.';
+}
+
+function renderDateOptions() {
+    const input = document.getElementById('date-target');
+    const hint = document.getElementById('date-hint');
+    if (!input) return;
+    const today = todayISO();
+    input.value = state.targetDate;
+    input.min = today;
+    input.max = addDays(today, 9);
+    if (hint) hint.textContent = 'saison + fenêtre pluie 10 j / 7 j recalculées sur cette date';
+}
+
+function onDateChange() {
+    const input = document.getElementById('date-target');
+    if (!input || !input.value) return;
+    state.targetDate = input.value;
+    if (state.analyzed) runAnalysis();
+}
+
+function wireEvents() {
+    const $ = id => document.getElementById(id);
+    const bind = (id, ev, fn) => { const el = $(id); if (el) el.addEventListener(ev, fn); };
+
+    bind('btn-geoloc', 'click', onGeolocateClick);
+    bind('btn-hero-geoloc', 'click', onGeolocateClick);
+    bind('btn-search', 'click', onSearchClick);
+    bind('city-input', 'keydown', e => { if (e.key === 'Enter') onSearchClick(); });
+    bind('btn-favorite', 'click', toggleFavorite);
+    bind('btn-hero-fav', 'click', toggleFavorite);
+    bind('btn-hero-change', 'click', () => setPickMode(!state.pickMode));
+    bind('btn-map-pick', 'click', () => setPickMode(!state.pickMode));
+    bind('btn-analyze', 'click', runAnalysis);
+    bind('btn-map-fullscreen', 'click', toggleMapFullscreen);
+    bind('date-target', 'change', onDateChange);
+    bind('btn-select-all', 'click', () => {
+        MUSHROOM_SPECIES.forEach(s => state.selected.add(s.id));
+        if (!state.activeSpecies) state.activeSpecies = MUSHROOM_SPECIES[0].id;
+        renderSpeciesGrid();
+    });
+    bind('btn-select-none', 'click', () => {
+        state.selected.clear(); state.activeSpecies = null;
+        renderSpeciesGrid();
+    });
+    bind('fav-dialog-cancel', 'click', closeFavDialog);
+    bind('fav-backdrop', 'click', closeFavDialog);
+    bind('fav-dialog-save', 'click', confirmFav);
+    bind('fav-name-input', 'keydown', e => { if (e.key === 'Enter') confirmFav(); });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+            closeFavDialog();
+            if (state.pickMode) setPickMode(false);
+            if (state.mapFullscreen) toggleMapFullscreen(false);
+        }
+    });
+}
+
+/** Plein écran de la carte (mise en page seulement — pas l'API Fullscreen du
+ *  navigateur, pour rester fiable en PWA/iOS où elle est capricieuse).
+ *  Le ResizeObserver déjà branché sur #map appelle invalidateSize() tout
+ *  seul, on force juste un second appel après la transition CSS. */
+function toggleMapFullscreen(force) {
+    const section = document.getElementById('map-section');
+    const btn = document.getElementById('btn-map-fullscreen');
+    if (!section) return;
+    const on = typeof force === 'boolean' ? force : !section.classList.contains('is-fullscreen');
+    state.mapFullscreen = on;
+    section.classList.toggle('is-fullscreen', on);
+    document.body.classList.toggle('map-fullscreen-lock', on);
+    if (btn) { btn.textContent = on ? '✕ Quitter le plein écran' : '⛶ Plein écran'; btn.classList.toggle('is-active', on); }
+    if (on) section.scrollIntoView({ block: 'start' });
+    setTimeout(() => { try { Map_.map && Map_.map.invalidateSize(); } catch (e) {} }, 220);
+}
+
+async function initMapAndLocation() {
+    await initMap().catch(() => {});
+    Map_.clickHandlers.push(e => {
+        if (!state.pickMode) return;
+        setPickMode(false);
+        const ll = e.latlng;
+        setLocation(ll.lat, ll.lng, ll.lat.toFixed(4) + ', ' + ll.lng.toFixed(4), { pick: true })
+            .then(name => offerFavorite(ll.lat, ll.lng, name));
+    });
+    const last = loadLastLocation() || { lat: DEFAULT_LOC.lat, lon: DEFAULT_LOC.lon, name: DEFAULT_LOC.name };
+    await setLocation(last.lat, last.lon, last.name, { silent: true });
+}
+
+async function init() {
+    // 10 espèces préré sélectionnées (désélectionnables).
+    if (!state.selected.size) {
+        MUSHROOM_SPECIES.forEach(s => state.selected.add(s.id));
+        state.activeSpecies = MUSHROOM_SPECIES[0].id;
+    }
+    renderSpeciesGrid();
+    renderDateOptions();
+    wireEvents();
+    refreshFavoriteUI();
+    refreshHero();
+    renderWeatherPills();
+    await initMapAndLocation();
+    // Leaflet peut être indisponible (hors ligne) : l'analyse reste utilisable.
+    if (!Map_.ready) {
+        const sub = document.getElementById('map-sub');
+        if (sub) sub.textContent = 'Carte indisponible : l’analyse des zones fonctionne quand même.';
+    }
+    hideSplash();
+}
+
+/** Écran de lancement : affiché le temps du chargement initial, puis masqué
+ *  (fondu). Filet de sécurité à 3,5 s au cas où l'initialisation traînerait. */
+function hideSplash() {
+    const el = document.getElementById('splash-screen');
+    if (!el) return;
+    el.classList.add('is-hidden');
+    setTimeout(() => { el.style.display = 'none'; }, 500);
+}
+setTimeout(hideSplash, 3500);
+
+document.addEventListener('DOMContentLoaded', init);
+
+// Sur mobile, « rouvrir » l'appli restaure souvent la page depuis le bfcache
+// au lieu de la recharger : le DOM et l'état JS restent figés tels quels
+// (mode « Choisir sur carte » actif, boîte favori ouverte...). On repart
+// alors sur une UI propre plutôt que de laisser l'écran bloqué.
+window.addEventListener('pageshow', e => {
+    if (!e.persisted) return;
+    closeFavDialog();
+    if (state.pickMode) setPickMode(false);
+});
+</script>
+</body>
+</html>
