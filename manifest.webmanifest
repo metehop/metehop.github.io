@@ -1,7 +1,7 @@
 {
   "name": "Metehop",
   "short_name": "Metehop",
-  "description": "Prévisions météo précises pour Grenoble et le Grésivaudan : inversions thermiques, neige et stations de ski, qualité de l'eau, nuits d'observation astronomique et bilan hydrique jardin. Hors-ligne via service worker.",
+  "description": "Météo précise partout dans le monde, avec un modèle micro-climat unique en Europe (inversions thermiques, effets locaux). Graphiques détaillés pour le plein air : ski, neige, activités nautiques, vent, eau, astronomie, jardin. Gratuit, niveau débutant ou expert, hors-ligne via service worker.",
   "id": "/",
   "start_url": "./index.html",
   "scope": "./",
