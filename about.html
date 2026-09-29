@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>À propos de Metehop</title>
-    <meta name="description" content="À propos de Metehop : une application météo à la loupe pour votre quotidien. Précisions, fonctionnalités, sources de données et installation.">
+    <meta name="description" content="À propos de Metehop : application météo gratuite, partout dans le monde, avec un modèle micro-climat unique en Europe et des graphiques détaillés pour les activités de plein air.">
     <meta name="theme-color" content="#3b6e61">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Metehop">
@@ -42,50 +42,64 @@
             <img src="favicon-512.png" alt="Grenouille Metehop">
             <div>
                 <h1>Metehop</h1>
-                <p>Grenoble, Grésivaudan &amp; massifs alpins</p>
+                <p>La météo à la loupe, partout dans le monde</p>
             </div>
         </header>
 
         <div class="card">
             <h2>Qu'est-ce que Metehop&nbsp;?</h2>
-            <p>Metehop est une application météo, pensée pour le terrain : elle croise les
-            modèles météo classiques avec des mesures réelles et des signaux locaux (relief, bâti, cours d'eau,
-            anémomètres amateurs, stations officielles) pour affiner les prévisions là où les modèles sont
-            les moins fiables&nbsp;: Vallées alpines, bord de lacs, centres ville.</p>
+            <p>Metehop est une application météo <strong>gratuite</strong>, pensée pour le terrain et
+            utilisable <strong>partout dans le monde</strong>. Elle croise les modèles météo classiques avec des
+            mesures réelles (anémomètres amateurs, stations) pour proposer une météo plus proche de ce que vous vivrez vraiment.</p>
+            <p><strong>Sa fonction unique&nbsp;:</strong> un modèle de <strong>micro-climat disponible dans toute
+            l'Europe</strong>. À partir du relief, du bâti, des cours d'eau et de la météo du moment, il prend en compte des
+            effets locaux que les grands modèles météo ne captent pas à cette échelle&nbsp;: inversions thermiques
+            dans les fonds de vallée, îlots de chaleur urbains, influence de l'eau…</p>
             <p>L'application fonctionne hors-ligne après une première visite (installation possible depuis
             le navigateur) et ne demande aucune création de compte.</p>
         </div>
 
         <div class="card">
+            <h2>Deux niveaux d'utilisation</h2>
+            <ul>
+                <li><strong>Débutant</strong>&nbsp;: aller à l'essentiel, de manière simple et ludique.</li>
+                <li><strong>Expert</strong>&nbsp;: toutes les données, les comparaisons de modèles et les détails de calcul.</li>
+            </ul>
+        </div>
+
+        <div class="card">
             <h2>Principales fonctions</h2>
             <ul>
-                <li>Prévisions horaires et à 16 jours avec températures, pluie, vent, neige, orages, UV…</li>
-                <li>Détection d'inversions thermiques nocturnes dans les fonds de vallée / cuvettes.</li>
+                <li>Prévisions horaires et à 16 jours&nbsp;: températures, pluie, vent, neige, orages, UV…</li>
+                <li>Micro-climat (Europe)&nbsp;: corrections locales de la température, dont la détection d'inversions thermiques nocturnes.</li>
+                <li>Stations météo à proximité&nbsp;: plusieurs sources comparées (modèles haute résolution, MET Norway, balises de vent réelles) avec correction d'altitude et température actuelle interpolée.</li>
                 <li>Radar de précipitations en direct + couches vent, température et nuages sur la carte.</li>
-                <li>Alertes de désaccord entre modèles météo (DWD ICON, ECMWF) quand la prévision est incertaine.</li>
-                <li>Onglet Ski : 181 stations, cumuls de neige, limite pluie/neige, comparateur multi-stations.</li>
-                <li>Onglet Loisir : température de l'eau, marées, stations balnéaires.</li>
-                <li>Hydrologie : niveaux de rivières (Vigicrues), nappes phréatiques, restrictions d'eau (VigiEau).</li>
-                <li>Astronomie : classement des meilleures nuits d'observation.</li>
-                <li>Jardin : calendrier « quoi faire en ce moment ? » — plantation, taille et récolte de
-                    ~65 légumes, fruitiers et plantes d'ornement, calé sur le climat du lieu (historique local)
-                    et les gelées annoncées dans les 16 jours.</li>
-                <li>Jardin : bilan hydrique pluie / évapotranspiration (FAO).</li>
-                <li>Trajets : météo multi-lieux le long de votre itinéraire.</li>
+                <li>Alertes de désaccord entre modèles météo quand la prévision est incertaine.</li>
+                <li>Nombreux graphiques détaillés dédiés aux activités de plein air, du ski aux activités nautiques&nbsp;:</li>
+            </ul>
+            <ul style="margin-top:0;">
+                <li><strong>Ski</strong>&nbsp;: stations, cumuls de neige, limite pluie/neige, comparateur multi-stations.</li>
+                <li><strong>Loisir / plage</strong>&nbsp;: vent (direction, vitesse et rafales), température de l'eau, vagues, marées, conditions du littoral.</li>
+                <li><strong>Nature</strong>&nbsp;: niveaux de rivières, nappes phréatiques, restrictions d'eau (en France).</li>
+                <li><strong>Astronomie</strong>&nbsp;: classement des meilleures nuits d'observation.</li>
+                <li><strong>Jardin</strong>&nbsp;: calendrier « quoi faire en ce moment ? » (plantation, taille, récolte), bilan hydrique pluie / évapotranspiration.</li>
+                <li><strong>Trajets</strong>&nbsp;: météo multi-lieux le long de votre itinéraire.</li>
             </ul>
         </div>
 
         <div class="card">
             <h2>Données et sources</h2>
             <ul>
-                <li><strong>Prévisions</strong> : Open-Meteo (modèle local, DWD ICON, ECMWF/AIFS).</li>
-                <li><strong>Vent réel</strong> : stations Pioupiou / OpenWindMap à proximité.</li>
-                <li><strong>Radar</strong> : images de précipitations du réseau national.</li>
-                <li><strong>Hydrologie</strong> : Hub'Eau (qualité de l'eau), Vigicrues, données nappes et VigiEau.</li>
-                <li><strong>Webcams</strong> : stations connues + OpenStreetMap + recherches Windy.</li>
+                <li><strong>Prévisions</strong>&nbsp;: Open-Meteo (modèles haute résolution, DWD ICON, ECMWF/AIFS).</li>
+                <li><strong>Modèle indépendant</strong>&nbsp;: MET Norway (institut météorologique norvégien).</li>
+                <li><strong>Vent réel</strong>&nbsp;: balises Pioupiou / OpenWindMap à proximité.</li>
+                <li><strong>Radar</strong>&nbsp;: images de précipitations RainViewer.</li>
+                <li><strong>Hydrologie (France)</strong>&nbsp;: Hub'Eau, Vigicrues, données nappes et VigiEau.</li>
+                <li><strong>Webcams</strong>&nbsp;: stations connues + OpenStreetMap + recherches Windy.</li>
             </ul>
             <p style="font-size:0.85rem; opacity:0.85;">Les corrections locales (micro-climat) sont des ordres de
-            grandeur calibrés sur des publications et des observations réelles.</p>
+            grandeur calibrés sur des publications et des observations réelles. Le détail complet des sources et
+            des modèles est disponible dans l'application, rubrique «&nbsp;Sources &amp; modèles utilisés&nbsp;».</p>
         </div>
 
         <div class="card">
@@ -107,7 +121,7 @@
 
         <a class="back" href="index.html">← Retour à la météo</a>
 
-        <footer class="page-foot">Metehop — 12/09/2026 · Les données restent indicatives et ne remplacent pas les alertes officielles Météo-France — Develop by B. Martineau.</footer>
+        <footer class="page-foot">Metehop — 29/09/2026 · Les données restent indicatives et ne remplacent pas les alertes officielles — Develop by B. Martineau.</footer>
     </div>
 
     <script>
