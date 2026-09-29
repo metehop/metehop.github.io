@@ -4797,7 +4797,7 @@
                  à chaque modification livrée de ce fichier, mets à jour la ligne juste en-dessous
                  (footer-last-update) avec la date du jour (format JJ/MM/AAAA) et incrémente le
                  numéro de version de 1. Ne saute jamais un numéro, ne le laisse jamais inchangé. -->
-            <div class="footer-last-update">Dernière mise à jour : 29/09/2026 - 146</div>
+            <div class="footer-last-update">Dernière mise à jour : 29/09/2026 - 147</div>
         </footer>
 
     </div>
@@ -15858,6 +15858,17 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                         ctx.restore();
                     },
                     afterDatasetsDraw(chart) {
+                        // Altitude du lieu de prévision : trait marron pointillé + valeur exacte en petit, au-dessus à gauche
+                        if (locAlt !== null && locAlt >= 0 && locAlt <= CLOUD_ALT_MAX_M) {
+                            const c2 = chart.ctx, a2 = chart.chartArea, py = chart.scales.y.getPixelForValue(locAlt);
+                            c2.save();
+                            c2.strokeStyle = '#8b5a2b'; c2.lineWidth = 1.2; c2.setLineDash([5, 4]);
+                            c2.beginPath(); c2.moveTo(a2.left, py); c2.lineTo(a2.right, py); c2.stroke();
+                            c2.setLineDash([]);
+                            c2.fillStyle = '#8b5a2b'; c2.font = '9px sans-serif'; c2.textAlign = 'left'; c2.textBaseline = 'bottom';
+                            c2.fillText(`Lieu : ${Math.round(locAlt).toLocaleString('fr-FR')} m`, a2.left + 3, py - 2);
+                            c2.restore();
+                        }
                         // Flèche ↑ + altitude réelle pour la couche haute (toujours > 5 000 m)
                         const meta = chart.getDatasetMeta(2);
                         if (!meta || !meta.data) return;
