@@ -6,7 +6,6 @@
     <meta name="google-site-verification" content="EAFjvrSYgq6wOXpa9cbtcRGDX1La8S88rQWGyPojKcA">
     <title>Metehop</title>
     <!-- v151 - MODEL2 pondéré + UHI 5 coeffs réglables + calibration matin/ap-midi + logs terrain + optimisation grille -->
-    <!-- v123 - 16/09/2026 : fallback Temp. live (25-30 km) via Benchmark réel + vert plus clair -->
     <meta name="description" content="Metehop : prévisions météo précises pour Grenoble et le Grésivaudan, détection d'inversions thermiques, neige et stations de ski, qualité de l'eau des rivières, nuits d'observation astronomique et bilan hydrique jardin. Données Open-Meteo, Hub'Eau, Pioupiou/OpenWindMap.">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="https://metehop.github.io/">
@@ -764,25 +763,6 @@
         .md-choice-line > b { font-weight: 800; color: var(--primary-dark); }
         .model-disagree-table td { font-size: 0.72rem; }
 
-        /* Carte "Benchmark — modèle vs réalité" (chantier 8) : compare la T° max/min et pluie
-           prévues (Metehop affiché, ICON, ECMWF) aux relèves réelles des jours passés.
-           Réalité passée : archive ERA5 (Open-Meteo) ; "aujourd'hui" : conditions en cours
-           (blend d'observations). Verdict de tous les écarts : ≤ 1,5 °C = bon.
-           Rendu en LIGNES (chips) et non en tableau à colonnes fixes : parfaitement lisible
-           sur mobile, aucun chevauchement de mots possible. */
-        .benchmark-live-row {
-            margin-bottom: 8px;
-            font-size: 0.78rem;
-            padding: 6px 10px;
-            background: rgba(43, 108, 176, 0.08);
-            border-radius: 8px;
-            line-height: 1.5;
-        }
-        .benchmark-list {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
         .benchmark-day-row {
             border: 1px solid rgba(0, 0, 0, 0.07);
             border-radius: 10px;
@@ -828,12 +808,6 @@
         .benchmark-chip .benchmark-miss { color: #c62828; font-weight: 800; }
         html.dark .benchmark-chip .benchmark-ok { color: #7ecba0; }
         html.dark .benchmark-chip .benchmark-miss { color: #ef9a9a; }
-        .benchmark-card-note { font-size: 0.7rem; }
-        /* Médaille du jour (12/09/2026, v116) : le modèle le plus proche du réel ce jour-là
-           (majorité sur T° max, T° min, pluie), posée à côté de la date, jamais de doublon. */
-        .benchmark-day-medal { font-size: 0.72rem; font-weight: 800; color: #b8860b; white-space: nowrap; }
-        html.dark .benchmark-day-medal { color: #f0c94e; }
-        .benchmark-metric-label { font-size: 0.68rem; font-weight: 800; color: var(--text-muted); min-width: 52px; }
 
         .map-layers-popover {
             position: absolute;
@@ -2909,7 +2883,6 @@
             color: var(--text-dark);
         }
         html.dark .model-disagree-table td { color: var(--text-dark); }
-        html.dark .benchmark-live-row { background: rgba(96, 165, 250, 0.12); }
         html.dark .benchmark-chip .benchmark-ok { color: #7ecba0; }
         html.dark .benchmark-chip .benchmark-miss { color: #ef9a9a; }
 
@@ -3724,7 +3697,7 @@
                 </div>
                 <!-- Tableau entièrement replié par défaut (~69 plantes) : pilules + note
                      restent visibles, le bouton déplie/replie le tableau complet
-                     (même pattern que le Benchmark). Voir toggleGardenTable(). -->
+                     (même pattern que le désaccord entre modèles). Voir toggleGardenTable(). -->
                 <button type="button" class="model-disagree-toggle" id="garden-tasks-toggle" onclick="toggleGardenTable()">Tableau complet</button>
             </div>
             <div id="garden-tasks-content">
@@ -3930,6 +3903,35 @@
             <div class="frost-icons-row" id="frost-icons-row"></div>
             <div class="frost-icons-row" id="snow-hold-icons-row" style="margin-top:4px;"></div>
             <div class="card-sage-sub" id="snow-hold-summary" style="margin-top:6px;"></div>
+        </div>
+
+        <!-- Coupe nuageuse par altitude (onglet Ski, juste au-dessus du Mode expérimental) — 29/09/2026.
+             Même famille graphique que "Température & risques de neige" (chart-card, chart-header,
+             astro-legend, Chart.js, ticks 9 px). Jour = celui du Hero ("Explorer la journée") :
+             rendu par renderCloudProfileChart(), appelée depuis updateDayView(). Les identifiants
+             cloud-profile-card / cloud-profile-grid sont conservés pour les hooks de rafraîchissement. -->
+        <div class="chart-card" data-groups="ski" id="cloud-profile-card" data-level="expert" style="display:none;">
+            <div class="chart-header">
+                <div>
+                    <div class="card-sage-title"><i class="fa-solid fa-cloud" style="color: #5e7f95; margin-right: 6px;"></i> Coupe nuageuse par altitude</div>
+                    <div class="card-sage-sub" id="cloud-profile-sub">Évolution sur la journée sélectionnée</div>
+                </div>
+                <div class="astro-legend">
+                    <span class="astro-legend-item"><span class="legend-dot" style="background: #8fa9b8;"></span> Couche de nuages (couleur = densité)</span>
+                    <span class="astro-legend-item"><b style="color:#5e706a;">↑</b> Nuage au-dessus de 5 000 m (altitude réelle indiquée)</span>
+                    <span class="astro-legend-item" id="cloud-legend-limit" style="display:none;">Limite pluie/neige :
+                        <span data-cl="rain" class="astro-legend-item"><span style="display:inline-block; width:16px; border-top:2px dashed #2b6cb0;"></span> pluie</span>
+                        <span data-cl="snow" class="astro-legend-item"><span style="display:inline-block; width:16px; border-top:2px dashed #7c3aed;"></span> neige</span></span>
+                </div>
+            </div>
+            <div class="chart-container" id="cloud-profile-grid" style="height:400px;">
+                <canvas id="cloudAltChart"></canvas>
+            </div>
+            <div style="margin-top:8px;">
+                <div style="font-size:0.66rem; font-weight:700; color:var(--text-muted); margin-bottom:3px;">Densité du nuage — épaisseur (%)</div>
+                <div style="height:8px; border-radius:4px; background:linear-gradient(90deg, #dbe7ee 0%, #8fa9b8 50%, #34495a 100%); border:1px solid rgba(0,0,0,0.08);"></div>
+                <div style="display:flex; justify-content:space-between; font-size:0.62rem; color:var(--text-muted); margin-top:2px;"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>
+            </div>
         </div>
 
         <!-- MODE EXPÉRIMENTAL — CARTE NEIGE 1 KM (Metehop), ajouté le 12/09/2026. Voir
@@ -4489,10 +4491,8 @@
              leur emplacement d'origine plus haut dans l'onglet Général. Replié par défaut (voir
              CARD_COLLAPSE_DEFAULTS['geek-card-body'] = true), même mécanisme que Pollution/Astronomie
              (toggleCardCollapse). Les deux encarts enfants gardent chacun leur data-groups="general"
-             data-level="expert" d'origine : ce n'est PAS redondant avec l'encart englobant - c'est le
-             SEUL mécanisme qui fait passer benchmark-card de display:none à visible (renderBenchmark()
-             ne touche jamais lui-même à son display ; seule la boucle générique data-groups le fait).
-             Les retirer avait fait disparaître silencieusement le Benchmark (corrigé le 17/09/2026). -->
+             data-level="expert" d'origine : ce n'est PAS redondant avec l'encart englobant : la boucle générique
+             data-groups les fait passer de display:none à visible. -->
         <div class="chart-card" id="geek-card" data-groups="general" data-level="expert">
             <div class="chart-header-row">
                 <div class="chart-header" style="flex:1; margin-bottom:0;">
@@ -4557,52 +4557,6 @@
                     </div>
                 </div>
 
-                <!-- Benchmark — modèle vs réalité (chantier 8, 12/09/2026, mode Expert) : compare les
-                     prévisions affichées par Metehop (ainsi que DWD ICON et ECMWF) aux relèves réelles
-                     des 7 jours passés. La réalité passée vient de l'archive ERA5 (Open-Meteo), la
-                     "réalité du moment" des conditions en cours (blend d'observations). Metehop ne pouvant
-                     pas reconstituer ses anciennes prévisions (les serveurs ne les re-mémorisent pas), il
-                     enregistre désormais ce qu'il affiche à chaque chargement : ses prévisions se remplissent
-                     au fil des jours. Un écart ≤ 1,5 °C sur la T° max = prévision "bonne". -->
-                <div class="chart-card" id="benchmark-card" data-groups="general" data-level="expert" style="display:none; margin-top:12px;">
-                    <div class="chart-header">
-                        <div>
-                            <div class="card-sage-title"><i class="fa-solid fa-bullseye"></i>&nbsp; Benchmark — modèle vs réalité</div>
-                            <div class="card-sage-sub">Metehop, ICON et ECMWF comparés aux relèves réelles (T° max, T° min, pluie) des 7 derniers jours pour ce lieu — une médaille 🥇 par jour au modèle le plus proche du réel.</div>
-                        </div>
-                        <button type="button" class="model-disagree-toggle" id="benchmark-toggle" onclick="toggleBenchmarkDetails()">Détails</button>
-                    </div>
-                    <!-- Replié par défaut (comme "Les modèles ne sont pas d'accord") : le détail se
-                         remplit au fil des jours de visite, inutile de l'imposer à chaque ouverture. -->
-                    <div id="benchmark-details" style="display:none;">
-                        <div id="benchmark-live" class="benchmark-live-row"></div>
-                        <div class="benchmark-list" id="benchmark-rows"></div>
-                        <div class="card-sage-sub benchmark-card-note" id="benchmark-note" style="margin-top:8px;"></div>
-                    </div>
-                </div>
-
-                <!-- Coupe nuageuse verticale — v7, look retravaillé (grappes de nuages + ligne de
-                     précipitations reliée, sur le modèle de la maquette fournie) — 18/09/2026. -->
-                <div id="cloud-profile-card" data-groups="general" data-level="expert" style="margin-top:12px; background: var(--card-bg); border-radius: var(--radius-medium); padding:12px; width:100%; box-sizing:border-box; border:1px solid rgba(0,0,0,0.06);">
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:10px;">
-                        <div style="flex:1;">
-                            <div style="font-weight:800; font-size:0.95rem; color:var(--primary-dark);"><i class="fa-solid fa-cloud-showers-heavy" style="margin-right:6px;"></i> Coupe nuageuse par altitude</div>
-                            <div id="cloud-profile-sub" style="font-size:0.70rem; color:var(--text-muted); margin-top:3px;">Nuages bas (0-2 km), moyens (2-6 km) et hauts (6-13 km) — un jour par colonne. Plus c'est foncé, plus c'est couvert.</div>
-                        </div>
-                        <div style="font-size:0.62rem; color:var(--text-muted); white-space:nowrap;">Source : Open-Meteo</div>
-                    </div>
-                    <div id="cloud-profile-grid" style="display:flex; overflow-x:auto; border-radius:12px; border:1px solid rgba(28,56,50,0.10); background:linear-gradient(180deg, #dbe9f2 0%, #eef6f0 55%, #f9fdfb 100%);">
-                        <!-- colonnes générées par renderCloudProfileChart() -->
-                    </div>
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; flex-wrap:wrap; gap:8px; font-size:0.66rem; color:var(--text-muted);">
-                        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-                            <span><i class="fa-solid fa-cloud" style="color:rgba(60,60,70,0.35); margin-right:4px;"></i>Nuages bas</span>
-                            <span><i class="fa-solid fa-cloud" style="color:rgba(60,60,70,0.65); margin-right:4px;"></i>Nuages moyens</span>
-                            <span><i class="fa-solid fa-cloud" style="color:rgba(30,30,40,0.9); margin-right:4px;"></i>Nuages hauts</span>
-                            <span><i class="fa-solid fa-droplet" style="color:#3b82f6; margin-right:4px;"></i>Précipitations (mm)</span>
-                        </div>
-                    </div>
-                </div>
 
             </div>
         </div>
@@ -4843,7 +4797,7 @@
                  à chaque modification livrée de ce fichier, mets à jour la ligne juste en-dessous
                  (footer-last-update) avec la date du jour (format JJ/MM/AAAA) et incrémente le
                  numéro de version de 1. Ne saute jamais un numéro, ne le laisse jamais inchangé. -->
-            <div class="footer-last-update">Dernière mise à jour : 27/09/2026 - 145</div>
+            <div class="footer-last-update">Dernière mise à jour : 29/09/2026 - 146</div>
         </footer>
 
     </div>
@@ -5343,6 +5297,7 @@
             });
         }
         let pressureChart = null;
+        let pressureSnowSignal = null; // {dayIdx, snowProbs} déposé par updatePressureChart, relu par la coupe nuageuse
         let snowLimitChart = null;
         let plantTempChart = null;
         let pollenChart = null;
@@ -6675,24 +6630,6 @@
                     return;
                 }
             } catch(e) {}
-            // Cas 3 fallback benchmark (si les modèles haute résolution sont temporairement indispos)
-            try {
-                if (typeof benchmarkRealityNow !== 'undefined' && benchmarkRealityNow && typeof benchmarkRealityNow.temp === 'number' && isFinite(benchmarkRealityNow.temp)) {
-                    let rNowCorr = benchmarkRealityNow.temp;
-                    try {
-                        if (typeof microClimateEnabled !== 'undefined' && microClimateEnabled && typeof microClimateDeltaAtHour === 'function') {
-                            const hNow = new Date().getHours();
-                            const dltNow = (microClimateDeltaAtHour(hNow, 0).delta) || 0;
-                            rNowCorr = Math.round((benchmarkRealityNow.temp + dltNow) * 10) / 10;
-                        }
-                    } catch(e2) {}
-                    const t3 = formatObsTimeShort(benchmarkRealityNow.ts);
-                    el.innerHTML = `Temp. live ~5km : ${Math.round(rNowCorr)}°C${t3 ? ` <span style="opacity:0.72; font-weight:500;">· ${t3}</span>` : ''}`;
-                    el.title = 'Fallback Open-Meteo current (modèles haute résolution indisponibles)';
-                    el.style.display = '';
-                    return;
-                }
-            } catch(e) {}
             el.style.display = 'none';
             el.innerText = '';
         }
@@ -6727,7 +6664,7 @@ function applyDisplayMode() {
             if (typeof weatherData !== 'undefined' && weatherData && weatherData.hourly) {
                 updateDayView(selectedDayIndex || 0);
                 renderCarousel(); // ré-affiche min/max (Simple) ou max seul (Expert) sur les cases
-                // Le graphique "Coupe nuageuse verticale" est masqué en mode Simple (data-level="expert")
+                // Le graphique "Coupe nuageuse par altitude" est masqué en mode Simple (data-level="expert")
                 // et son canvas peut avoir été (re)dessiné à taille nulle pendant qu'il était caché :
                 // on le redessine explicitement dès qu'on repasse en Expert, sans attendre un resize
                 // ou un scroll qui déclencherait l'IntersectionObserver.
@@ -7535,7 +7472,6 @@ function applyDisplayMode() {
             // setGroup('general') dans DOMContentLoaded) plutôt que seulement sur l'ex-onglet Hobby.
             if (group === 'general' && weatherData) {
                 renderAstroNightsRanking();
-                safeBenchmarkRun(renderBenchmark); // benchmark réaffiché à chaque retour dans l'onglet Général (optionnel)
             }
 
             resizeGroupCharts(group);
@@ -7848,7 +7784,7 @@ function applyDisplayMode() {
             { q: 'models=meteofrance_arome_france',    label: 'AROME France',    res: 'maille ~2,5 km' },
             { q: 'models=meteofrance_seamless',        label: 'Météo-France seamless', res: 'AROME puis ARPEGE' },
             { q: '',                                   label: 'Open-Meteo best_match', res: 'maille ~11 km' },
-            // Dernier recours avant le repli "benchmark" : même best_match mais SANS les
+            // Dernier recours avant l'erreur : même best_match mais SANS les
             // niveaux verticaux, pour isoler un éventuel refus de l'API sur 20→200 m.
             // Le profil est alors annoncé absent et AUCUNE correction n'est appliquée.
             { q: '',                                   label: 'Open-Meteo Current', res: 'maille ~11 km, niveaux 20→200 m absents', noLevels: true }
@@ -8201,30 +8137,6 @@ function applyDisplayMode() {
                 if (profileEl) profileEl.style.display = 'none';
                 if (updatedEl) updatedEl.innerText = '';
                 contentEl.style.display = 'none';
-                return;
-            }
-            // Repli honnête : si les modèles haute résolution sont inaccessibles, on retombe
-            // sur Open-Meteo current (maille ~11 km, déjà chargé pour le Benchmark) en
-            // affichant clairement qu'il n'y a NI profil vertical NI correction d'altitude.
-            let fb = null;
-            try {
-                if (typeof benchmarkRealityNow !== 'undefined' && benchmarkRealityNow && typeof benchmarkRealityNow.temp === 'number' && isFinite(benchmarkRealityNow.temp)) fb = benchmarkRealityNow;
-            } catch (e) {}
-            if (fb) {
-                loadingEl.style.display = 'none';
-                if (errorEl) errorEl.style.display = 'none';
-                contentEl.style.display = '';
-                if (modelEl) modelEl.innerText = 'repli • maille ~11 km';
-                if (pillsEl) {
-                    pillsEl.innerHTML = `<span class="snow-pill" style="background: rgba(59,110,97,0.12);"><i class="fa-solid fa-temperature-half"></i> ${omFmt(fb.temp, 1)} °C</span>`
-                        + `<span class="snow-pill"><i class="fa-solid fa-circle-question"></i> Repli — modèles haute résolution indisponibles</span>`
-                        + `<span class="snow-pill"><i class="fa-solid fa-circle-info"></i> profil vertical non mesuré, altitude non corrigée</span>`;
-                }
-                if (profileEl) {
-                    profileEl.innerText = 'Repli : le profil vertical 20→200 m n\'a pas pu être lu, donc aucune correction d\'altitude n\'a été appliquée (aucun gradient imposé).';
-                    profileEl.style.display = '';
-                }
-                if (updatedEl) updatedEl.innerText = `Source : Open-Meteo current (repli, maille ~11 km) — ${new Date(fb.ts).toLocaleString('fr-FR')}`;
                 return;
             }
             loadingEl.style.display = 'none';
@@ -9568,8 +9480,6 @@ function applyDisplayMode() {
             snowHoldReliefLoading = false;
             dailyTempNormals = {}; // nouveau lieu : la normale de saison affichée doit repartir de zéro
             modelDisagreementByDay = null; // nouveau lieu : on recalcule les désaccords entre modèles
-            benchmarkReality = null; // benchmark : les relèves du lieu précédent n'ont plus de sens ici
-            benchmarkRealityNow = null;
             // Les 4 sources de la rubrique "Stations météo à proximité" ne valent que pour le
             // lieu demandé : on purge celles qui restent d'un autre endroit (garde-fou 30 km,
             // même helper que les autres caches de la carte) avant tout réaffichage.
@@ -9606,12 +9516,6 @@ render16DayTable();
                 setTimeout(()=>{ try{ renderCloudProfileChart(); }catch(e){ console.error(e); } }, 500);
                 renderModelDisagreementCard([]);
                 resetModelDisagreementGate();
-                saveBenchmarkSnapshot(); // mémoire des prévisions dès que possible (Metehop affiché)
-                safeBenchmarkRun(() => {
-                    loadBenchmarkReality(lat, lon).catch(() => {});
-                    loadBenchmarkRealityNow(lat, lon).catch(() => {});
-                    renderBenchmark();
-                });
                 updateSnowEpisodeCard();
                 ensembleConfidenceByDay = null; // nouveau lieu : on repart sur l'heuristique le temps du chargement
                 loadEnsembleConfidence(lat, lon).catch(() => {});
@@ -9680,12 +9584,11 @@ render16DayTable();
                     stopNearbyStationAutoRefresh();
                 }
                 document.getElementById('nearby-station-card').style.display = nearbyStationInRange ? '' : 'none';
-                // v137 - FIX rafraichissement : on force Temp.live + benchmark quelle que soit la zone,
+                // v137 - FIX rafraichissement : on force Temp.live quelle que soit la zone,
                 // et on recharge (même si ITENCI3 est à portée ou non) les deux premières sources
                 // de la rubrique "Stations météo à proximité" — Open-Meteo Current et MET Norway.
                 try { updateHeroLiveTemp(); } catch(e) {}
                 if (typeof currentLat === 'number' && typeof currentLon === 'number') {
-                    try { if (!benchmarkRealityNow && !benchmarkRealityNowLoading) loadBenchmarkRealityNow(currentLat, currentLon).catch(()=>{}); } catch(e) {}
                     try { loadOpenMeteoCurrent(currentLat, currentLon).catch(()=>{}); } catch(e) {}
                 }
                 try { renderOpenMeteoCurrentCard(); } catch(e) {}
@@ -10276,7 +10179,6 @@ render16DayTable();
             }
             const coefsEl = document.getElementById('micro-model-coefs');
             if (!coefsEl) return;
-            const hl = 'font-weight:800; color:var(--accent-blue);';
             let rows = '';
             Object.keys(PHYS_MICRO).forEach(function (k) {
                 const v21 = PHYS_MICRO[k];
@@ -10288,11 +10190,11 @@ render16DayTable();
                 rows += '<tr>'
                     + '<td style="padding:3px 6px; white-space:nowrap;"><b>' + k + '</b>' + badge + '</td>'
                     + '<td style="padding:3px 6px; color:var(--text-muted);">' + (MICRO_MODEL_COEF_LABELS[k] || '') + '</td>'
-                    + '<td style="padding:3px 6px; text-align:right; white-space:nowrap;' + (isV211 ? '' : hl) + '">' + v21 + '</td>'
-                    + '<td style="padding:3px 6px; text-align:right; white-space:nowrap;' + (isV211 ? hl : '') + '">' + v211 + '</td>'
+                    + '<td style="padding:3px 6px; text-align:right; white-space:nowrap;">' + v21 + '</td>'
+                    + '<td style="padding:3px 6px; text-align:right; white-space:nowrap;">' + v211 + '</td>'
                     + '</tr>';
             });
-            coefsEl.innerHTML = '<div style="font-size:0.66rem; font-weight:800; text-transform:uppercase; letter-spacing:0.3px; color:var(--text-muted);">Coefficients du modèle sélectionné (class PHYS_MICRO)</div>'
+            coefsEl.innerHTML = '<div style="font-size:0.66rem; font-weight:800; text-transform:uppercase; letter-spacing:0.3px; color:var(--text-muted);">Coefficients par version (PHYS_MICRO · PHYS_MICRO_V211) — indépendants du sélecteur</div>'
                 + '<table style="width:100%; border-collapse:collapse; font-size:0.69rem; margin-top:4px;">'
                 + '<thead><tr style="color:var(--text-muted); text-align:right;">'
                 + '<th style="padding:3px 6px; text-align:left; border-bottom:1px solid rgba(0,0,0,0.12);">Constante</th>'
@@ -14161,23 +14063,6 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
             }
             modelDisagreementByDay = Object.keys(flagByDate).length ? flagByDate : null;
             renderModelDisagreementCard(rowList);
-            // Chantier 8 (benchmark) : mémorise les valeurs brutes ICON/ECMWF par date, puis
-            // enregistre la mémoire de prévisions de ce chargement (Metehop + ces deux modèles).
-            // Tout reste optionnel : une erreur ici ne doit pas casser le désaccord entre modèles.
-            safeBenchmarkRun(() => {
-                benchmarkModelDataByDate = {};
-                for (let i = 0; i < days; i++) {
-                    const dateStr = baseline.time[i];
-                    const mk = (resp, map) => (resp && resp.daily) ? {
-                        tmax: valAt(resp.daily, map, dateStr, 'temperature_2m_max'),
-                        tmin: valAt(resp.daily, map, dateStr, 'temperature_2m_min'),
-                        rain: valAt(resp.daily, map, dateStr, 'precipitation_sum')
-                    } : null;
-                    benchmarkModelDataByDate[dateStr] = { icon: mk(responses[0], iconMap), ecmwf: mk(responses[1], ecmwfMap) };
-                }
-                saveBenchmarkSnapshot();
-                renderBenchmark();
-            });
         }
 
         // Rows = jours signalés (dateStr, issues). Les valeurs "affichées" par Metehop pour chaque
@@ -14316,389 +14201,6 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
             if (opening) renderModelDisagreementDetails();
         }
 
-        // Benchmark replié par défaut : même pattern que le désaccord entre modèles.
-        function toggleBenchmarkDetails() {
-            const details = document.getElementById('benchmark-details');
-            if (!details) return;
-            const opening = details.style.display === 'none';
-            details.style.display = opening ? '' : 'none';
-            if (opening) safeBenchmarkRun(renderBenchmark);
-        }
-
-        // Chantier 8 — "Benchmark — modèle vs réalité" (12/09/2026, mode Expert) : compare chaque
-        // jour passé les températures max/min et la pluie ANNONCÉES par Metehop (et par DWD ICON,
-        // ECMWF) aux relèves réellement enregistrées ce jour-là.
-        //
-        // Volontairement honnête : les serveurs météo ne se souviennent pas de leurs anciennes
-        // prévisions (interroger le passé renvoie l'OBSERVÉ, jamais ce qui avait été prévu) —
-        // Metehop ne peut donc pas reconstituer ce qu'il affichait il y a 5 jours. C'est pourquoi il
-        // MÉMORISE depuis son installation (mémoire locale) tout ce qu'il affiche à chaque
-        // chargement : ses prévisions sont mémorisées au fil des jours de visite, puis les scores
-        // d'exactitude se construisent tout seuls, un par grandeur (T° max, T° min, pluie).
-        // Chaque jour passé porte une médaille 🥇 au modèle le plus proche du réel (majorité
-        // sur ces mêmes 3 grandeurs ; égalité au sommet = pas de médaille plutôt que loterie).
-        // Réalité = archive ERA5 (Open-Meteo) pour la semaine
-        // passée ; "aujourd'hui (en cours)" = conditions du moment (mélange d'observations).
-        // Un écart ≤ 1,5 °C sur la T° max = prévision jugée "bonne".
-        const BENCHMARK_DAYS = 7;
-        const BENCHMARK_GOOD_DEG = 1.5;
-        // v116 (12/09/2026) : les 3 grandeurs sont comparées (T° max, T° min, pluie) et chaque
-        // jour porte une médaille au vainqueur (majorité sur les 3 grandeurs). Un écart ≤ 1,5 mm
-        // sur la pluie = prévision jugée "bonne", même principe que le 1,5 °C des températures.
-        const BENCHMARK_GOOD_RAIN_MM = 1.5;
-        const BENCHMARK_HISTORY_KEY = 'metehop_benchmark_v1';
-        const BENCHMARK_REALITY_KEY = 'metehop_benchmark_reality_v1';
-        const BENCHMARK_KEEP_DAYS = 45;
-        let benchmarkModelDataByDate = null; // {'YYYY-MM-DD': {icon:{tmax,tmin,rain}, ecmwf:{…}}} rempli par loadModelDisagreement
-        let benchmarkReality = null;          // {lat, lon, fetchedOn, byDate:{'YYYY-MM-DD':{tmax,tmin,precip,snow}}}
-        let benchmarkRealityNow = null;       // {temp, precip, ts} conditions du moment
-        let benchmarkRealityLoading = false;
-        let benchmarkRealityNowLoading = false;
-
-        function benchmarkLocalDateStr(d) {
-            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        }
-        // Identité du lieu dans la mémoire de prévisions : une cellule d'environ 10 km × 10 km
-        // (tolérante aux petites variations GPS de "Ma position"), indépendante du nom affiché.
-        function benchmarkPlaceKey() {
-            if (typeof currentLat !== 'number' || typeof currentLon !== 'number') return null;
-            return `${currentLat.toFixed(1)}|${currentLon.toFixed(1)}`;
-        }
-        function benchmarkFmt1(v) {
-            return (typeof v === 'number' && isFinite(v)) ? v.toFixed(1).replace('.', ',') : '—';
-        }
-        function benchmarkFmtSigned(v) {
-            if (!(typeof v === 'number' && isFinite(v))) return '—';
-            const r = Math.round(v * 10) / 10;
-            return (r > 0 ? '+' : '') + r.toFixed(1).replace('.', ',');
-        }
-
-        // --- Mémoire des prévisions (Metehop affiché + ICON + ECMWF), une entrée par jour local. ---
-        function loadBenchmarkHistory() {
-            try { return JSON.parse(localStorage.getItem(BENCHMARK_HISTORY_KEY) || '[]'); }
-            catch (e) { return []; }
-        }
-        function saveBenchmarkHistory(list) {
-            try { localStorage.setItem(BENCHMARK_HISTORY_KEY, JSON.stringify(list)); } catch (e) {}
-        }
-
-        // À chaque chargement réussi : met à jour / crée le souvenir de chaque jour couvert par
-        // cette prévision (on garde la dernière, donc celle du jour même). Chaque souvenir est
-        // rattaché au lieu (benchmarkPlaceKey) : une mémoire propre à chaque endroit, comparée
-        // ensuite à la réalité de CET endroit. Purge des souvenirs plus vieux que
-        // BENCHMARK_KEEP_DAYS.
-        function saveBenchmarkSnapshot() {
-            try {
-            if (!weatherData || !weatherData.daily || !weatherData.daily.time || !weatherData.daily.time.length) return;
-            const pk = benchmarkPlaceKey();
-            if (!pk) return;
-            const now = new Date();
-            const cutoff = new Date();
-            cutoff.setDate(cutoff.getDate() - BENCHMARK_KEEP_DAYS);
-            const cutoffStr = benchmarkLocalDateStr(cutoff);
-            const history = loadBenchmarkHistory();
-            const mine = new Map(history.filter(r => r.pk === pk).map(r => [r.date, r]));
-            const elsewhere = history.filter(r => r.pk !== pk);
-            for (let i = 0; i < weatherData.daily.time.length; i++) {
-                const date = weatherData.daily.time[i];
-                if (typeof date !== 'string' || date < cutoffStr) continue;
-                const prev = mine.get(date);
-                const dm = benchmarkModelDataByDate ? benchmarkModelDataByDate[date] : null;
-                const r = prev ? Object.assign({}, prev) : { pk, date, mMax: null, mMin: null, mRain: null, iMax: null, iMin: null, iRain: null, eMax: null, eMin: null, eRain: null };
-                r.recordedOn = benchmarkLocalDateStr(now);
-                const mm = displayedDayMaxMin(i);
-                const rain = displayedDayRain(i);
-                if (mm.max !== null && mm.max !== undefined && isFinite(mm.max)) r.mMax = Math.round(mm.max * 10) / 10;
-                if (mm.min !== null && mm.min !== undefined && isFinite(mm.min)) r.mMin = Math.round(mm.min * 10) / 10;
-                if (rain !== null && rain !== undefined && isFinite(rain)) r.mRain = Math.round(rain * 10) / 10;
-                if (dm) {
-                    if (dm.icon) {
-                        if (typeof dm.icon.tmax === 'number' && isFinite(dm.icon.tmax)) r.iMax = Math.round(dm.icon.tmax * 10) / 10;
-                        if (typeof dm.icon.tmin === 'number' && isFinite(dm.icon.tmin)) r.iMin = Math.round(dm.icon.tmin * 10) / 10;
-                        if (typeof dm.icon.rain === 'number' && isFinite(dm.icon.rain)) r.iRain = Math.round(dm.icon.rain * 10) / 10;
-                    }
-                    if (dm.ecmwf) {
-                        if (typeof dm.ecmwf.tmax === 'number' && isFinite(dm.ecmwf.tmax)) r.eMax = Math.round(dm.ecmwf.tmax * 10) / 10;
-                        if (typeof dm.ecmwf.tmin === 'number' && isFinite(dm.ecmwf.tmin)) r.eMin = Math.round(dm.ecmwf.tmin * 10) / 10;
-                        if (typeof dm.ecmwf.rain === 'number' && isFinite(dm.ecmwf.rain)) r.eRain = Math.round(dm.ecmwf.rain * 10) / 10;
-                    }
-                }
-                mine.set(date, r);
-            }
-            const list = Array.from(mine.values()).concat(elsewhere)
-                .filter(r => typeof r.date === 'string' && r.date >= cutoffStr)
-                .sort((a, b) => (a.pk === b.pk ? a.date.localeCompare(b.date) : (a.pk || '').localeCompare(b.pk || '')));
-            saveBenchmarkHistory(list);
-            } catch (e) { /* la mémoire de prévisions reste optionnelle */ }
-        }
-
-        // --- Réalité passée : archive ERA5 (Open-Meteo), BENCHMARK_DAYS jours finissant hier. ---
-        function cachedBenchmarkReality(lat, lon) {
-            try {
-                const c = JSON.parse(localStorage.getItem(BENCHMARK_REALITY_KEY) || 'null');
-                if (c && c.byDate && Math.abs(c.lat - lat) < 0.01 && Math.abs(c.lon - lon) < 0.01 && (Date.now() - (c.fetchedOn || 0)) < 12 * 3600 * 1000) return c;
-            } catch (e) {}
-            return null;
-        }
-        async function loadBenchmarkReality(lat, lon) {
-            const cached = cachedBenchmarkReality(lat, lon);
-            if (cached) { benchmarkReality = cached; renderBenchmark(); return; }
-            if (benchmarkRealityLoading) return;
-            benchmarkRealityLoading = true;
-            try {
-                const start = new Date(); start.setDate(start.getDate() - BENCHMARK_DAYS);
-                const end = new Date(); end.setDate(end.getDate() - 1);
-                const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&start_date=${benchmarkLocalDateStr(start)}&end_date=${benchmarkLocalDateStr(end)}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,snowfall_sum&timezone=auto`;
-                const res = await fetchWithTimeout(url, { timeout: 20000 });
-                if (!res.ok) return;
-                const data = await res.json();
-                if (!data || !data.daily || !data.daily.time) return;
-                const byDate = {};
-                for (let i = 0; i < data.daily.time.length; i++) {
-                    byDate[data.daily.time[i]] = {
-                        tmax: typeof data.daily.temperature_2m_max[i] === 'number' ? data.daily.temperature_2m_max[i] : null,
-                        tmin: typeof data.daily.temperature_2m_min[i] === 'number' ? data.daily.temperature_2m_min[i] : null,
-                        precip: typeof data.daily.precipitation_sum[i] === 'number' ? data.daily.precipitation_sum[i] : null,
-                        snow: typeof data.daily.snowfall_sum[i] === 'number' ? data.daily.snowfall_sum[i] : null
-                    };
-                }
-                benchmarkReality = { lat, lon, fetchedOn: Date.now(), byDate };
-                try { localStorage.setItem(BENCHMARK_REALITY_KEY, JSON.stringify(benchmarkReality)); } catch (e) {}
-                renderBenchmark();
-            } catch (e) {
-            } finally {
-                benchmarkRealityLoading = false;
-            }
-        }
-
-        // --- Réalité "aujourd'hui (en cours)" : conditions du moment (blend d'observations). ---
-        async function loadBenchmarkRealityNow(lat, lon) {
-            if (benchmarkRealityNowLoading) return;
-            benchmarkRealityNowLoading = true;
-            try {
-                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&current=temperature_2m,precipitation&timezone=auto&forecast_days=1`;
-                const res = await fetchWithTimeout(url, { timeout: 8000 });
-                if (!res.ok) return;
-                const data = await res.json();
-                if (data && data.current && typeof data.current.temperature_2m === 'number') {
-                    benchmarkRealityNow = {
-                        temp: data.current.temperature_2m,
-                        precip: (data.current.precipitation !== undefined && data.current.precipitation !== null) ? data.current.precipitation : null,
-                        ts: Date.now()
-                    };
-                    renderBenchmark();
-                    try { updateHeroLiveTemp(); } catch(e) {}
-                    try { renderOpenMeteoCurrentCard(); } catch(e) {}
-                }
-            } catch (e) {
-            } finally {
-                benchmarkRealityNowLoading = false;
-            }
-        }
-
-        // T° affichée "maintenant" par Metehop, même logique que le bandeau météo (une seule
-        // correction micro-climat).
-        function benchmarkDisplayedNow() {
-            if (!weatherData || !weatherData.hourly || !weatherData.hourly.temperature_2m) return null;
-            const hourOfDay = new Date().getHours();
-            const raw = weatherData.hourly.temperature_2m[hourOfDay];
-            if (typeof raw !== 'number') return null;
-            let delta = 0;
-            try { delta = microClimateDeltaAtHour(hourOfDay, 0).delta || 0; } catch (e) {}
-            return raw + delta;
-        }
-
-        function benchmarkDayLabel(dateStr) {
-            const today = benchmarkLocalDateStr(new Date());
-            if (dateStr === today) return "Aujourd'hui";
-            const y = new Date(); y.setDate(y.getDate() - 1);
-            if (dateStr === benchmarkLocalDateStr(y)) return 'Hier';
-            const [a, m, j] = dateStr.split('-').map(Number);
-            return new Date(a, m - 1, j).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
-        }
-
-        function benchmarkRealCell(v, unit) {
-            return (typeof v === 'number' && isFinite(v)) ? `${benchmarkFmt1(v)}${unit}` : '—';
-        }
-
-        // v116 (12/09/2026) — Médaille du jour : le modèle le plus proche du réel, au vote
-        // majoritaire sur les trois grandeurs comparées (T° max, T° min, pluie) : chacune vaut
-        // 1 point pour le modèle au plus petit écart absolu (mélanger °C et mm dans un score
-        // unique n'aurait pas de sens physique). Égalité en tête → pas de médaille.
-        function benchmarkDayWinner(rec, r) {
-            if (!rec || !r) return null;
-            const reals = { tmax: r.tmax, tmin: r.tmin, rain: r.precip };
-            const stocks = {
-                Metehop: { tmax: rec.mMax, tmin: rec.mMin, rain: rec.mRain },
-                ICON: { tmax: rec.iMax, tmin: rec.iMin, rain: rec.iRain },
-                ECMWF: { tmax: rec.eMax, tmin: rec.eMin, rain: rec.eRain }
-            };
-            const wins = { Metehop: 0, ICON: 0, ECMWF: 0 };
-            ['tmax', 'tmin', 'rain'].forEach(metric => {
-                const real = reals[metric];
-                if (typeof real !== 'number' || !isFinite(real)) return;
-                let best = null, bestD = Infinity;
-                for (const m in stocks) {
-                    const v = stocks[m][metric];
-                    if (typeof v !== 'number' || !isFinite(v)) continue;
-                    const d = Math.abs(v - real);
-                    if (d < bestD - 1e-9) { bestD = d; best = m; }
-                }
-                if (best) wins[best]++;
-            });
-            const top = Object.entries(wins).filter(e => e[1] > 0).sort((a, b) => b[1] - a[1]);
-            if (!top.length) return null;
-            if (top.length > 1 && top[0][1] === top[1][1]) return null;
-            return top[0][0];
-        }
-
-        // Le benchmark est un affichage SUPPLEMENTAIRE de l'app : il ne doit jamais pouvoir
-        // interrompre le chargement de la météo ni casser la page. Tout le rendu est donc isolé
-        // dans un try/catch et servi en lignes "chips" (pas de colonnes fixes) : aucun mot ne
-        // peut se superposer, sur téléphone comme sur ordinateur.
-        function renderBenchmark() {
-            try {
-                const card = document.getElementById('benchmark-card');
-                if (!card) return;
-                // Deux relèves lancées une seule fois par lieu : réalité passée + "maintenant".
-                if (typeof currentLat === 'number' && typeof currentLon === 'number') {
-                    if (!benchmarkReality && !benchmarkRealityLoading) loadBenchmarkReality(currentLat, currentLon).catch(() => {});
-                    if (!benchmarkRealityNow && !benchmarkRealityNowLoading && weatherData) loadBenchmarkRealityNow(currentLat, currentLon).catch(() => {});
-                }
-                // Bandeau "aujourd'hui (en cours)" : Metehop affiché vs conditions du moment.
-                // v137 (16/09/2026) : le réel du moment est lui aussi corrigé micro-climat,
-                // même delta que Metehop à l'heure courante, pour comparer à lieu égal.
-                const liveEl = document.getElementById('benchmark-live');
-                if (liveEl) {
-                    const dNow = benchmarkDisplayedNow();
-                    const rNow = benchmarkRealityNow;
-                    if (dNow !== null && rNow && typeof rNow.temp === 'number') {
-                        let rNowCorr = rNow.temp;
-                        try {
-                            if (typeof microClimateEnabled !== 'undefined' && microClimateEnabled && typeof microClimateDeltaAtHour === 'function') {
-                                const hNow = new Date().getHours();
-                                const dltNow = (microClimateDeltaAtHour(hNow, 0).delta) || 0;
-                                rNowCorr = Math.round((rNow.temp + dltNow) * 10) / 10;
-                            }
-                        } catch (e) {}
-                        const delta = Math.round((rNowCorr - dNow) * 10) / 10;
-                        const cls = Math.abs(delta) <= BENCHMARK_GOOD_DEG ? 'benchmark-ok' : 'benchmark-miss';
-                        const corrHint = (typeof microClimateEnabled !== 'undefined' && microClimateEnabled) ? (function(){ try{ const d= microClimateDeltaAtHour(new Date().getHours(),0).delta||0; return d!==0 ? ' (corrigé micro-climat)' : ''; }catch(e){ return ''; } })() : '';
-                        liveEl.innerHTML = `Aujourd'hui (en cours) : Metehop affiche <b>${Math.round(dNow)} °C</b> (micro-climat compris) · réel <b>${Math.round(rNowCorr)} °C</b>${corrHint} → écart <b class="${cls}">${benchmarkFmtSigned(delta)} °</b>`;
-                        try { updateHeroLiveTemp(); } catch(e) {}
-                    } else {
-                        liveEl.innerHTML = "Aujourd'hui (en cours) : chargement…";
-                    }
-                }
-                // Les BENCHMARK_DAYS derniers jours, une ligne par jour : réel + 3 modèles (prévu, écart).
-                const rowsEl = document.getElementById('benchmark-rows');
-                const noteEl = document.getElementById('benchmark-note');
-                if (!rowsEl) return;
-                const pk = benchmarkPlaceKey();
-                const byDate = new Map(loadBenchmarkHistory().filter(r => r.pk === pk).map(rec => [rec.date, rec]));
-                const real = benchmarkReality ? benchmarkReality.byDate : null;
-                // v137 (16/09/2026) : les valeurs RÉELLES (ERA5) sont corrigées avec la MÊME
-                // correction micro-climat que Metehop, pour comparer à lieu égal. Metehop affiche
-                // déjà ses prévisions corrigées ; sans corriger le réel, un fond de vallée
-                // paraîtrait systématiquement "raté" alors que c'est la grille ERA5 qui ne voit pas
-                // l'inversion. Correction = delta à 6h pour Tmin, delta à 15h pour Tmax
-                // (fenêtres d'inversion / UHI), même logique que displayedDayMaxMin.
-                let corrTmin = 0, corrTmax = 0;
-                try {
-                    if (typeof microClimateEnabled !== 'undefined' && microClimateEnabled && typeof microClimateDeltaAtHour === 'function') {
-                        corrTmin = (microClimateDeltaAtHour(6, 0).delta) || 0;
-                        corrTmax = (microClimateDeltaAtHour(15, 0).delta) || 0;
-                    }
-                } catch (e) { corrTmin = 0; corrTmax = 0; }
-                const applyCorrToReal = (rObj) => {
-                    if (!rObj) return null;
-                    const out = Object.assign({}, rObj);
-                    if (typeof out.tmin === 'number' && isFinite(out.tmin)) out.tmin = Math.round((out.tmin + corrTmin) * 10) / 10;
-                    if (typeof out.tmax === 'number' && isFinite(out.tmax)) out.tmax = Math.round((out.tmax + corrTmax) * 10) / 10;
-                    return out;
-                };
-                const rows = [];
-                for (let d = BENCHMARK_DAYS; d >= 1; d--) {
-                    const dt = new Date(); dt.setDate(dt.getDate() - d);
-                    const date = benchmarkLocalDateStr(dt);
-                    const rawR = real ? real[date] : null;
-                    const rCorr = applyCorrToReal(rawR);
-                    rows.push({ date, r: rCorr, rawR: rawR, rec: byDate.get(date) || null });
-                }
-                // v116 (12/09/2026) : les 3 grandeurs sont comparées, pas seulement la T° max :
-                // une ligne (label + 1 chip par modèle) par grandeur. « Bon » = écart ≤ 1,5 °C
-                // (températures) ou ≤ 1,5 mm (pluie).
-                const modelChip = (label, pred, realVal, unit, good) => {
-                    let val = '—', delta = '';
-                    if (typeof pred === 'number' && isFinite(pred)) {
-                        val = `${benchmarkFmt1(pred)}${unit}`;
-                        if (typeof realVal === 'number' && isFinite(realVal)) {
-                            const dlt = Math.round((pred - realVal) * 10) / 10;
-                            const cls = Math.abs(dlt) <= good ? 'benchmark-ok' : 'benchmark-miss';
-                            delta = `<span class="${cls}">${benchmarkFmtSigned(dlt)}${unit}</span>`;
-                        }
-                    }
-                    return `<span class="benchmark-chip"><b>${label}</b><span>${val}</span>${delta}</span>`;
-                };
-                rowsEl.innerHTML = rows.map(({ date, r, rawR, rec }) => {
-                    const realTxt = r
-                        ? `Réel : max <b>${benchmarkRealCell(r.tmax, '°')}</b> · min <b>${benchmarkRealCell(r.tmin, '°')}</b> · pluie ${(typeof r.precip === 'number' && isFinite(r.precip)) ? benchmarkFmt1(r.precip) + ' mm' : '—'}${(typeof microClimateEnabled !== 'undefined' && microClimateEnabled && (corrTmin !== 0 || corrTmax !== 0)) ? ' <span style="opacity:0.7">(µ-climat)</span>' : ''}`
-                        : 'Réel : —';
-                    const realValOf = (key) => (r && typeof r[key] === 'number' && isFinite(r[key]) ? r[key] : null);
-                    const metricRow = (label, mKey, iKey, eKey, realKey, unit, good) => `
-                    <div class="benchmark-day-models">
-                        <span class="benchmark-metric-label">${label}</span>
-                        ${modelChip('Metehop', rec ? rec[mKey] : null, realValOf(realKey), unit, good)}
-                        ${modelChip('ICON', rec ? rec[iKey] : null, realValOf(realKey), unit, good)}
-                        ${modelChip('ECMWF', rec ? rec[eKey] : null, realValOf(realKey), unit, good)}
-                    </div>`;
-                    const winner = benchmarkDayWinner(rec, r);
-                    return `<div class="benchmark-day-row">
-                    <div class="benchmark-day-head">
-                        <span class="benchmark-day-label">${benchmarkDayLabel(date)}</span>
-                        ${winner ? `<span class="benchmark-day-medal" title="Modèle le plus proche du réel ce jour-là (majorité sur T° max, T° min et pluie).">🥇 ${winner}</span>` : ''}
-                        <span class="benchmark-day-real">${realTxt}</span>
-                    </div>
-                    ${metricRow('T° max', 'mMax', 'iMax', 'eMax', 'tmax', '°', BENCHMARK_GOOD_DEG)}
-                    ${metricRow('T° min', 'mMin', 'iMin', 'eMin', 'tmin', '°', BENCHMARK_GOOD_DEG)}
-                    ${metricRow('Pluie', 'mRain', 'iRain', 'eRain', 'precip', ' mm', BENCHMARK_GOOD_RAIN_MM)}
-                </div>`;
-                }).join('');
-                if (!noteEl) return;
-                // v116 (12/09/2026) : un score (MAE + "bons jours") PAR GRANDEUR — T° max,
-                // T° min et pluie — rendu dès qu'au moins un jour passé a été comparé ; chacun
-                // se construit au fil des jours de visite.
-                const metricScore = (label, realKey, mKey, iKey, eKey, good, unit, goodTxt) => {
-                    const days = rows.filter(x => x.rec && x.r && typeof x.r[realKey] === 'number' && isFinite(x.r[realKey]));
-                    if (!days.length) return null;
-                    const parts = [];
-                    const one = (modelLabel, key) => {
-                        const errs = days
-                            .filter(x => typeof x.rec[key] === 'number' && isFinite(x.rec[key]))
-                            .map(x => Math.abs(x.rec[key] - x.r[realKey]));
-                        if (!errs.length) return;
-                        const mae = errs.reduce((a, b) => a + b, 0) / errs.length;
-                        const ok = errs.filter(v => v <= good).length;
-                        parts.push(`${modelLabel} ± ${benchmarkFmt1(mae)}${unit} (${ok}/${errs.length} à ${goodTxt})`);
-                    };
-                    one('Metehop', mKey); one('ICON', iKey); one('ECMWF', eKey);
-                    return parts.length ? `Score ${label} : ${parts.join(' · ')}` : null;
-                };
-                const scoreLines = [
-                    metricScore('T° max', 'tmax', 'mMax', 'iMax', 'eMax', BENCHMARK_GOOD_DEG, ' °', '≤ 1,5 °'),
-                    metricScore('T° min', 'tmin', 'mMin', 'iMin', 'eMin', BENCHMARK_GOOD_DEG, ' °', '≤ 1,5 °'),
-                    metricScore('Pluie', 'precip', 'mRain', 'iRain', 'eRain', BENCHMARK_GOOD_RAIN_MM, ' mm', '≤ 1,5 mm')
-                ].filter(Boolean);
-                noteEl.innerHTML = (scoreLines.length ? scoreLines.join('<br>') + '<br>' : '') +
-                    `Rappel honnête : d'où vient le « réel » s'il n'y a pas de station météo au bout de la rue ? Pour les jours passés, Metehop utilise l'archive ERA5 (réanalyse du CEPMMT, servie par Open-Meteo) : un modèle numérique assimile toutes les mesures disponibles des stations officielles (réseau Météo-France / OMM — pour Grenoble : station de Grenoble–Saint-Geoirs et station urbaine CEA) pour reconstruire, sur une grille d'environ 25-30 km, le temps le plus probable à chaque point — votre rue est donc couverte par la grille même sans capteur sur place. « Aujourd'hui (en cours) » = conditions du moment (mélange d'observations). Côté prévisions, la météo ne garde pas trace de ce qu'elle avait annoncé : Metehop enregistre donc, à chaque visite, ce qu'il affiche (micro-climat compris), chaque endroit gardant sa propre mémoire. Tableau, médailles et scores se remplissent au fil des jours.`;
-            } catch (e) { /* le benchmark reste optionnel : jamais bloquant */ }
-        }
-
-        // Exécute des appels du benchmark sans jamais laisser une erreur remonter (le chargement
-        // de la météo ne doit dépendre d'aucun de ces appels).
-        function safeBenchmarkRun(fn) {
-            try { fn(); } catch (e) { /* optionnel, ignoré */ }
-        }
 
         // Partie B — Bouton "Couches" de la carte : vent / température / nuages à l'heure actuelle,
         // dessinés sur la grille 4km×4km (getForecastAtPoint, interpolée depuis les 9 points réels
@@ -15873,6 +15375,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
             updateAstroChart(dayIdx);
             updatePressureChart(dayIdx);
             updateSnowLimitChart(dayIdx);
+            renderCloudProfileChart(dayIdx);
 
             // Mascotte météo (mode Simple) — désormais 3 grenouilles matin/apres-midi/soir (15/09/2026)
             // On garde l'ancien appel pour compat mais on rend surtout les 3
@@ -16172,212 +15675,257 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
         }
 
         // ======================================================================
-        // COUPE NUAGEUSE PAR ALTITUDE — v8 (18/09/2026) : nuages en SVG (silhouette
-        // Font Awesome, dégradé de teinte selon la couverture), axe d'altitude à droite,
-        // bandeau jour en fond, précipitations en barres + ligne + gouttes — sur le
-        // modèle de la maquette fournie par l'utilisateur. Tout en DOM/SVG (pas de
-        // <canvas>), donc pas de souci de largeur/hauteur à zéro pendant que la carte
-        // est masquée.
+        // COUPE NUAGEUSE PAR ALTITUDE (onglet Ski) — Chart.js, 29/09/2026
+        // Jour affiché = jour sélectionné dans le Hero (selectedDayIndex), 06h→20h.
+        // Données réelles Open-Meteo déjà chargées (aucun appel réseau) : couverture nuageuse
+        // basse / moyenne / haute en %, freezing_level_height (isotherme 0°C). Le modèle ne
+        // donne pas d'altitude exacte de couche, seulement des tranches : basse 0-2 km,
+        // moyenne 2-6 km, haute 6-13 km. Chaque couche est dessinée par une fine barre au
+        // milieu de sa tranche (basse 1 000 m, moyenne 4 000 m) ; la couche haute, toujours
+        // au-dessus de l'échelle (5 000 m), est épinglée en haut avec une flèche ↑ et son
+        // altitude réelle (tranche) écrite. Couleur = densité (%). Limite pluie/neige =
+        // isotherme − SNOW_LIMIT_OFFSET_M (même estimation que updateSnowLimitChart), tracée
+        // seulement si de la pluie est prévue sur la période affichée.
         // ======================================================================
-        // Silhouette de nuage (Font Awesome "cloud", licence CC BY 4.0) réutilisée en <symbol>
-        // pour ne la définir qu'une fois et l'instancier en <use> à chaque endroit nécessaire.
-        const CLOUD_SVG_PATH = "M0 336c0 79.5 64.5 144 144 144l304 0c70.7 0 128-57.3 128-128 0-51.6-30.5-96.1-74.5-116.3 6.7-13.1 10.5-28 10.5-43.7 0-53-43-96-96-96-17.7 0-34.2 4.8-48.4 13.1-24.1-45.8-72.2-77.1-127.6-77.1-79.5 0-144 64.5-144 144 0 8 .7 15.9 1.9 23.5-56.9 19.2-97.9 73.1-97.9 136.5z";
+        let cloudAltChart = null;
+        const CLOUD_ALT_MAX_M = 5000;
+        const CLOUD_BANDS = [
+            { key: 'cloud_cover_low',  label: 'Nuages bas',    range: '0 – 2 000 m',       lo: 0,    hi: 2000,  top: false },
+            { key: 'cloud_cover_mid',  label: 'Nuages moyens', range: '2 000 – 6 000 m',   lo: 2000, hi: 6000,  top: false },
+            { key: 'cloud_cover_high', label: 'Nuages hauts',  range: '6 000 – 13 000 m',  lo: 6000, hi: 13000, top: true }
+        ];
+        // Bruit de valeur 2D lissé et déterministe (0..1) pour les contours organiques des nuages.
+        function cloudNoise2(x, y, seed) {
+            const hash = (ix, iy) => { let n = (ix * 374761393 + iy * 668265263 + seed * 2147483647) | 0; n = (n ^ (n >>> 13)) * 1274126177 | 0; return ((n ^ (n >>> 16)) >>> 0) / 4294967295; };
+            const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy;
+            const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+            const a = hash(ix, iy), b = hash(ix + 1, iy), c = hash(ix, iy + 1), d = hash(ix + 1, iy + 1);
+            return (a + (b - a) * sx) * (1 - sy) + (c + (d - c) * sx) * sy;
+        }
+        function cloudDensityColor(p) {
+            // 0 % → #dbe7ee, 50 % → #8fa9b8, 100 % → #34495a (même dégradé que l'échelle sous le graphique)
+            const stops = [[0, [219, 231, 238]], [50, [143, 169, 184]], [100, [52, 73, 90]]];
+            const v = Math.max(0, Math.min(100, p));
+            const i = v <= 50 ? 0 : 1;
+            const a = stops[i], b = stops[i + 1];
+            const t = (v - a[0]) / (b[0] - a[0]);
+            const c = a[1].map((x, k) => Math.round(x + (b[1][k] - x) * t));
+            return `rgb(${c[0]},${c[1]},${c[2]})`;
+        }
+        function renderCloudProfileChart(dayIdx) {
+            try {
+                if (typeof Chart === 'undefined') return;
+                const canvas = document.getElementById('cloudAltChart');
+                if (!canvas) return;
+                if (typeof dayIdx !== 'number') dayIdx = (typeof selectedDayIndex === 'number') ? selectedDayIndex : 0;
+                const sub = document.getElementById('cloud-profile-sub');
+                const hourly = (typeof weatherData !== 'undefined' && weatherData) ? weatherData.hourly : null;
+                if (!hourly || !hourly.time) { if (sub) sub.innerText = 'En attente des données météo...'; return; }
+                const start = dayIdx * 24 + 6, end = dayIdx * 24 + 21; // 06h → 20h inclus
+                const times = hourly.time.slice(start, end);
+                if (!times.length) return;
+                const hours = times.map(t => t.split('T')[1].substring(0, 2) + 'h');
+                const num = v => (typeof v === 'number' && isFinite(v)) ? v : null;
+                const pct = CLOUD_BANDS.map(b => (hourly[b.key] ? hourly[b.key].slice(start, end) : []).map(num));
+                const fmtM = v => Math.round(v).toLocaleString('fr-FR') + ' m';
 
-        function renderCloudProfileChart(){
-            try{
-                const grid=document.getElementById('cloud-profile-grid');
-                const sub=document.getElementById('cloud-profile-sub');
-                if(!grid) return;
-                if(!weatherData||!weatherData.hourly||!weatherData.hourly.time){
-                    if(sub) sub.innerText='En attente des données météo...';
-                    return;
+                // Limite pluie/neige : seulement s'il y a un risque de pluie sur la période affichée.
+                const rainArr = hourly.rain ? hourly.rain.slice(start, end) : null;
+                const precArr = hourly.precipitation ? hourly.precipitation.slice(start, end) : null;
+                const snowArr = hourly.snowfall ? hourly.snowfall.slice(start, end) : null;
+                const hasRain = times.some((_, i) => rainArr
+                    ? (num(rainArr[i]) || 0) > 0
+                    : ((precArr && (num(precArr[i]) || 0) > 0) && !(snowArr && (num(snowArr[i]) || 0) > 0)));
+                const frz = hourly.freezing_level_height ? hourly.freezing_level_height.slice(start, end) : null;
+                const showLimit = !!(hasRain && frz && frz.some(v => num(v) !== null));
+                const limit = showLimit ? frz.map(h => num(h) === null ? null : Math.max(0, h - SNOW_LIMIT_OFFSET_M)) : [];
+                const legendLimit = document.getElementById('cloud-legend-limit');
+                if (legendLimit) legendLimit.style.display = showLimit ? '' : 'none';
+
+                const anyCloud = pct.some(arr => arr.some(v => v !== null));
+                if (sub) {
+                    const ds = weatherData.daily && weatherData.daily.time ? weatherData.daily.time[dayIdx] : null;
+                    const dl = ds ? new Date(ds + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) : '';
+                    sub.innerText = anyCloud
+                        ? `${dl ? dl.charAt(0).toUpperCase() + dl.slice(1) + ' · ' : ''}Tranches du modèle : basse 0-2 km, moyenne 2-6 km, haute 6-13 km (masses nuageuses sur toute l'épaisseur de la tranche)`
+                        : 'Données nuageuses indisponibles pour ce jour';
                 }
-                const hourly=weatherData.hourly;
-                const daily=weatherData.daily;
-                const times=hourly.time;
-                const nDays=Math.min(daily&&daily.time?daily.time.length:7, 7);
-                if(nDays<1){ return; }
 
-                const avgRange=(arr,from,to)=>{
-                    if(!arr) return null;
-                    let sum=0,n=0;
-                    for(let i=from;i<to&&i<arr.length;i++){ const v=arr[i]; if(typeof v==='number'){ sum+=v; n++; } }
-                    return n>0?sum/n:null;
-                };
-                const sumRange=(arr,from,to)=>{
-                    if(!arr) return 0;
-                    let sum=0;
-                    for(let i=from;i<to&&i<arr.length;i++){ const v=arr[i]; if(typeof v==='number') sum+=v; }
-                    return sum;
-                };
+                // Type de précipitation par heure — MÊMES données que "Température & risques de
+                // neige" : updatePressureChart() dépose son signal neige (snowProbs, dérivé de
+                // hourly.snowfall) dans pressureSnowSignal ; sinon même règle recalculée à
+                // l'identique (snowfall > 0 = neige). Sans précipitation, seule l'altitude du lieu
+                // décide : limite pluie/neige ≤ altitude du lieu → neige (violet), sinon pluie (bleu).
+                const sig = (typeof pressureSnowSignal !== 'undefined' && pressureSnowSignal && pressureSnowSignal.dayIdx === dayIdx) ? pressureSnowSignal.snowProbs : null;
+                const locAlt = num(weatherData.elevation);
+                const CLOUD_RAIN_COLOR = '#2b6cb0', CLOUD_SNOW_COLOR = '#7c3aed';
+                const limitColors = times.map((_, i) => {
+                    const h = 6 + i;
+                    const snowNow = sig ? (sig[h] !== 0 && sig[h] !== undefined)
+                        : !!(snowArr && (num(snowArr[i]) || 0) > 0);
+                    if (snowNow) return CLOUD_SNOW_COLOR;
+                    const rainNow = rainArr ? (num(rainArr[i]) || 0) > 0 : (precArr && (num(precArr[i]) || 0) > 0);
+                    if (rainNow) return CLOUD_RAIN_COLOR;
+                    return (locAlt !== null && limit[i] !== null && limit[i] !== undefined && limit[i] <= locAlt) ? CLOUD_SNOW_COLOR : CLOUD_RAIN_COLOR;
+                });
 
-                let maxPrecip=0;
-                const days=[];
-                for(let d=0; d<nDays; d++){
-                    const from=d*24, to=from+24;
-                    const low=avgRange(hourly.cloud_cover_low,from,to);
-                    const mid=avgRange(hourly.cloud_cover_mid,from,to);
-                    const high=avgRange(hourly.cloud_cover_high,from,to);
-                    const fallback=avgRange(hourly.cloud_cover,from,to)||0;
-                    const precip=Math.round(sumRange(hourly.precipitation,from,to)*10)/10;
-                    if(precip>maxPrecip) maxPrecip=precip;
-                    const dateStr=(daily&&daily.time&&daily.time[d])?daily.time[d]:times[from];
-                    const dt=dateStr?new Date(dateStr):null;
-                    const label=d===0?'Auj.':(dt?dt.toLocaleDateString('fr-FR',{weekday:'short'}).replace('.','') :'');
-                    const dayNum=dt?dt.getDate():'';
-                    days.push({
-                        label, dayNum,
-                        low: low!=null?low:fallback*0.6,
-                        mid: mid!=null?mid:fallback*0.4,
-                        high: high!=null?high:fallback*0.3,
-                        precip
+                // Couches : altitude basse/haute = tranche du modèle (aucune épaisseur inventée).
+                // Les barres Chart.js sont transparentes (elles servent aux infobulles) ; les nuages
+                // sont dessinés par le plugin ci-dessous sur toute l'épaisseur de la couche.
+                const CLOUD_MID_TOP_DRAWN = 4700, CLOUD_HIGH_ROW = [4750, 5000];
+                const layerRange = (b) => b.top ? CLOUD_HIGH_ROW : [b.lo, Math.min(b.hi, CLOUD_MID_TOP_DRAWN)];
+                const barDs = CLOUD_BANDS.map((b, bi) => {
+                    const r = layerRange(b);
+                    return {
+                        type: 'bar', label: b.label, grouped: false, order: 2,
+                        data: pct[bi].map(p => (p === null || p < 3) ? null : r),
+                        backgroundColor: 'transparent', borderWidth: 0, barPercentage: 0.9, categoryPercentage: 1
+                    };
+                });
+                const datasets = barDs.slice();
+                if (showLimit) {
+                    datasets.push({
+                        type: 'line', label: 'Limite pluie/neige (estimée)', data: limit, order: 1,
+                        borderColor: CLOUD_RAIN_COLOR, borderDash: [6, 4], borderWidth: 2,
+                        segment: { borderColor: c => limitColors[c.p1DataIndex] },
+                        tension: 0.3, pointRadius: 0, pointHoverRadius: 3, spanGaps: false
                     });
                 }
+                if (legendLimit) {
+                    const lr = legendLimit.querySelector('[data-cl="rain"]'), ls = legendLimit.querySelector('[data-cl="snow"]');
+                    if (lr) lr.style.display = limitColors.includes(CLOUD_RAIN_COLOR) ? '' : 'none';
+                    if (ls) ls.style.display = limitColors.includes(CLOUD_SNOW_COLOR) ? '' : 'none';
+                }
 
-                const COL=112;          // largeur d'une colonne-jour, en px
-                const BAND_H=58;        // hauteur d'une bande d'altitude, en px
-                const CLOUDS_H=BAND_H*3;
-                const PRECIP_H=78;
-                const totalW=nDays*COL;
-                const precipScale=Math.max(2,maxPrecip);
-
-                // --- Dégradés : un jeu de stops par bande (haut/moyen/bas), assombris selon la
-                // couverture nuageuse réelle (0-100%), avec un contraste marqué pour que le %
-                // se lise clairement à l'œil (quasi blanc/invisible à faible couverture, gris
-                // orageux sombre à forte couverture). ---
-                const shadeStops=pct=>{
-                    const p=Math.pow(Math.min(100,Math.max(0,pct==null?0:pct))/100, 0.85);
-                    const top=[252-152*p,253-153*p,255-155*p];
-                    const bot=[222-197*p,225-200*p,230-205*p];
-                    const rgb=a=>`rgb(${a[0]|0},${a[1]|0},${a[2]|0})`;
-                    return {top:rgb(top),bot:rgb(bot)};
+                // Rendu en masses nuageuses continues (coupe atmosphérique) : pour chaque couche, un
+                // champ de densité est évalué sur toute la surface [heure × altitude basse→haute de
+                // la couche] à partir des % horaires existants, interpolés linéairement entre les
+                // heures (continuité purement visuelle, aucune donnée modifiée). Les bords haut/bas
+                // et le grain sont perturbés par un bruit lissé déterministe (contours organiques),
+                // puis le champ est peint en niveaux de gris (même dégradé que la légende) avec une
+                // transparence progressive, dans un canvas basse résolution étiré en lissage.
+                const cloudsPlugin = {
+                    id: 'cloudShapes',
+                    beforeDatasetsDraw(chart) {
+                        const ctx = chart.ctx, area = chart.chartArea, xs = chart.scales.x, ys = chart.scales.y;
+                        const W = Math.max(8, Math.ceil(area.width)), H = Math.max(8, Math.ceil(area.height));
+                        const x0 = xs.getPixelForValue(0);
+                        const step = hours.length > 1 ? (xs.getPixelForValue(1) - x0) : area.width;
+                        const smooth = (a, b, v) => { const t = Math.max(0, Math.min(1, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
+                        const off = document.createElement('canvas'); off.width = W; off.height = H;
+                        const octx = off.getContext('2d');
+                        ctx.save();
+                        ctx.beginPath(); ctx.rect(area.left, area.top - 2, area.width, area.height + 2); ctx.clip();
+                        ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+                        CLOUD_BANDS.forEach((b, bi) => {
+                            const r = layerRange(b), thick = r[1] - r[0];
+                            if (!pct[bi].some(p => p !== null && p >= 3)) return;
+                            const img = octx.createImageData(W, H), d = img.data;
+                            const edge = Math.min(0.22, 260 / thick); // bords doux : ~260 m max (ou 22 % de la couche)
+                            for (let u = 0; u < W; u++) {
+                                const px = area.left + (u + 0.5) / W * area.width;
+                                const f = Math.max(0, Math.min(hours.length - 1, (px - x0) / step));
+                                const i0 = Math.floor(f), i1 = Math.min(hours.length - 1, i0 + 1), t = f - i0;
+                                const g = i => { const p = pct[bi][i]; return (p === null || p < 3) ? 0 : p / 100; };
+                                const P = g(i0) * (1 - t) + g(i1) * t; // densité interpolée entre deux heures
+                                if (P <= 0.004) continue;
+                                const hx = f; // abscisse en heures pour le bruit
+                                for (let v = 0; v < H; v++) {
+                                    const py = area.top + (v + 0.5) / H * area.height;
+                                    const alt = ys.getValueForPixel(py);
+                                    let yn = (alt - r[0]) / thick;
+                                    const km = alt / 1000;
+                                    const nBig = cloudNoise2(hx * 0.35, km * 1.1, bi * 17 + dayIdx * 5);
+                                    const nMid = cloudNoise2(hx * 0.7 + km * 0.9 + 9, km * 2.6 - hx * 0.5, bi * 31 + 3);
+                                    const nFine = cloudNoise2(hx * 1.1 + km * 1.3 + 3, km * 4.2 - hx * 0.6, bi * 13 + 7);
+                                    yn += (nBig - 0.5) * 0.22 + (nMid - 0.5) * 0.10; // bords ondulés
+                                    const prof = smooth(0, edge, yn) * smooth(0, edge, 1 - yn);
+                                    if (prof <= 0) continue;
+                                    const dens = P * prof * (0.62 + 0.55 * nBig + 0.16 * (nFine - 0.5)); // variations internes
+                                    const a = smooth(0.05, 0.5, dens);
+                                    if (a <= 0.01) continue;
+                                    const c = cloudDensityColor(Math.min(100, dens * 115)).match(/\d+/g);
+                                    const o = (v * W + u) * 4;
+                                    d[o] = +c[0]; d[o + 1] = +c[1]; d[o + 2] = +c[2];
+                                    d[o + 3] = Math.round(255 * Math.min(0.9, a * 1.05));
+                                }
+                            }
+                            octx.putImageData(img, 0, 0);
+                            try { ctx.filter = 'blur(1.6px)'; } catch (e) { /* filtre indisponible : rendu net */ }
+                            ctx.drawImage(off, area.left, area.top, area.width, area.height);
+                            try { ctx.filter = 'none'; } catch (e) {}
+                        });
+                        ctx.restore();
+                    },
+                    afterDatasetsDraw(chart) {
+                        // Flèche ↑ + altitude réelle pour la couche haute (toujours > 5 000 m)
+                        const meta = chart.getDatasetMeta(2);
+                        if (!meta || !meta.data) return;
+                        const ctx = chart.ctx, area = chart.chartArea;
+                        ctx.save();
+                        ctx.fillStyle = Chart.defaults.color || '#5e706a';
+                        ctx.font = '9px sans-serif';
+                        ctx.textBaseline = 'bottom';
+                        ctx.textAlign = 'center';
+                        let peak = -1, peakV = -1;
+                        meta.data.forEach((el, i) => {
+                            const p = pct[2][i];
+                            if (p === null || p < 3) return;
+                            ctx.fillText('↑', el.x, area.top - 1);
+                            if (p > peakV) { peakV = p; peak = i; }
+                        });
+                        if (peak >= 0) {
+                            const txt = `↑ ${CLOUD_BANDS[2].range} (nuages hauts)`;
+                            const w = ctx.measureText(txt).width;
+                            const x = Math.max(area.left + w / 2, Math.min(area.right - w / 2, meta.data[peak].x));
+                            ctx.fillText(txt, x, area.top - 11);
+                        }
+                        ctx.restore();
+                    }
                 };
-                // Opacité globale de la grappe : faible couverture = à peine visible (effet "voile"),
-                // forte couverture = pleinement opaque.
-                const cloudAlpha=pct=>{
-                    const p=Math.min(100,Math.max(0,pct==null?0:pct))/100;
-                    return (0.20+0.80*Math.pow(p,0.7)).toFixed(2);
-                };
 
-                let gradCounter=0;
-                const defs=[];
-                // --- Grappe de 2-3 silhouettes qui se chevauchent, tailles/décalages variés selon
-                // un pseudo-hasard stable (basé sur le jour+bande) pour un rendu moins répétitif.
-                // La taille de la grappe reflète directement le % (grand écart 0.30 → 1.25). ---
-                const seededRand=seed=>{ let x=Math.sin(seed*999.7)*10000; return x-Math.floor(x); };
-                const cloudCluster=(pct,dayIdx,bandIdx)=>{
-                    if(pct==null || pct<4) return '';
-                    const {top,bot}=shadeStops(pct);
-                    const alpha=cloudAlpha(pct);
-                    const gid='cpg'+(gradCounter++);
-                    defs.push(`<linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${top}"/><stop offset="1" stop-color="${bot}"/></linearGradient>`);
-                    const scaleBase=0.30+Math.pow(Math.min(100,pct)/100,0.8)*0.95; // 0.30 → 1.25
-                    const seed=dayIdx*7+bandIdx*3+1;
-                    const specs=[
-                        {dx:-0.30,dy:0.10,s:0.72},
-                        {dx:0.05,dy:-0.06,s:1.0},
-                        {dx:0.34,dy:0.14,s:0.66}
-                    ];
-                    const parts=specs.map((sp,i)=>{
-                        const jitter=(seededRand(seed+i)-0.5)*0.10;
-                        const s=scaleBase*(sp.s+jitter);
-                        const w=64*s, h=56*s;
-                        const cx=COL/2 + sp.dx*COL*0.9;
-                        const cy=BAND_H*0.58 + sp.dy*BAND_H;
-                        const x=cx-w/2, y=cy-h/2;
-                        return `<use href="#cloudShape" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" fill="url(#${gid})"/>`;
-                    }).join('');
-                    return `<g style="opacity:${alpha}; filter:drop-shadow(0 2px 2px rgba(20,30,40,0.18));">${parts}</g>`;
-                };
-
-                // --- Fond : bandeau jour (teinte crème), lignes d'altitude + axe à droite ---
-                const altTicks=[0,2,4,6,8,10,12].map(km=>{
-                    const y=CLOUDS_H - (km/13)*CLOUDS_H;
-                    return `<line x1="0" y1="${y.toFixed(1)}" x2="${totalW}" y2="${y.toFixed(1)}" stroke="rgba(28,56,50,0.08)" stroke-width="1"/>`;
-                }).join('');
-                const dayBg=days.map((d,i)=>`<rect x="${i*COL}" y="0" width="${COL}" height="${CLOUDS_H}" fill="${i%2===0?'rgba(250,242,210,0.55)':'rgba(250,242,210,0.30)'}"/>`).join('');
-                const dayDividers=days.map((d,i)=>i>0?`<line x1="${i*COL}" y1="0" x2="${i*COL}" y2="${CLOUDS_H}" stroke="rgba(28,56,50,0.06)"/>`:'').join('');
-
-                const cloudsBody=days.map((day,di)=>{
-                    const bands=[day.high,day.mid,day.low];
-                    return bands.map((pct,bi)=>{
-                        const g=cloudCluster(pct,di,bi);
-                        if(!g) return '';
-                        return `<g transform="translate(${di*COL},${bi*BAND_H})">${g}</g>`;
-                    }).join('');
-                }).join('');
-
-                const cloudsSvg=`
-                    <svg width="${totalW}" height="${CLOUDS_H}" viewBox="0 0 ${totalW} ${CLOUDS_H}" style="display:block;">
-                        <defs>
-                            <symbol id="cloudShape" viewBox="0 0 576 512"><path d="${CLOUD_SVG_PATH}"/></symbol>
-                            ${defs.join('')}
-                        </defs>
-                        ${dayBg}
-                        ${altTicks}
-                        ${dayDividers}
-                        ${cloudsBody}
-                    </svg>`;
-
-                // --- Axe d'altitude (à droite, hors du SVG principal pour rester net au redimensionnement) ---
-                const axisLabels=[12,10,8,6,4,2,0];
-                const axisHtml=`<div style="display:flex; align-items:stretch; gap:2px;">
-                    <div style="display:flex; flex-direction:column; justify-content:space-between; width:22px; height:${CLOUDS_H}px; padding:2px 0; box-sizing:border-box;">
-                        ${axisLabels.map(km=>`<div style="font-size:0.56rem; color:var(--text-muted); text-align:right;">${km}</div>`).join('')}
-                    </div>
-                    <div style="writing-mode:vertical-rl; transform:rotate(180deg); font-size:0.62rem; color:var(--text-muted); white-space:nowrap; height:${CLOUDS_H}px; display:flex; align-items:center; justify-content:center;">Altitude (km)</div>
-                </div>`;
-                // --- Axe des précipitations (à gauche, sur toute la hauteur clouds + précip) ---
-                const leftAxisHtml=`<div style="writing-mode:vertical-rl; transform:rotate(180deg); font-size:0.62rem; color:var(--text-muted); white-space:nowrap; height:${CLOUDS_H+PRECIP_H}px; display:flex; align-items:center; justify-content:center; padding-right:2px;">Précipitation (mm/h)</div>`;
-
-                // --- Étiquettes de jour ---
-                const labelsHtml = days.map(day=>`
-                    <div style="width:${COL}px; flex:0 0 auto; text-align:center; padding-top:4px;">
-                        <div style="font-size:0.76rem; font-weight:700; color:var(--primary-dark); text-transform:capitalize;">${day.label}</div>
-                        <div style="font-size:0.60rem; color:var(--text-muted);">${day.dayNum}</div>
-                    </div>`).join('');
-
-                // --- Précipitations : barres + ligne reliée + gouttes ---
-                const pad=6, plotH=PRECIP_H-18;
-                const xCenter=i=>i*COL+COL/2;
-                const yFor=v=>plotH-pad-((v/precipScale)*(plotH-2*pad));
-                const points=days.map((d,i)=>`${xCenter(i)},${yFor(d.precip).toFixed(1)}`).join(' ');
-                const barsSvg=days.map((d,i)=>{
-                    const bw=COL*0.30;
-                    const bh=Math.max(2,((d.precip/precipScale)*(plotH-2*pad)));
-                    const x=xCenter(i)-bw/2, y=plotH-pad-bh;
-                    const color=d.precip>5?'#1d4ed8':d.precip>1?'#3b82f6':'#93c5fd';
-                    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="3" fill="${color}"></rect>`;
-                }).join('');
-                const dotsSvg=days.map((d,i)=>{
-                    const cx=xCenter(i), cy=yFor(d.precip);
-                    const drop = d.precip>0.1 ? `<text x="${cx}" y="${(cy-8).toFixed(1)}" text-anchor="middle" font-size="10" fill="#1e3a8a" font-family="inherit">\u{1F4A7}</text>` : '';
-                    return `<circle cx="${cx}" cy="${cy.toFixed(1)}" r="3" fill="#1d4ed8" stroke="#fff" stroke-width="1"></circle>${drop}`;
-                }).join('');
-                const mmLabelsSvg=days.map((d,i)=>d.precip>0.1?`<text x="${xCenter(i)}" y="12" text-anchor="middle" font-size="9" font-weight="700" fill="#1d4ed8" font-family="inherit">${d.precip}mm</text>`:'').join('');
-                const precipSvg = `
-                    <svg width="${totalW}" height="${PRECIP_H}" viewBox="0 0 ${totalW} ${PRECIP_H}" style="display:block;">
-                        ${mmLabelsSvg}
-                        <g transform="translate(0,18)">
-                            ${barsSvg}
-                            <polyline points="${points}" fill="none" stroke="#1d4ed8" stroke-width="1.5" stroke-dasharray="3,2" opacity="0.6"></polyline>
-                            ${dotsSvg}
-                        </g>
-                    </svg>`;
-
-                grid.innerHTML = `
-                    <div style="display:flex; align-items:flex-start; padding:4px 2px;">
-                        <div>${leftAxisHtml}</div>
-                        <div style="display:flex; flex-direction:column; min-width:${totalW}px;">
-                            <div>${cloudsSvg}</div>
-                            <div style="border-top:1px dashed rgba(28,56,50,0.15); margin:2px 0;">${precipSvg}</div>
-                            <div style="display:flex; padding-bottom:6px;">${labelsHtml}</div>
-                        </div>
-                        <div style="padding-top:0;">${axisHtml}</div>
-                    </div>`;
-
-                if(sub) sub.innerText=`Nuages bas (0-2 km), moyens (2-6 km) et hauts (6-13 km) — ${nDays} jours. Plus c'est foncé, plus c'est couvert.`;
-            }catch(e){ console.error('cloudProfile error',e); const sub=document.getElementById('cloud-profile-sub'); if(sub) sub.innerText='Erreur : '+e.message; }
+                if (cloudAltChart) cloudAltChart.destroy();
+                cloudAltChart = new Chart(canvas.getContext('2d'), {
+                    type: 'bar',
+                    data: { labels: hours, datasets },
+                    plugins: [cloudsPlugin],
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        layout: { padding: { top: 24 } },
+                        interaction: { mode: 'index', intersect: false },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    title: items => items.length ? `${items[0].label}` : '',
+                                    label: ctx => {
+                                        const i = ctx.dataIndex;
+                                        if (ctx.dataset.type === 'line') {
+                                            const kind = limitColors[i] === CLOUD_SNOW_COLOR ? 'neige' : 'pluie';
+                                            return `Limite pluie/neige : ${fmtM(ctx.parsed.y)} (${kind} au lieu${locAlt !== null ? ', lieu à ' + fmtM(locAlt) : ''})`;
+                                        }
+                                        const bi = ctx.datasetIndex;
+                                        const p = pct[bi][i];
+                                        if (p === null || p < 3) return null;
+                                        const b = CLOUD_BANDS[bi];
+                                        const thick = `épaisseur ${Math.round(b.hi - b.lo).toLocaleString('fr-FR')} m`;
+                                        return b.top
+                                            ? `${b.label} : ${Math.round(p)} % · ↑ ${b.range} (${thick}, au-dessus de l'échelle)`
+                                            : `${b.label} : ${Math.round(p)} % · ${b.range} (${thick}${b.hi > CLOUD_ALT_MAX_M ? ', tracée jusqu\'à l\'échelle' : ''})`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: { grid: { display: false }, ticks: { autoSkip: false, maxRotation: 0, font: { size: 9 }, color: '#5e706a',
+                                callback: (v, i) => (parseInt(hours[i], 10) % 2 === 0) ? hours[i] : '' } },
+                            y: { type: 'linear', position: 'left', min: 0, max: CLOUD_ALT_MAX_M, grid: { color: 'rgba(0,0,0,0.04)' },
+                                ticks: { stepSize: 250, autoSkip: false, font: { size: 9 }, color: '#5e706a', callback: v => `${Math.round(v)} m` } }
+                        }
+                    }
+                });
+            } catch (e) { console.error('cloudProfile error', e); const sub = document.getElementById('cloud-profile-sub'); if (sub) sub.innerText = 'Erreur : ' + e.message; }
         }
 
         let inversionLevelsData=null;
@@ -16758,6 +16306,7 @@ async function loadInversionLevels(lat, lon){
                 return typeof prob === 'number' ? prob : null;
             });
 
+            pressureSnowSignal = { dayIdx: dayIdx, snowProbs: snowProbs };
             const ctx = document.getElementById('pressureChart').getContext('2d');
             if (pressureChart) pressureChart.destroy();
 
@@ -19500,7 +19049,7 @@ async function loadInversionLevels(lat, lon){
         ];
 
         // ---- Rendu de l'encart ----
-        // Tableau entièrement replié par défaut (même pattern que le Benchmark) :
+        // Tableau entièrement replié par défaut (même pattern que le désaccord entre modèles) :
         // toggleGardenTable() montre/masque #garden-table-wrap. setGardenFilter()
         // ne filtre que par catégorie.
         function toggleGardenTable() {
