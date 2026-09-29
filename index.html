@@ -1139,6 +1139,13 @@
             gap: 3px;
             flex-wrap: wrap;
         }
+        /* Repères horaires sous la frise (toutes les 2 h) : mêmes gabarit/écart que les pastilles. */
+        .storm-risk-hours { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 2px; }
+        .storm-risk-hour { position: relative; width: 11px; height: 10px; flex-shrink: 0; }
+        .storm-risk-hour span {
+            position: absolute; left: 50%; top: 0; transform: translateX(-50%);
+            font-size: 0.5rem; line-height: 1; color: var(--text-muted); white-space: nowrap;
+        }
         .storm-risk-dot {
             width: 11px;
             height: 11px;
@@ -3112,6 +3119,7 @@
                     <span id="local-effects-lightning-title">Risque de foudre heure par heure</span>
                 </div>
                 <div class="storm-risk-frise" id="storm-risk-frise"></div>
+                <div class="storm-risk-hours" id="storm-risk-hours"></div>
             </div>
         </div>
 
@@ -4786,7 +4794,7 @@
                  à chaque modification livrée de ce fichier, mets à jour la ligne juste en-dessous
                  (footer-last-update) avec la date du jour (format JJ/MM/AAAA) et incrémente le
                  numéro de version de 1. Ne saute jamais un numéro, ne le laisse jamais inchangé. -->
-            <div class="footer-last-update">Dernière mise à jour : 29/09/2026 - 156</div>
+            <div class="footer-last-update">Dernière mise à jour : 29/09/2026 - 157</div>
         </footer>
 
     </div>
@@ -13701,11 +13709,13 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
         function renderStormRiskRow(dayIdx) {
             const box = document.getElementById('local-effects-lightning');
             const frise = document.getElementById('storm-risk-frise');
+            const hoursRow = document.getElementById('storm-risk-hours');
             const hours = (dayIdx === 0 || dayIdx === 1) ? stormRiskDays[dayIdx] : null;
             const hasRisk = hours && hours.some(x => typeof x.lpi === 'number' && x.lpi >= LIGHTNING_MIN_LPI);
             if (!hasRisk) {
                 box.style.display = 'none';
                 frise.innerHTML = '';
+                if (hoursRow) hoursRow.innerHTML = '';
                 return;
             }
             document.getElementById('local-effects-lightning-title').innerText =
@@ -13721,6 +13731,12 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 const color = lightningColorFor(pt.lpi);
                 return `<div class="storm-risk-dot" style="background:${color};" title="${timeLabel} : ${Math.round(pt.lpi)} J/kg"></div>`;
             }).join('');
+            if (hoursRow) {
+                hoursRow.innerHTML = hours.map(pt => {
+                    const hh = pt.time.getHours();
+                    return `<div class="storm-risk-hour">${hh % 2 === 0 ? `<span>${String(hh).padStart(2, '0')}h</span>` : ''}</div>`;
+                }).join('');
+            }
             box.style.display = 'block';
         }
 
