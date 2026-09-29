@@ -2675,25 +2675,6 @@
             gap: 6px;
         }
         .station-pill i { color: var(--accent-blue); font-size: 0.8rem; }
-        /* Ligne complémentaire MET Norway (27/09/2026) : température interpolée à l'heure
-           exacte + correction Microclimat, insérée SOUS la pastille de température MET
-           existante (inchangée). flex 1 0 100% = sur sa propre ligne dans .snow-details-row.
-           Vert foncé en clair, vert clair en sombre pour rester lisible. */
-        .met-corrected-pill {
-            flex: 1 0 100%;
-            display: flex;
-            align-items: baseline;
-            gap: 6px;
-            flex-wrap: wrap;
-            background: rgba(22,101,52,0.07);
-            border-radius: var(--radius-small);
-            padding: 6px 10px;
-        }
-        .met-corrected-pill i { color: #166534; font-size: 0.8rem; align-self: center; }
-        .met-corrected-temp { color: #166534; font-weight: 800; font-size: 0.78rem; }
-        .met-corrected-meta { color: var(--text-muted); font-weight: 600; font-size: 0.64rem; }
-        html.dark .met-corrected-pill { background: rgba(110,231,168,0.10); }
-        html.dark .met-corrected-pill i, html.dark .met-corrected-temp { color: #6ee7a8; }
         .snow-avalanche-note {
             background: var(--card-inner-bg);
             border-radius: var(--radius-medium);
@@ -3392,7 +3373,7 @@
             <!-- Sous-section 1 : Open-Meteo Current — 2 m (gradient vertical AROME réel) -->
             <div id="mf-synop-temp-section" style="margin-top:14px;">
                 <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; margin-bottom:6px;">
-                    <div class="card-sage-sub" style="font-weight:700;"><i class="fa-solid fa-temperature-half" style="color: var(--accent-green);"></i> Open-Meteo Current — 2 m</div>
+                    <div class="card-sage-sub" style="font-weight:700;"><i class="fa-solid fa-temperature-half" style="color: var(--accent-green);"></i> Open-Meteo Current</div>
                     <div class="card-sage-sub" style="font-size:0.6rem;" id="mf-synop-temp-model">AROME • maille haute résolution</div>
                 </div>
                 <div id="mf-synop-temp-loading" style="text-align:center; padding: 10px; color: var(--text-muted); font-size: 0.8rem;">
@@ -3410,14 +3391,14 @@
                          la valeur 2 m jusqu'à l'altitude réelle du point demandé. -->
                     <div class="card-sage-sub" id="mf-synop-temp-profile" style="margin-top:8px; font-size:0.64rem; line-height:1.55; display:none;"></div>
                     <div class="card-sage-sub" id="mf-synop-temp-updated" style="margin-top:6px; font-size:0.62rem;"></div>
+                    <div id="mf-synop-temp-interp" style="margin-top:8px;"></div>
                 </div>
             </div>
 
             <!-- Sous-section 2 : MET Norway (locationforecast 2.0) — modèle indépendant -->
             <div id="met-norway-section" style="margin-top:14px; padding-top:12px; border-top:1px solid rgba(0,0,0,0.06);">
                 <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; margin-bottom:6px;">
-                    <div class="card-sage-sub" style="font-weight:700;"><i class="fa-solid fa-cloud" style="color: var(--accent-blue);"></i> MET Norway — modèle indépendant</div>
-                    <div class="card-sage-sub" style="font-size:0.6rem;">api.met.no • locationforecast 2.0</div>
+                    <div class="card-sage-sub" style="font-weight:700;"><i class="fa-solid fa-cloud" style="color: var(--accent-blue);"></i> MET Norway Current</div>
                 </div>
                 <div id="met-norway-loading" style="text-align:center; padding: 10px; color: var(--text-muted); font-size: 0.8rem;">
                     Chargement de la prévision locale...
@@ -3429,6 +3410,7 @@
                 <div id="met-norway-content" style="display:none;">
                     <div class="snow-details-row" id="met-norway-pills"></div>
                     <div class="card-sage-sub" id="met-norway-updated" style="margin-top:6px; font-size:0.62rem;"></div>
+                    <div id="met-norway-interp" style="margin-top:8px;"></div>
                 </div>
             </div>
 
@@ -3471,36 +3453,6 @@
                     <div class="card-sage-sub" id="synop-station-warning" style="display:none; margin-top:6px; font-size:0.68rem; color: var(--accent-orange); font-weight:700;"></div>
                     <div class="card-sage-sub" id="synop-station-updated" style="margin-top:6px; font-size:0.62rem;"></div>
                 </div>
-            </div>
-
-            <!-- Sous-section 5 : graphique journalier comparatif (dernier élément de la rubrique).
-                 Même structure que le graphique principal "Température heure par heure &
-                 précipitations" : mêmes classes, mêmes axes, même conteneur de 160px. -->
-            <div id="station-compare-section" style="margin-top:14px; padding-top:12px; border-top:1px solid rgba(0,0,0,0.06);">
-                <div class="chart-header">
-                    <div>
-                        <div class="card-sage-title">
-                            <i class="fa-solid fa-chart-line" style="color: var(--accent-blue); margin-right: 6px;"></i>
-                            Température heure par heure &amp; précipitations — sources
-                        </div>
-                        <div class="card-sage-sub" id="station-chart-sub">24 dernières heures glissantes — Open-Meteo / MET Norway / Metehop, histogramme de pluie (mm) et neige (cm)</div>
-                    </div>
-                    <div style="font-size: 0.8rem; font-weight: 700; color: var(--accent-orange);" id="station-chart-max-label">--°</div>
-                </div>
-
-                <div class="chart-container">
-                    <canvas id="stationCompareChart"></canvas>
-                </div>
-                <div class="astro-legend" style="margin-top:6px;">
-                    <span class="astro-legend-item"><span class="legend-dot" style="background:#d97736;"></span> Open-Meteo (°C)</span>
-                    <span class="astro-legend-item"><span class="legend-dot" style="background:#0e7490;"></span> MET Norway (°C)</span>
-                    <span class="astro-legend-item"><span class="legend-dot" style="background:#7c3aed;"></span> MET Norway + micro-climat (°C)</span>
-                    <span class="astro-legend-item"><span class="legend-dot" style="background:#be123c;"></span> Metehop micro-climat (°C)</span>
-                    <span class="astro-legend-item"><span class="legend-dot" style="background:#166534;"></span> Metehop interpolée (°C)</span>
-                    <span class="astro-legend-item"><span class="legend-dot" style="background:#5a9bd4;"></span> Pluie (mm)</span>
-                    <span class="astro-legend-item"><span class="legend-dot" style="background:#8b5cf6;"></span> Neige (cm)</span>
-                </div>
-                <div class="card-sage-sub" id="station-chart-summary" style="margin-top:6px; font-size:0.66rem; line-height:1.5;"></div>
             </div>
 
         </div>
@@ -4797,7 +4749,7 @@
                  à chaque modification livrée de ce fichier, mets à jour la ligne juste en-dessous
                  (footer-last-update) avec la date du jour (format JJ/MM/AAAA) et incrémente le
                  numéro de version de 1. Ne saute jamais un numéro, ne le laisse jamais inchangé. -->
-            <div class="footer-last-update">Dernière mise à jour : 29/09/2026 - 147</div>
+            <div class="footer-last-update">Dernière mise à jour : 29/09/2026 - 153</div>
         </footer>
 
     </div>
@@ -4918,6 +4870,38 @@
             </div>
 
             <div class="sources-group">
+                <h4>Stations météo à proximité</h4>
+                <div class="sources-item">
+                    <strong>Open-Meteo Current — AROME France HD (Météo-France)</strong>
+                    <span>Température, humidité, vent et pluie de l'heure en cours, prises sur le modèle haute résolution AROME France HD (maille ~1,5 km), avec repli automatique sur AROME France (~2,5 km) puis sur les autres modèles si le lieu est hors couverture. Deux modes de correction au choix : « Correction météo France » (altitude seule, écart d'altitude entre le lieu et la maille × gradient) ou « Correction Metehop » (altitude + microclimat). Le gradient utilisé est celui du profil vertical réel quand il est disponible, sinon le gradient standard de 0,65 °C/100 m, signalé comme hypothèse. <a href="https://open-meteo.com/en/docs/meteofrance-api" target="_blank" rel="noopener">open-meteo.com</a></span>
+                </div>
+                <div class="sources-item">
+                    <strong>MET Norway Current — locationforecast 2.0</strong>
+                    <span>Modèle indépendant de l'institut météorologique norvégien (température, humidité, vent, nébulosité, pression, pluie de l'heure suivante). La donnée « brute » est demandée sans altitude ; « Correction MET Norway » utilise la série avec l'altitude du lieu corrigée par MET, « Correction Metehop » applique la correction d'altitude Metehop puis le microclimat. La correction d'altitude n'est jamais appliquée deux fois. <a href="https://api.met.no/weatherapi/locationforecast/2.0/documentation" target="_blank" rel="noopener">api.met.no</a></span>
+                </div>
+                <div class="sources-item">
+                    <strong>Température actuelle interpolée</strong>
+                    <span>En fin de chaque bloc : dernier relevé affiché (déjà corrigé selon le mode choisi) + variation de la température brute Open-Meteo entre l'heure du relevé et l'instant présent. Cette variation n'est jamais re-corrigée ; si une donnée manque, un message « indisponible » est affiché plutôt qu'une valeur inventée.</span>
+                </div>
+                <div class="sources-item">
+                    <strong>Recalcul au changement de lieu</strong>
+                    <span>À chaque changement de ville, les relevés Open-Meteo Current et MET Norway sont purgés puis rechargés pour le nouveau lieu.</span>
+                </div>
+                <div class="sources-item">
+                    <strong>Pioupiou / OpenWindMap</strong>
+                    <span>Balise de vent réelle la plus proche (≤ 30 km, mesure de moins de 3 h) : vent moyen, rafales et direction uniquement, sans température. <a href="https://developers.pioupiou.fr/" target="_blank" rel="noopener">pioupiou.fr</a></span>
+                </div>
+                <div class="sources-item">
+                    <strong>Station personnelle Tencin (ITENCI3) — Weather Underground</strong>
+                    <span>Relevés réels de la station personnelle, affichés uniquement quand le lieu consulté est à proximité. <a href="https://www.wunderground.com/" target="_blank" rel="noopener">wunderground.com</a></span>
+                </div>
+                <div class="sources-item">
+                    <strong>Retraits</strong>
+                    <span>Les relevés METAR (NOAA) et SYNOP (Météo-France) ont été retirés le 25/09/2026 ; le graphique comparatif « Température heure par heure & précipitations — sources » a été supprimé le 29/09/2026.</span>
+                </div>
+            </div>
+
+            <div class="sources-group">
                 <h4>Pollution & pollens</h4>
                 <div class="sources-item">
                     <strong>Open-Meteo — API Air Quality</strong>
@@ -4992,8 +4976,8 @@
             <div class="sources-group">
                 <h4>Effets locaux (micro-climat)</h4>
                 <div class="sources-item">
-                    <strong>Modèle 2.1 — moteur physique générique (Europe)</strong>
-                    <span>Le modèle 2.1 n'utilise aucune table par ville : il calcule un profil horaire de correction ΔT(h) à partir de la topographie réelle (DEM Open-Meteo, 81 points / 16 azimuts) et de la météo prévue. Composantes : (1) refroidissement par rayonnement de longue d'onde nocturne, atténué par les nuages (poids bas/moyen/haut) et le vent effectif au sol abrité ; (2) cold-air-pooling en fonction du Sky View Factor, de l'encaissement d'horizon, de la fermeture du cirque et de la pente (un versant exposé ne stocke pas d'air froid) ; (3) extra de plaine ouverte ; (4) îlot de chaleur urbain Oke/Landsberg (nuit ×0,40, après-midi ×0,05–0,08 — AROME intègre déjà l'UHI des grandes villes) ; (5) résidu de nappe le jour en cirque fermé ; (6) apport solaire d'exposition de versant ; (7) chaleur piégée en vallée basse. Les niveaux de pression Open-Meteo (inversion d'altitude 0–6 h) modulent la stagnation. Constantes PHYS_MICRO calibrées sur les relevés des 22 et 23/09/2026 (Bessans, Tencin, Grenoble, Paris, Lyon, Nantes, Chamrousse) — erreur moyenne ≈ 0,6 °C sur ce jeu. Version 2.11 : même modèle, seuls deux coefficients de calibration nocturne réajustés sur les observations du 27/09/2026 (K_RAD 7,8 → 12,0 et K_UHI_N 0,40 → 0,20) — sélectionnable via le sélecteur « Modèle Microclimat » de la section « Metehop pour les geeks », V2.1 restant le défaut. Sources physiques : Rupp et al. 2020 (cold-air pools) ; Oke (UHI) ; études de valley cold pools.</span>
+                    <strong>Modèle 2.1 / 2.11 — moteur physique générique (Europe)</strong>
+                    <span>Le sélecteur propose V2.1 et V2.11 (même physique, V2.11 étant une copie indépendante permettant de comparer les évolutions). Le modèle 2.1 n'utilise aucune table par ville : il calcule un profil horaire de correction ΔT(h) à partir de la topographie réelle (DEM Open-Meteo, 81 points / 16 azimuts) et de la météo prévue. Composantes : (1) refroidissement par rayonnement de longue d'onde nocturne, atténué par les nuages (poids bas/moyen/haut) et le vent effectif au sol abrité ; (2) cold-air-pooling en fonction du Sky View Factor, de l'encaissement d'horizon, de la fermeture du cirque et de la pente (un versant exposé ne stocke pas d'air froid) ; (3) extra de plaine ouverte ; (4) îlot de chaleur urbain Oke/Landsberg (nuit ×0,40, après-midi ×0,05–0,08 — AROME intègre déjà l'UHI des grandes villes) ; (5) résidu de nappe le jour en cirque fermé ; (6) apport solaire d'exposition de versant ; (7) chaleur piégée en vallée basse. Les niveaux de pression Open-Meteo (inversion d'altitude 0–6 h) modulent la stagnation. Constantes PHYS_MICRO calibrées sur les relevés des 22 et 23/09/2026 (Bessans, Tencin, Grenoble, Paris, Lyon, Nantes, Chamrousse) — erreur moyenne ≈ 0,6 °C sur ce jeu. Version 2.11 : même modèle, seuls deux coefficients de calibration nocturne réajustés sur les observations du 27/09/2026 (K_RAD 7,8 → 12,0 et K_UHI_N 0,40 → 0,20) — sélectionnable via le sélecteur « Modèle Microclimat » de la section « Metehop pour les geeks », V2.1 restant le défaut. Sources physiques : Rupp et al. 2020 (cold-air pools) ; Oke (UHI) ; études de valley cold pools.</span>
                 </div>
                 <div class="sources-item">
                     <strong>Fond de vallée / cuvette — inversion thermique</strong>
@@ -5240,7 +5224,6 @@
         let weatherRequestSeq = 0; // anti-course : incrémenté à chaque nouveau lieu demandé (voir fetchWeather)
         let lastWeatherRequest = null; // dernière demande effectuée, réutilisée par le bouton "Réessayer"
         let weatherChart = null;
-        let stationCompareChart = null;  // graphique comparatif de la rubrique "Stations météo à proximité"
         let astroChart = null;
 
         // ---- Encarts rétractables (Pollution & pollens, Astronomie — réorganisation du 09/09/2026) ----
@@ -6625,7 +6608,7 @@
                     const omC = openMeteoCurrentCache;
                     const t2 = formatObsTimeShort(omC.time);
                     el.innerHTML = `Temp. live ~5km : ${Math.round(omC.temp)}°C${t2 ? ` <span style="opacity:0.72; font-weight:500;">· ${t2}</span>` : ''}`;
-                    el.title = `${omC.modelLabel} (${omC.modelRes})${omC.corrected ? ' — altitude corrigée via le profil du modèle' : ' — valeur 2 m non corrigée'}${omC.modelAlt !== null ? ` - maille à ${Math.round(omC.modelAlt)} m` : ''}`;
+                    el.title = `${omC.modelLabel} (${omC.modelRes})${omC.corrected ? (omC.mode === 'metehop' ? ' — correction Metehop' : ' — correction météo France') : ' — valeur 2 m non corrigée'}${omC.modelAlt !== null ? ` - maille à ${Math.round(omC.modelAlt)} m` : ''}`;
                     el.style.display = '';
                     return;
                 }
@@ -7429,10 +7412,6 @@ function applyDisplayMode() {
                 metNorwayLoaded = true;
                 loadMetNorway(currentLat, currentLon).catch(()=>{});
             }
-            // Graphique comparatif de la rubrique : dessiné ici (l'onglet vient de devenir
-            // visible) pour que les caches déjà chargés s'affichent immédiatement, puis
-            // redessiné par loadOpenMeteoCurrent / loadMetNorway quand les données arrivent.
-            if (group === 'eau' && currentLat !== null) { try { syncStationCompareChart(); } catch(e) {} }
             if (group === 'eau' && !nearbyStationLoaded && nearbyStationInRange && currentLat !== null) {
                 nearbyStationLoaded = true;
                 loadNearbyStation();
@@ -7490,7 +7469,6 @@ function applyDisplayMode() {
                 if (group === 'eau' && waterBalanceChart) waterBalanceChart.resize();
                 if (group === 'eau' && hydroChart) hydroChart.resize();
                 if (group === 'eau' && nappesChart) nappesChart.resize();
-                if (group === 'eau' && stationCompareChart) stationCompareChart.resize();
                 if (group === 'general') {
                     if (weatherChart) weatherChart.resize();
                     if (pollenChart) pollenChart.resize();
@@ -7890,27 +7868,71 @@ function applyDisplayMode() {
             if (gammaClass >= -0.3) return { label: 'Atmosphère stable', icon: 'fa-solid fa-minus' };
             return { label: 'Gradient standard', icon: 'fa-solid fa-layer-group' };
         }
-        // Correction d'altitude de la température de surface : la régression T(h) du profil
-        // vertical est extrapolée depuis l'altitude de la maille (modelAlt, si elle est fournie)
-        // vers l'altitude réelle du point (pointAlt). Mêmes garde-fous que l'affichage de la
-        // rubrique : γ borné à [-1,5 ; +4,0] °C/100 m, correction bornée à ±12 °C et considérée
-        // comme nulle en dessous de 0,05 °C (pas de fausse précision affichée).
-        // Fonction unique utilisée à la fois pour l'instant "maintenant" (omBuildBlock) et pour
-        // toute la série horaire (omHourlyCorrectedTemps), pour garantir que la courbe affichée
-        // est exactement la valeur affichée dans la carte de la rubrique.
-        // Retourne { corr, hTarget } : corr === null si la correction n'est pas applicable
-        // (pas de profil exploitable ou correction négligeable).
+        // Correction d'altitude de la température de surface (fonction unique : carte "maintenant"
+        // + série horaire). Décalage = γ × Δz, avec Δz = altitude du lieu − altitude de la maille
+        // (la valeur 2 m est déjà à 2 m au-dessus du sol de la maille : pas de "−2 m").
+        //  · méthode 'profile'  : γ = pente mesurée du profil vertical du modèle (2→200 m),
+        //  · méthode 'standard' : profil absent → gradient standard de l'atmosphère (0,65 °C/100 m,
+        //    SNOW1KM_LAPSE_AIR, déjà utilisé ailleurs dans l'appli), explicitement signalé comme
+        //    hypothèse — aucun profil vertical n'est inventé,
+        //  · méthode 'none'     : altitude du lieu ou de la maille inconnue.
+        // γ borné à [-1,5 ; +4,0] °C/100 m, correction bornée à ±12 °C. Une correction faible
+        // (Δz ≈ 0) reste "appliquée" (valeur ≈ 0) : elle n'est plus déclarée "non corrigée".
         function omHourCorrection(fit, modelAlt, pointAlt) {
-            if (!fit || modelAlt === null || pointAlt === null) return { corr: null, hTarget: null };
+            if (modelAlt === null || pointAlt === null || modelAlt === undefined || pointAlt === undefined)
+                return { corr: null, hTarget: null, gamma: null, method: 'none' };
             const hTarget = pointAlt - modelAlt;
-            let g = fit.gamma;
+            let method = 'profile';
+            let g;
+            if (fit && isFinite(fit.gamma)) { g = fit.gamma; }
+            else { g = -(SNOW1KM_LAPSE_AIR * 100); method = 'standard'; }
             if (g > 4.0) g = 4.0;
             if (g < -1.5) g = -1.5;
-            let corr = (g / 100) * (hTarget - 2);
+            let corr = (g / 100) * hTarget;
             if (corr > 12) corr = 12;
             if (corr < -12) corr = -12;
-            if (Math.abs(corr) < 0.05) corr = null;
-            return { corr: corr, hTarget: hTarget };
+            return { corr: corr, hTarget: hTarget, gamma: g, method: method };
+        }
+        // Mode de correction de la rubrique : 'mf' (Correction météo France : altitude/gradient
+        // seul) ou 'metehop' (altitude/gradient + modèle microclimat Metehop sélectionné).
+        let omCorrMode = 'mf';
+        try { if (localStorage.getItem('metehop_om_corr_mode_v1') === 'metehop') omCorrMode = 'metehop'; } catch (e) {}
+        // Delta microclimat Metehop (modèle et coefficients actuellement sélectionnés) pour un
+        // relevé horaire local "YYYY-MM-DDTHH:mm" : exactement microClimateDeltaAtHour().
+        function omMicroDelta(isoLocal, tz) {
+            try {
+                if (typeof microClimateDeltaAtHour !== 'function') return 0;
+                const zone = tz || ((typeof stationChartTimeZone === 'function') ? stationChartTimeZone() : undefined);
+                const ms = metLocalIsoToMs(isoLocal, zone);
+                if (!isFinite(ms)) return 0;
+                const d = microClimateDeltaAtHour(metLocalHourDecimal(ms, zone), metMicroclimateDayIdx(ms, zone)).delta;
+                return (typeof d === 'number' && isFinite(d)) ? d : 0;
+            } catch (e) { return 0; }
+        }
+        // Chaîne complète pour l'instant "maintenant" : brut → altitude → (microclimat) → final.
+        // Recalculée à chaque affichage (le modèle microclimat / le mode peuvent changer) ;
+        // la correction d'altitude n'est calculée qu'une fois (block.altCorr) et le microclimat
+        // n'est ajouté qu'en mode Metehop : jamais deux fois.
+        function omApplyMode(block) {
+            if (!block || typeof block.temp2m !== 'number') return block;
+            const alt = (block.altCorr !== null && block.altCorr !== undefined) ? block.altCorr : 0;
+            const micro = (omCorrMode === 'metehop') ? omMicroDelta(block.time, block.timezone) : 0;
+            block.mode = omCorrMode;
+            block.microCorr = micro;
+            block.tAlt = block.temp2m + alt;
+            block.temp = block.tAlt + micro;
+            block.corrected = (block.altMethod !== 'none') || Math.abs(micro) > 0;
+            return block;
+        }
+        function setOmCorrMode(mode) {
+            omCorrMode = (mode === 'metehop') ? 'metehop' : 'mf';
+            try { localStorage.setItem('metehop_om_corr_mode_v1', omCorrMode); } catch (e) {}
+            try { if (openMeteoCurrentCache) omApplyMode(openMeteoCurrentCache); } catch (e) {}
+            try { renderOpenMeteoCurrentCard(); } catch (e) {}
+            try { updateHeroLiveTemp(); } catch (e) {}
+        }
+        function omRefreshAfterMicroChange() {
+            try { if (openMeteoCurrentCache) { omApplyMode(openMeteoCurrentCache); renderOpenMeteoCurrentCard(); if (metNorwayCache) renderMetNorwayCard(); updateHeroLiveTemp(); } } catch (e) {}
         }
         // Code WMO (weather_code, 25/09/2026) -> libellé court + icône FontAwesome, pour la pill
         // "condition" de la carte. Catégories WMO standard (mêmes seuils que le reste de l'appli).
@@ -7954,6 +7976,7 @@ function applyDisplayMode() {
                 const corrBlock = omHourCorrection(fit, modelAlt, pointAlt);
                 const corr = corrBlock.corr;
                 const hTarget = corrBlock.hTarget;
+                const altCorr = (corr !== null) ? corr : 0;
                 const isDayArr = h.is_day;
                 const isDay = (Array.isArray(isDayArr) && isDayArr[idx] !== undefined) ? (Number(isDayArr[idx]) === 1) : null;
                 let dTdt = null;
@@ -7967,10 +7990,11 @@ function applyDisplayMode() {
                 const precipNow = omNum(h.precipitation ? h.precipitation[idx] : null);
                 const codeNow = (Array.isArray(h.weather_code) && typeof h.weather_code[idx] === 'number') ? h.weather_code[idx] : null;
                 const pressureNow = omNum(h.pressure_msl ? h.pressure_msl[idx] : null);
-                return {
+                const blk = {
                     ts: Date.now(), lat: Number(lat), lon: Number(lon),
-                    temp: (corr !== null) ? t2 + corr : t2,
+                    temp: t2 + altCorr,
                     temp2m: t2, corrected: corr !== null,
+                    altCorr: altCorr, altMethod: corrBlock.method, altGamma: corrBlock.gamma,
                     pointAlt: pointAlt, modelAlt: modelAlt, hTarget: hTarget,
                     levels: levels, gamma: gamma,
                     regime: omRegime(gammaClass, dTdt, isDay),
@@ -7994,6 +8018,7 @@ function applyDisplayMode() {
                         return acc;
                     }, {})
                 };
+                return omApplyMode(blk);
             } catch (e) { return null; }
         }
         // Température de surface corrigée de l'altitude pour TOUTES les heures de la réponse
@@ -8019,7 +8044,9 @@ function applyDisplayMode() {
                     if (v !== null) pts.push({ z: L.z, t: v });
                 }
                 const c = omHourCorrection(omFit(pts), modelAlt, pointAlt);
-                out.push((c.corr !== null) ? t2 + c.corr : t2);
+                let t = (c.corr !== null) ? t2 + c.corr : t2;
+                if (omCorrMode === 'metehop') t += omMicroDelta(block.hourlyTime[i], block.timezone);
+                out.push(t);
             }
             return out;
         }
@@ -8036,7 +8063,6 @@ function applyDisplayMode() {
             } catch (e) {}
             if (openMeteoCurrentCache && (Date.now() - openMeteoCurrentCache.ts) < OM_CURRENT_CACHE_MS) {
                 renderOpenMeteoCurrentCard();
-                try { syncStationCompareChart(); } catch (e) {}
                 return openMeteoCurrentCache;
             }
             if (openMeteoCurrentFailedAt && (Date.now() - openMeteoCurrentFailedAt) < OM_CURRENT_RETRY_MS) {
@@ -8062,8 +8088,8 @@ function applyDisplayMode() {
                         openMeteoCurrentFailedAt = 0;
                         try { updateHeroLiveTemp(); } catch (e) {}
                         renderOpenMeteoCurrentCard();
-                        try { syncStationCompareChart(); } catch (e) {}
-                        return block;
+                        try { if (metNorwayCache) renderMetNorwayCard(); } catch (e) {}
+                                return block;
                     } catch (e) { continue; }
                 }
                 if (mySeq !== weatherRequestSeq) return null;
@@ -8090,15 +8116,19 @@ function applyDisplayMode() {
                 if (errorEl) errorEl.style.display = 'none';
                 contentEl.style.display = '';
                 if (modelEl) modelEl.innerText = `${cache.modelLabel} • ${cache.modelRes}`;
-                let html = `<span class="snow-pill" style="background: rgba(59,110,97,0.12);"><i class="fa-solid fa-temperature-half"></i> ${omFmt(cache.temp, 1)} °C${cache.corrected ? ' (au point)' : ''}</span>`;
-                html += `<span class="snow-pill"><i class="fa-solid fa-layer-group"></i> ${cache.modelLabel}</span>`;
-                if (cache.corrected) {
-                    html += `<span class="snow-pill"><i class="fa-solid fa-temperature-arrow-up"></i> modèle 2 m : ${omFmt(cache.temp2m, 1)} °</span>`;
-                    html += `<span class="snow-pill"><i class="fa-solid fa-mountain"></i> Δz ${omSigned(cache.hTarget, 0)} m</span>`;
-                    html += `<span class="snow-pill"><i class="fa-solid fa-arrow-trend-up"></i> γ ${omSigned(cache.gamma, 2)} °C/100 m</span>`;
+                omApplyMode(cache);
+                const isMet = cache.mode === 'metehop';
+                const mName = isMet ? 'Correction Metehop' : 'Correction météo France';
+                const btn = (m, label) => `<button type="button" onclick="setOmCorrMode('${m}')" style="flex:1; padding:5px 8px; font-size:0.7rem; font-weight:700; border-radius:8px; cursor:pointer; border:1px solid var(--accent-green); ${((m === 'metehop') === isMet) ? 'background:var(--accent-green); color:#fff;' : 'background:transparent; color:var(--accent-green);'}">${label}</button>`;
+                let html = `<div style="display:flex; gap:6px; width:100%; margin-bottom:6px;">${btn('mf', 'Correction météo France')}${btn('metehop', 'Correction Metehop')}</div>`;
+                html += `<span class="snow-pill"><i class="fa-solid fa-temperature-arrow-up"></i> AROME brut : ${omFmt(cache.temp2m, 1)} °C</span>`;
+                if (cache.altMethod !== 'none') {
+                    html += `<span class="snow-pill"><i class="fa-solid fa-mountain"></i> Alt./gradient ${omSigned(cache.altCorr, 1)} °C</span>`;
                 } else {
-                    html += `<span class="snow-pill"><i class="fa-solid fa-circle-info"></i> valeur 2 m du modèle, non corrigée</span>`;
+                    html += `<span class="snow-pill"><i class="fa-solid fa-circle-info"></i> altitude inconnue : aucune correction d'altitude</span>`;
                 }
+                if (isMet) html += `<span class="snow-pill"><i class="fa-solid fa-seedling"></i> Microclimat ${omSigned(cache.microCorr, 1)} °C</span>`;
+                html += `<span class="snow-pill" style="font-weight:700;"><i class="fa-solid fa-flask"></i> Méthode : ${mName} → ${omFmt(cache.temp, 1)} °C</span>`;
                 if (cache.weatherInfo) html += `<span class="snow-pill"><i class="${cache.weatherInfo.icon}"></i> ${cache.weatherInfo.label}</span>`;
                 if (cache.precip !== null) html += `<span class="snow-pill"><i class="fa-solid fa-cloud-rain"></i> Pluie ${omFmt(cache.precip, 1)} mm/h</span>`;
                 if (cache.rh !== null) html += `<span class="snow-pill"><i class="fa-solid fa-droplet"></i> Hum ${omFmt(cache.rh, 0)} %</span>`;
@@ -8112,23 +8142,33 @@ function applyDisplayMode() {
                 if (altTxt) html += `<span class="snow-pill"><i class="fa-solid fa-mountain"></i> ${altTxt}</span>`;
                 if (pillsEl) pillsEl.innerHTML = html;
                 if (profileEl) {
-                    if (cache.gamma !== null && cache.levels && cache.levels.length > 1) {
-                        const parts = cache.levels.map(p => {
-                            const alt = (cache.modelAlt !== null) ? `alt ${Math.round(cache.modelAlt + p.z)} m` : `+${p.z} m`;
-                            return `${p.z} m : ${omFmt(p.t, 1)} °C (${alt})`;
-                        });
-                        profileEl.innerText = `Profil du modèle — ${parts.join(' · ')} — γ mesuré ${omSigned(cache.gamma, 2)} °C/100 m sur ${cache.levels.length} niveaux`;
-                        profileEl.style.display = '';
-                    } else {
-                        profileEl.innerText = 'Profil vertical 20→200 m non mesuré dans la réponse : aucune correction d\'altitude appliquée, aucun gradient imposé.';
-                        profileEl.style.display = '';
+                    const fz = (v) => (v === null || v === undefined) ? '—' : `${Math.round(v)} m`;
+                    const gUsed = cache.altGamma;
+                    const gTxt = (cache.altMethod === 'profile')
+                        ? `γ mesuré ${omSigned(gUsed, 2)} °C/100 m (profil du modèle, ${cache.levels.length} niveaux)`
+                        : (cache.altMethod === 'standard'
+                            ? `profil vertical absent de la réponse → gradient standard ${omSigned(gUsed, 2)} °C/100 m (hypothèse, non mesuré)`
+                            : 'aucune correction (altitude lieu ou maille inconnue)');
+                    let det = `<details style="margin-top:6px; font-size:0.7rem; color:var(--text-muted);"><summary style="cursor:pointer;">Détails du calcul</summary>`;
+                    det += `<div style="margin-top:4px; line-height:1.5;">`;
+                    det += `AROME brut ${omFmt(cache.temp2m, 1)} °C → altitude AROME (maille) ${fz(cache.modelAlt)} → altitude lieu ${fz(cache.pointAlt)} (Δz ${cache.hTarget === null ? '—' : omSigned(cache.hTarget, 0) + ' m'}) → correction altitude/gradient ${omSigned(cache.altCorr, 2)} °C`;
+                    if (cache.mode === 'metehop') det += ` (${omFmt(cache.tAlt, 1)} °C) → microclimat Metehop (modèle V${microModelVersion}) ${omSigned(cache.microCorr, 2)} °C`;
+                    det += ` → température finale ${omFmt(cache.temp, 1)} °C.<br>${gTxt}.`;
+                    if (cache.mode === 'mf') det += `<br>Mode météo France : altitude/gradient uniquement, sans microclimat.`;
+                    else det += `<br>Mode Metehop : mêmes coefficients/modèle microclimat que le reste de l'appli (delta à l'heure du relevé).`;
+                    if (cache.levels && cache.levels.length > 1) {
+                        det += `<br>Profil : ` + cache.levels.map(p => `${p.z} m : ${omFmt(p.t, 1)} °C`).join(' · ');
                     }
+                    det += `</div></details>`;
+                    profileEl.innerHTML = det;
+                    profileEl.style.display = '';
                 }
                 if (updatedEl) {
                     let when = '';
                     try { if (cache.time) when = new Date(cache.time).toLocaleString('fr-FR'); } catch (e) {}
-                    updatedEl.innerText = `Source : Open-Meteo — ${cache.modelLabel} (${cache.modelRes}) — relevé horaire ${when}${cache.corrected ? ' — altitude corrigée via le profil vertical du modèle' : ''}`;
+                    updatedEl.innerText = `Source : Open-Meteo — ${cache.modelLabel} (${cache.modelRes}) — relevé horaire ${when}${cache.altMethod === 'profile' ? ' — altitude corrigée via le profil vertical du modèle' : (cache.altMethod === 'standard' ? ' — altitude corrigée (gradient standard)' : '')}${cache.mode === 'metehop' ? ' + microclimat Metehop' : ''}`;
                 }
+                renderStationInterp();
                 return;
             }
             if (openMeteoCurrentLoading) {
@@ -8169,7 +8209,6 @@ function applyDisplayMode() {
             } catch (e) {}
             if (metNorwayCache && (Date.now() - metNorwayCache.ts) < 10 * 60 * 1000) {
                 renderMetNorwayCard();
-                try { syncStationCompareChart(); } catch (e) {}
                 return metNorwayCache;
             }
             metNorwayLoading = true;
@@ -8187,9 +8226,15 @@ function applyDisplayMode() {
                         altParam = `&altitude=${Math.round(weatherData.elevation)}`;
                     }
                 } catch (e) {}
+                // Requête "brute" (sans altitude) en parallèle : température de la maille MET Norway
+                // non corrigée + son altitude (geometry.coordinates[2]) → départ de la chaîne
+                // "Correction Metehop" (brut → altitude → microclimat). Échec = non bloquant.
+                const rawPromise = fetchWithTimeout(`https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=${lat}&lon=${lon}`, { timeout: 12000, cache: 'no-store' })
+                    .then(r => (r && r.ok) ? r.json() : null).catch(() => null);
                 const res = await fetchWithTimeout(`https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=${lat}&lon=${lon}${altParam}`, { timeout: 12000, cache: 'no-store' });
                 if (!res || !res.ok) throw new Error('http');
                 const data = await res.json();
+                const rawData = await rawPromise;
                 const ts0 = data && data.properties && data.properties.timeseries && data.properties.timeseries[0];
                 const d = ts0 && ts0.data && ts0.data.instant && ts0.data.instant.details;
                 if (!d || typeof d.air_temperature !== 'number') throw new Error('empty');
@@ -8206,7 +8251,7 @@ function applyDisplayMode() {
                 // champ air_temperature que metehop-live.html, lu sur toute la timeseries, plus
                 // la précipitation next_1_hours de chaque heure (cumul pluie de la rubrique). Un
                 // instant sans donnée est conservé en null (trou, jamais interpolé) et sera
-                // aligné sur l'heure locale du graphique par stationHourKeyFromUtc().
+                // conservé tel quel dans la série horaire.
                 const tsList = (data.properties && Array.isArray(data.properties.timeseries)) ? data.properties.timeseries : [];
                 const seriesTime = [];
                 const seriesTemp = [];
@@ -8219,8 +8264,28 @@ function applyDisplayMode() {
                     seriesTemp.push((det && typeof det.air_temperature === 'number') ? det.air_temperature : null);
                     seriesPrecip.push((itemN1 && typeof itemN1.precipitation_amount === 'number') ? itemN1.precipitation_amount : null);
                 }
+                // Série brute (sans altitude) alignée par horodatage sur la série corrigée MET.
+                let rawAlt = null, rawT0 = null;
+                const rawByTime = new Map();
+                try {
+                    if (rawData && rawData.properties && Array.isArray(rawData.properties.timeseries)) {
+                        const ca = rawData.geometry && rawData.geometry.coordinates;
+                        if (Array.isArray(ca) && typeof ca[2] === 'number' && isFinite(ca[2])) rawAlt = ca[2];
+                        for (const it of rawData.properties.timeseries) {
+                            const dd = it && it.data && it.data.instant && it.data.instant.details;
+                            if (it && typeof it.time === 'string' && dd && typeof dd.air_temperature === 'number') rawByTime.set(it.time, dd.air_temperature);
+                        }
+                        rawT0 = rawByTime.has(ts0.time) ? rawByTime.get(ts0.time) : null;
+                    }
+                } catch (e) {}
+                const seriesRaw = seriesTime.map(t => rawByTime.has(t) ? rawByTime.get(t) : null);
+                let metUsedAlt = null;
+                try { const ca2 = data.geometry && data.geometry.coordinates; if (Array.isArray(ca2) && typeof ca2[2] === 'number') metUsedAlt = ca2[2]; } catch (e) {}
                 metNorwayCache = {
                     t: d.air_temperature,
+                    tRaw: rawT0, rawAlt: rawAlt, usedAlt: metUsedAlt,
+                    placeAlt: (typeof weatherData !== 'undefined' && weatherData && typeof weatherData.elevation === 'number' && isFinite(weatherData.elevation)) ? weatherData.elevation : null,
+                    hourlyTempsMetCorr: seriesTemp, hourlyTempsRaw: seriesRaw,
                     rh: d.relative_humidity,
                     wind: d.wind_speed,
                     dir: d.wind_from_direction,
@@ -8233,8 +8298,8 @@ function applyDisplayMode() {
                     hourlyTemps: seriesTemp,
                     hourlyPrecip: seriesPrecip
                 };
+                metApplyMode(metNorwayCache);
                 renderMetNorwayCard();
-                try { syncStationCompareChart(); } catch (e) {}
                 return metNorwayCache;
             } catch (e) {
                 if (mySeq !== weatherRequestSeq) return null;
@@ -8245,6 +8310,209 @@ function applyDisplayMode() {
                 if (metNorwayLoadingSeq === mySeq) metNorwayLoading = false;
             }
         }
+        // ── Mode de correction MET Norway (switch de la rubrique) ──────────────────────
+        // 'met'     : série MET Norway demandée AVEC altitude du lieu (correction terrain MET
+        //             Norway déjà prévue par l'appli) ; aucun microclimat Metehop.
+        // 'metehop' : série BRUTE MET Norway (sans altitude) → correction d'altitude Metehop
+        //             (omHourCorrection, gradient standard, Δz = lieu − altitude MET) appliquée
+        //             AVANT l'interpolation, puis modèle microclimat sélectionné
+        //             (microClimateDeltaAtHour, via metProjectionAtMs). Si la série brute est
+        //             indisponible : repli sur la série MET corrigée, sans 2e correction d'altitude.
+        let metCorrMode = 'metehop';
+        try { if (localStorage.getItem('metehop_met_corr_mode_v1') === 'met') metCorrMode = 'met'; } catch (e) {}
+        function metApplyMode(d) {
+            if (!d) return d;
+            d.mode = metCorrMode;
+            d.altInfo = { method: 'none', corr: 0, hTarget: null, gamma: null };
+            let series = d.hourlyTempsMetCorr;
+            d.rawFallback = false;
+            if (metCorrMode === 'metehop') {
+                const okRaw = Array.isArray(d.hourlyTempsRaw) && d.hourlyTempsRaw.some(v => typeof v === 'number') && typeof d.rawAlt === 'number' && typeof d.placeAlt === 'number';
+                if (okRaw) {
+                    const c = omHourCorrection(null, d.rawAlt, d.placeAlt);
+                    d.altInfo = c;
+                    const k = (c.corr === null) ? 0 : c.corr;
+                    series = d.hourlyTempsRaw.map((v, i) => (typeof v === 'number') ? v + k : ((typeof d.hourlyTempsMetCorr[i] === 'number') ? d.hourlyTempsMetCorr[i] : null));
+                } else { d.rawFallback = true; }
+            }
+            d.hourlyTemps = series;
+            return d;
+        }
+        function setMetCorrMode(mode) {
+            metCorrMode = (mode === 'met') ? 'met' : 'metehop';
+            try { localStorage.setItem('metehop_met_corr_mode_v1', metCorrMode); } catch (e) {}
+            try { if (metNorwayCache) metApplyMode(metNorwayCache); renderMetNorwayCard(); } catch (e) {}
+        }
+        function metRefreshAfterMicroChange() {
+            try { if (metNorwayCache) { metApplyMode(metNorwayCache); renderMetNorwayCard(); } } catch (e) {}
+        }
+        // Encart compact + détails (brut → altitude → microclimat → final, comparaison avec l'affichage actuel).
+        function metChainHtml(d) {
+            try {
+                const tz = stationChartTimeZone();
+                const ms = Date.now();
+                const isM = d.mode === 'metehop';
+                const tRead = Date.parse(d.time);
+                const proj = metProjectionAtMs(d, isFinite(tRead) ? tRead : ms, tz);
+                if (!proj) return '';
+                const raw = (typeof d.tRaw === 'number') ? d.tRaw : null;
+                const fz = v => (typeof v === 'number') ? Math.round(v) + ' m' : '—';
+                const altC = isM && !d.rawFallback ? (d.altInfo.corr || 0) : null;
+                const micro = isM ? proj.corr : 0;
+                const btn = (m, label) => `<button type="button" onclick="setMetCorrMode('${m}')" style="flex:1; padding:5px 8px; font-size:0.7rem; font-weight:700; border-radius:8px; cursor:pointer; border:1px solid var(--accent-blue); ${((m === 'metehop') === isM) ? 'background:var(--accent-blue); color:#fff;' : 'background:transparent; color:var(--accent-blue);'}">${label}</button>`;
+                let h = `<div style="display:flex; gap:6px; width:100%; margin-bottom:6px;">${btn('met', 'Correction MET Norway')}${btn('metehop', 'Correction Metehop')}</div>`;
+                h += `<span class="snow-pill"><i class="fa-solid fa-temperature-arrow-up"></i> MET brut : ${raw !== null ? omFmt(raw, 1) + ' °C' : 'indispo.'}</span>`;
+                if (isM && altC !== null) h += `<span class="snow-pill"><i class="fa-solid fa-mountain"></i> Alt./gradient ${omSigned(altC, 1)} °C</span>`;
+                if (isM) h += `<span class="snow-pill"><i class="fa-solid fa-seedling"></i> Microclimat ${omSigned(micro, 1)} °C</span>`;
+                h += `<span class="snow-pill" style="font-weight:700;"><i class="fa-solid fa-flask"></i> Méthode : ${isM ? 'Correction Metehop' : 'Correction MET Norway'} → ${omFmt(proj.tFinal, 1)} °C</span>`;
+                let det = `<details style="margin-top:6px; font-size:0.7rem; color:var(--text-muted);"><summary style="cursor:pointer;">Détails du calcul MET Norway</summary><div style="margin-top:4px; line-height:1.5;">`;
+                det += `MET brut ${raw !== null ? omFmt(raw, 1) : '—'} °C → altitude MET (maille) ${fz(d.rawAlt)} → altitude lieu ${fz(d.placeAlt)}`;
+                if (isM) {
+                    if (d.rawFallback) det += ` → série brute indisponible : repli sur la série MET déjà corrigée en altitude (aucune 2e correction) `;
+                    else det += ` (Δz ${omSigned(d.altInfo.hTarget, 0)} m, gradient standard ${omSigned(d.altInfo.gamma, 2)} °C/100 m) → correction altitude ${omSigned(altC, 2)} °C`;
+                    det += ` (appliquée aux données horaires brutes) → microclimat Metehop V${microModelVersion} ${omSigned(micro, 2)} °C`;
+                } else {
+                    det += ` → correction MET Norway (requête avec altitude ${fz(d.usedAlt)}, calculée par MET) → sans microclimat Metehop`;
+                }
+                det += ` → température finale ${omFmt(proj.tFinal, 1)} °C.`;
+                det += `<br>Comparaison : brut ${raw !== null ? omFmt(raw, 1) : '—'} °C · MET corrigé (pastille ci-dessus) ${omFmt(d.t, 1)} °C · chaîne recalculée ${omFmt(proj.tFinal, 1)} °C (heure du relevé ${metLocalHm(isFinite(tRead) ? tRead : ms, tz) || ''}).`;
+                det += `</div></details>`;
+                return h + det;
+            } catch (e) { return ''; }
+        }
+        // ═════════════════════════════════════════════════════════════════════════════
+        // LOGIQUE TEMPORELLE COMMUNE (29/09/2026) — Open-Meteo Current & MET Norway Current
+        //   dernier relevé affiché (déjà corrigé : altitude / microclimat / mode)
+        //   + ΔT = brut de LA MÊME source (AROME brut pour Open-Meteo, MET brut pour MET Norway)
+        //     à l'instant cible − brut de cette source au dernier relevé
+        //   = température interpolée à l'instant cible.
+        // Le ΔT n'est calculé QUE sur la série brute de la source (jamais la valeur corrigée) et
+        // n'est JAMAIS re-corrigé (ni altitude, ni microclimat) : la correction déjà portée par
+        // le relevé affiché est conservée telle quelle.
+        // ═════════════════════════════════════════════════════════════════════════════
+        // Interpolation linéaire d'une série horaire brute [{t, v}] à l'instant ms (hors plage :
+        // point le plus proche, signalé 'nearest' ; rien n'est inventé).
+        function stationSeriesAtMs(pts, ms) {
+            try {
+                if (!pts || !pts.length || typeof ms !== 'number' || !isFinite(ms)) return null;
+                const n = pts.length;
+                if (ms <= pts[0].t) return { v: pts[0].v, kind: ms < pts[0].t ? 'nearest' : 'exact' };
+                if (ms >= pts[n - 1].t) return { v: pts[n - 1].v, kind: ms > pts[n - 1].t ? 'nearest' : 'exact' };
+                for (let i = 1; i < n; i++) {
+                    if (pts[i].t >= ms) {
+                        const a = pts[i - 1], b = pts[i];
+                        if (b.t === ms) return { v: b.v, kind: 'exact' };
+                        const v = a.v + (b.v - a.v) * (ms - a.t) / (b.t - a.t);
+                        return isFinite(v) ? { v: v, kind: 'interp' } : null;
+                    }
+                }
+                return null;
+            } catch (e) { return null; }
+        }
+        // Série BRUTE de la source ('om' = AROME brut ; 'met' = MET brut, sans altitude, ou à
+        // défaut la série MET fournie par l'API). Jamais la série corrigée Metehop.
+        function stationRawSeries(source) {
+            const pts = [];
+            try {
+                if (source === 'om') {
+                    const b = openMeteoCurrentCache;
+                    if (!b || !Array.isArray(b.hourlyTime) || !Array.isArray(b.hourlyTemps)) return null;
+                    const tz = b.timezone || stationChartTimeZone();
+                    for (let i = 0; i < b.hourlyTime.length; i++) {
+                        const v = omNum(b.hourlyTemps[i]);
+                        if (v === null) continue;
+                        const t = metLocalIsoToMs(b.hourlyTime[i], tz);
+                        if (isFinite(t)) pts.push({ t: t, v: v });
+                    }
+                } else {
+                    const d = metNorwayCache;
+                    if (!d || !Array.isArray(d.hourlyTime)) return null;
+                    const useRaw = Array.isArray(d.hourlyTempsRaw) && d.hourlyTempsRaw.some(v => typeof v === 'number');
+                    const arr = useRaw ? d.hourlyTempsRaw : d.hourlyTempsMetCorr;
+                    if (!Array.isArray(arr)) return null;
+                    for (let i = 0; i < d.hourlyTime.length; i++) {
+                        const v = arr[i];
+                        if (typeof v !== 'number' || !isFinite(v)) continue;
+                        const t = Date.parse(d.hourlyTime[i]);
+                        if (isFinite(t)) pts.push({ t: t, v: v });
+                    }
+                }
+            } catch (e) { return null; }
+            return pts.length ? pts : null;
+        }
+        // Cœur : température affichée au dernier relevé + ΔT brut Open-Meteo jusqu'à targetMs.
+        function stationInterpolate(shown, tLastMs, targetMs, source) {
+            if (typeof shown !== 'number' || !isFinite(shown) || typeof tLastMs !== 'number' || !isFinite(tLastMs)) return { ok: false, reason: 'dernier relevé absent' };
+            if (typeof targetMs !== 'number' || !isFinite(targetMs)) return { ok: false, reason: 'heure cible invalide' };
+            const src = (source === 'met') ? 'met' : 'om';
+            const nmRaw = (src === 'met') ? 'MET' : 'AROME';
+            const pts = stationRawSeries(src);
+            if (!pts) return { ok: false, reason: 'brut ' + nmRaw + ' absent' };
+            const r0 = stationSeriesAtMs(pts, tLastMs), r1 = stationSeriesAtMs(pts, targetMs);
+            if (!r0) return { ok: false, reason: 'brut ' + nmRaw + ' indisponible au dernier relevé' };
+            if (!r1) return { ok: false, reason: 'brut ' + nmRaw + ' indisponible à l\'heure demandée' };
+            const dT = r1.v - r0.v;
+            const t = shown + dT;
+            if (!isFinite(dT) || !isFinite(t)) return { ok: false, reason: 'calcul invalide' };
+            return { ok: true, t: t, dT: dT, raw0: r0.v, raw1: r1.v, k0: r0.kind, k1: r1.kind, shown: shown, tLastMs: tLastMs, targetMs: targetMs };
+        }
+        // Dernier relevé affiché de chaque source : { shown, tLastMs }.
+        function stationLastReading(source) {
+            try {
+                if (source === 'om') {
+                    const c = openMeteoCurrentCache;
+                    if (!c) return null;
+                    omApplyMode(c);
+                    return { shown: c.temp, tLastMs: metLocalIsoToMs(c.time, c.timezone || stationChartTimeZone()) };
+                }
+                const d = metNorwayCache;
+                if (!d) return null;
+                const tLastMs = Date.parse(d.time);
+                // valeur affichée du relevé, dans le mode choisi (altitude/microclimat déjà inclus)
+                const pr = metProjectionAtMs(d, tLastMs, stationChartTimeZone());
+                return { shown: pr ? pr.tFinal : d.t, tLastMs: tLastMs };
+            } catch (e) { return null; }
+        }
+        // API "heure exacte" : température de la source ('om' | 'met') à l'instant ms.
+        function stationTempAtMs(source, ms) {
+            const lr = stationLastReading(source);
+            if (!lr) return { ok: false, reason: 'dernier relevé absent' };
+            return stationInterpolate(lr.shown, lr.tLastMs, ms, source);
+        }
+        // Bloc affiché en toute fin de chaque rubrique + debug (encart dépliable).
+        function stationInterpHtml(source) {
+            try {
+                const tz = stationChartTimeZone();
+                const now = Date.now();
+                const lr = stationLastReading(source);
+                const res = lr ? stationInterpolate(lr.shown, lr.tLastMs, now, source) : { ok: false, reason: 'dernier relevé absent' };
+                const nm = (source === 'om') ? 'Open-Meteo' : 'MET Norway';
+                if (!res.ok) {
+                    return `<div class="card-sage-sub" style="font-size:0.72rem;"><i class="fa-solid fa-clock"></i> Température actuelle interpolée : indisponible (${res.reason})</div>`;
+                }
+                const rawNm = (source === 'met') ? 'MET' : 'AROME';
+                const notes = [];
+                if (res.k1 === 'interp') notes.push('brut ' + rawNm + ' interpolé linéairement entre deux heures');
+                if (res.k1 === 'nearest' || res.k0 === 'nearest') notes.push('hors plage des données brutes : point le plus proche utilisé (rien d\'inventé)');
+                let h = `<div class="snow-pill" style="background: rgba(59,110,97,0.12); font-weight:700;"><i class="fa-solid fa-clock"></i> Température actuelle interpolée : ${omFmt(res.t, 1)} °C</div>`;
+                h += `<details style="margin-top:4px; font-size:0.66rem; color:var(--text-muted);"><summary style="cursor:pointer;">Debug ΔT (${nm})</summary><div style="line-height:1.5; margin-top:3px;">`;
+                h += `Dernier timestamp : ${metLocalHm(res.tLastMs, tz) || '—'}<br>`;
+                h += `Température ${rawNm} brut au dernier timestamp : ${omFmt(res.raw0, 2)} °C<br>`;
+                h += `Température ${rawNm} brut actuelle : ${omFmt(res.raw1, 2)} °C (${metLocalHm(now, tz) || '—'})<br>`;
+                h += `ΔT = ${omFmt(res.raw1, 2)} − ${omFmt(res.raw0, 2)} = ${omSigned(res.dT, 2)} °C<br>`;
+                h += `Dernière température affichée (${nm}) : ${omFmt(res.shown, 1)} °C<br>`;
+                h += `Température actuelle interpolée (${nm}) : ${omFmt(res.t, 1)} °C = ${omFmt(res.shown, 1)} ${omSigned(res.dT, 1)}`;
+                if (notes.length) h += `<br><i>${notes.join(' · ')}</i>`;
+                h += `<br>ΔT non re-corrigé : correction altitude/microclimat déjà contenue dans la dernière température affichée.`;
+                h += `</div></details>`;
+                return h;
+            } catch (e) { return ''; }
+        }
+        function renderStationInterp() {
+            try { const a = document.getElementById('mf-synop-temp-interp'); if (a) a.innerHTML = stationInterpHtml('om'); } catch (e) {}
+            try { const b = document.getElementById('met-norway-interp'); if (b) b.innerHTML = stationInterpHtml('met'); } catch (e) {}
+        }
+
         // symbol_code MET Norway (ex. "partlycloudy_day", "rainshowers_night", 25/09/2026) :
         // préfixe texte avant le suffixe jour/nuit — libellé court en français.
         function metNoSymbolLabel(code) {
@@ -8279,12 +8547,8 @@ function applyDisplayMode() {
                 const dirDeg = (typeof d.dir === 'number' && isFinite(d.dir)) ? Math.round(d.dir) : null;
                 const cloud = (typeof d.cloud === 'number' && isFinite(d.cloud)) ? d.cloud.toFixed(0) : '—';
                 const press = (typeof d.press === 'number' && isFinite(d.press)) ? Math.round(d.press) : '—';
-                let html = `<span class="snow-pill" style="background: rgba(14,116,144,0.10);"><i class="fa-solid fa-temperature-half"></i> ${omFmt(d.t, 1)} °C</span>`;
-                // Nouveau 27/09/2026 : ligne complémentaire juste SOUS la température MET
-                // Norway ci-dessus (elle reste strictement inchangée) — température interpolée
-                // à l'heure exacte + correction du modèle Microclimat sélectionné.
-                const metCorrectedLine = metCorrectedPillHtml(d);
-                if (metCorrectedLine) html += metCorrectedLine;
+                let html = '';
+                html += metChainHtml(d);
                 const symInfo = metNoSymbolLabel(d.symbolCode);
                 if (symInfo) html += `<span class="snow-pill"><i class="${symInfo.icon}"></i> ${symInfo.label}</span>`;
                 if (typeof d.precipNext1h === 'number' && isFinite(d.precipNext1h)) {
@@ -8301,6 +8565,7 @@ function applyDisplayMode() {
                     try { if (d.time) when = new Date(d.time).toLocaleString('fr-FR'); } catch (e) {}
                     updatedEl.innerText = `Source : MET Norway (api.met.no)${when ? ` — relevé du ${when}` : ''}`;
                 }
+                renderStationInterp();
                 return;
             }
             if (metNorwayLoading) {
@@ -8398,8 +8663,7 @@ function applyDisplayMode() {
         }
 
         // Début de l'heure locale (HH:00) contenant ms — même technique de correction itérative
-        // que metLocalDayStartMs ci-dessus (changement d'heure été/hiver). Sert à construire
-        // l'historique glissant des 24 dernières heures (station-compare, 27/09/2026).
+        // que metLocalDayStartMs ci-dessus (changement d'heure été/hiver).
         function metLocalHourStartMs(ms, timeZone) {
             const off = metZoneOffsetMs(ms, timeZone);
             const pseudo = ms + off;
@@ -8802,7 +9066,7 @@ function applyDisplayMode() {
                 if (pts.length < 2) return null;
                 const dayStart = metLocalDayStartMs(refMs, timeZone);
                 const dayEnd = metLocalDayStartMs(dayStart + 36 * 3600000, timeZone);
-                const sig = pts.length + '#' + pts[0].t + '#' + pts[pts.length - 1].t + '#' + dayStart + '#' + (timeZone || '');
+                const sig = pts.length + '#' + pts[0].t + '#' + pts[pts.length - 1].t + '#' + dayStart + '#' + (timeZone || '') + '#' + pts.reduce((a, q) => a + q.v, 0).toFixed(3);
                 if (metDiurnalModelCache.key === sig && metDiurnalModelCache.model) return metDiurnalModelCache.model;
                 const model = buildMetDiurnalModel(pts, refMs, dayStart, dayEnd, timeZone);
                 metDiurnalModelCache = { key: sig, model: model };
@@ -8810,12 +9074,9 @@ function applyDisplayMode() {
             } catch (e) { return null; }
         }
 
-        // Calcul UNIQUE de la température "MET Norway — modèle indépendant" à un instant
-        // donné (ms) : MET Norway horaire → interpolation à l'heure exacte (getMetDiurnalModel)
-        // → + correction du modèle Microclimat sélectionné (microClimateDeltaAtHour). Utilisé à
-        // la fois par la pastille de la carte MET Norway (metCorrectedPillHtml) et par la série
-        // "Projection Metehop" du graphique comparatif (updateStationCompareChart) — un seul
-        // calcul, jamais deux résultats potentiellement différents (voir demande 27/09/2026).
+        // Calcul de la température MET Norway à un instant donné (ms) : MET Norway horaire →
+        // interpolation à l'heure exacte (getMetDiurnalModel) → + correction du modèle
+        // Microclimat sélectionné (microClimateDeltaAtHour).
         // Retourne { tFinal, corr, model } ou null si les données sont insuffisantes.
         function metProjectionAtMs(d, ms, tz) {
             try {
@@ -8827,7 +9088,7 @@ function applyDisplayMode() {
                 if (typeof tInterp !== 'number' || !isFinite(tInterp)) return null;
                 let corr = 0;
                 try {
-                    if (typeof microClimateDeltaAtHour === 'function') {
+                    if (typeof microClimateDeltaAtHour === 'function' && metCorrMode === 'metehop') {
                         const dayIdx = metMicroclimateDayIdx(ms, tz);
                         corr = microClimateDeltaAtHour(metLocalHourDecimal(ms, tz), dayIdx).delta || 0;
                     }
@@ -8839,224 +9100,8 @@ function applyDisplayMode() {
             } catch (e) { return null; }
         }
 
-        // ═════════════════════════════════════════════════════════════════════════════
-        // REFONTE 27/09/2026 — température "Metehop" interpolée/recalée (pastille verte
-        // de la carte MET Norway + série "Metehop interpolée" du graphique comparatif).
-        //
-        // Principe (demande du 27/09/2026) — jamais de comparaison entre deux instants
-        // différents (cohérence temporelle) :
-        //   Prévision Metehop du lieu (weatherData.hourly.temperature_2m)
-        //       → + microclimat Metehop activé (microClimateDeltaAtHour, MÊME fonction que
-        //         partout ailleurs dans l'appli, aucune logique dupliquée)
-        //       → Metehop_microclimat(h)                                    [metehopMicroAtMs]
-        //   MET Norway brut interpolé à l'heure exacte (getMetDiurnalModel)
-        //       → + le MÊME microclimat Metehop, à la MÊME heure
-        //       → MET Norway corrigé(h)                                      [metProjectionAtMs]
-        //   offset = MET Norway corrigé(T) − Metehop_microclimat(T), T = heure EXACTE du
-        //       dernier relevé MET Norway disponible (jamais "maintenant" arrondi)
-        //   Metehop interpolée(h) = Metehop_microclimat(h) + offset
-        // → la courbe Metehop garde sa propre forme mais est recalée pile sur le dernier
-        //   relevé MET Norway corrigé microclimatiquement. L'offset est recalculé à chaque
-        //   rendu (donc à chaque nouveau relevé MET Norway chargé) : jamais figé 24 h.
-        // Une seule fonction produit cette valeur ; la pastille (metCorrectedPillHtml) et le
-        // graphique (updateStationCompareChart) l'appellent toutes les deux — même donnée
-        // aux deux endroits (demande "point 6").
-        // ═════════════════════════════════════════════════════════════════════════════
-
-        let metehopMicroSeriesCache = { key: null, pts: null };
-
-        // Points {t (ms UTC), v (°C, microclimat Metehop compris)} de la prévision Metehop
-        // (weatherData.hourly), mémoïsés tant que la série ne change pas. Chaque ancrage est
-        // à l'heure LOCALE exacte de weatherData.hourly.time[i] (aucun décalage supposé).
-        function metehopMicroSeriesPoints(timeZone) {
-            try {
-                if (typeof weatherData === 'undefined' || !weatherData || !weatherData.hourly ||
-                    !Array.isArray(weatherData.hourly.time) || !Array.isArray(weatherData.hourly.temperature_2m)) return [];
-                const times = weatherData.hourly.time, temps = weatherData.hourly.temperature_2m;
-                const n = Math.min(times.length, temps.length);
-                const sig = n + '#' + times[0] + '#' + times[n - 1] + '#' + (timeZone || '') +
-                    '#' + (typeof microModelVersion !== 'undefined' ? microModelVersion : '') +
-                    '#' + (typeof microClimateEnabled !== 'undefined' ? microClimateEnabled : '');
-                if (metehopMicroSeriesCache.key === sig && metehopMicroSeriesCache.pts) return metehopMicroSeriesCache.pts;
-                const pts = [];
-                for (let i = 0; i < n; i++) {
-                    const raw = temps[i];
-                    if (raw === null || raw === undefined || raw === '') continue;
-                    const v = Number(raw);
-                    if (!isFinite(v)) continue;
-                    const ms = metLocalIsoToMs(times[i], timeZone);
-                    if (!isFinite(ms)) continue;
-                    let delta = 0;
-                    try {
-                        if (typeof microClimateDeltaAtHour === 'function') {
-                            const hourOfDay = i % 24;
-                            const dayIdx = Math.floor(i / 24);
-                            delta = microClimateDeltaAtHour(hourOfDay, dayIdx).delta || 0;
-                        }
-                    } catch (e) { delta = 0; }
-                    if (!isFinite(delta)) delta = 0;
-                    if (pts.length && ms <= pts[pts.length - 1].t) continue;
-                    pts.push({ t: ms, v: v + delta });
-                }
-                metehopMicroSeriesCache = { key: sig, pts: pts };
-                return pts;
-            } catch (e) { return []; }
-        }
-
-        // Prévision Metehop (micro-climat activé) à l'instant exact ms — interpolation
-        // linéaire entre les deux ancrages horaires encadrants (données déjà lissées par
-        // microClimateDeltaAtHour ; une spline serait une sophistication non demandée ici).
-        // Hors plage : valeur de l'ancrage le plus proche (jamais d'extrapolation, jamais de
-        // NaN). Retourne null si aucune donnée n'est disponible.
-        function metehopMicroAtMs(ms, timeZone) {
-            try {
-                if (typeof ms !== 'number' || !isFinite(ms)) return null;
-                const pts = metehopMicroSeriesPoints(timeZone);
-                const n = pts.length;
-                if (!n) return null;
-                if (n === 1 || ms <= pts[0].t) return pts[0].v;
-                if (ms >= pts[n - 1].t) return pts[n - 1].v;
-                let lo = 0, hi = n - 1;
-                while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (pts[mid].t <= ms) lo = mid; else hi = mid; }
-                const t0 = pts[lo].t, t1 = pts[hi].t, v0 = pts[lo].v, v1 = pts[hi].v;
-                if (!(t1 > t0)) return v0;
-                const f = (ms - t0) / (t1 - t0);
-                const v = v0 + (v1 - v0) * f;
-                return isFinite(v) ? v : v0;
-            } catch (e) { return null; }
-        }
-
-        // CORRECTIF 27/09/2026 (v2) — le Tmin/Tmax (et son HEURE) affichés à côté de la
-        // température Metehop recalée doivent être EXACTEMENT ceux que Metehop affiche par
-        // ailleurs dans l'app (même moteur que displayedDayMaxMin : applyMicroClimateToTemps
-        // sur weatherData.hourly.temperature_2m). Un premier correctif réutilisait le modèle à
-        // spline construit pour MET Norway (buildMetDiurnalModel) en lui donnant la série
-        // Metehop — mais cette spline + guidage sinusoïdal, pensée pour une courbe de modèle
-        // météo lisse, peut « déraper » sur les données Metehop (moins régulières d'une heure à
-        // l'autre) et inventer un minimum ou un maximum fictif proche de l'heure courante
-        // (observé : « max 20:00 / min 23:01 » à 20h57, un minimum dans le futur immédiat —
-        // clairement un artefact de courbe, pas une vraie donnée). On revient donc à la méthode
-        // la plus simple et la plus sûre : PAS de courbe continue, un simple minimum/maximum
-        // parmi les 24 valeurs horaires RÉELLES du jour (celles que Metehop affiche), sans
-        // aucune extrapolation ni lissage — jamais d'extremum inventé entre deux heures.
-        function metehopDayMinMaxHour(dayIdx) {
-            try {
-                if (!weatherData || !weatherData.hourly || !Array.isArray(weatherData.hourly.temperature_2m)) return null;
-                const start = dayIdx * 24;
-                const temps = weatherData.hourly.temperature_2m.slice(start, start + 24);
-                if (!temps.length) return null;
-                const hourOffsets = Array.from({ length: temps.length }, (_, h) => h);
-                let adjusted;
-                try { adjusted = applyMicroClimateToTemps(temps, hourOffsets, dayIdx); } catch (e) { adjusted = temps; }
-                let iMin = -1, iMax = -1;
-                for (let i = 0; i < adjusted.length; i++) {
-                    const v = adjusted[i];
-                    if (typeof v !== 'number' || !isFinite(v)) continue;
-                    if (iMin === -1 || v < adjusted[iMin]) iMin = i;
-                    if (iMax === -1 || v > adjusted[iMax]) iMax = i;
-                }
-                if (iMin === -1 || iMax === -1) return null;
-                return { min: adjusted[iMin], hourMin: iMin, max: adjusted[iMax], hourMax: iMax };
-            } catch (e) { return null; }
-        }
-
-        // Heure EXACTE (ms) du dernier relevé MET Norway disponible à refMs ou avant (jamais
-        // un relevé futur pris pour "dernier relevé" — cohérence temporelle, point 4 de la
-        // demande). Repli sur le premier point connu si aucun relevé n'est encore passé
-        // (ex. données tout juste chargées, horloge décalée) : jamais de null évitable.
-        function metLastReadingMs(mnBlock, refMs) {
-            try {
-                if (!mnBlock || !Array.isArray(mnBlock.hourlyTime) || !Array.isArray(mnBlock.hourlyTemps)) return null;
-                const pts = metSeriesPoints(mnBlock.hourlyTime, mnBlock.hourlyTemps);
-                if (!pts.length) return null;
-                let best = null;
-                for (let i = 0; i < pts.length; i++) { if (pts[i].t <= refMs) best = pts[i].t; else break; }
-                return (best !== null) ? best : pts[0].t;
-            } catch (e) { return null; }
-        }
-
-        // Offset de recalage, recalculé à chaque appel (donc à chaque nouveau relevé MET
-        // Norway chargé — point 2 de la demande, jamais figé 24 h) :
-        //   offset = MET Norway corrigé(T) − Metehop_microclimat(T), T = dernier relevé MET
-        // Norway disponible à refMs. Retourne { ok, offset, tLast, metNorwayCorr, metehopMicro }.
-        function metOffsetInfo(mnBlock, tz, refMs) {
-            try {
-                const tLast = metLastReadingMs(mnBlock, refMs);
-                if (tLast === null) return { ok: false, offset: 0, tLast: null };
-                const proj = metProjectionAtMs(mnBlock, tLast, tz);
-                if (!proj) return { ok: false, offset: 0, tLast: tLast };
-                const metehopMicro = metehopMicroAtMs(tLast, tz);
-                if (metehopMicro === null || !isFinite(metehopMicro)) return { ok: false, offset: 0, tLast: tLast };
-                const offset = proj.tFinal - metehopMicro;
-                if (!isFinite(offset)) return { ok: false, offset: 0, tLast: tLast };
-                return { ok: true, offset: offset, tLast: tLast, metNorwayCorr: proj.tFinal, metehopMicro: metehopMicro };
-            } catch (e) { return { ok: false, offset: 0, tLast: null }; }
-        }
-
-        // Température Metehop interpolée/recalée à l'instant ms : Metehop_microclimat(h) +
-        // offset du dernier relevé (offInfo, précalculé une fois par rendu et partagé entre
-        // tous les points d'une même courbe — jamais recalculé point par point). Si le
-        // recalage n'est pas disponible (absence temporaire de nouveau relevé, cf. point 7),
-        // repli honnête sur Metehop_microclimat(h) seul (jamais de valeur inventée, jamais de
-        // NaN) : la courbe reste affichable, simplement non recalée pour cet instant.
-        function metehopInterpolatedAtMs(ms, tz, offInfo) {
-            try {
-                const metMicro = metehopMicroAtMs(ms, tz);
-                if (metMicro === null || !isFinite(metMicro)) return null;
-                if (offInfo && offInfo.ok && isFinite(offInfo.offset)) return metMicro + offInfo.offset;
-                return metMicro;
-            } catch (e) { return null; }
-        }
-
-        // Pastille verte de la carte MET Norway — REFONTE 27/09/2026 (voir bloc "REFONTE" plus
-        // haut) : Température Metehop interpolée/recalée = Metehop_microclimat(maintenant) +
-        // offset du dernier relevé MET Norway disponible (corrigé du même micro-climat).
-        // Une seule fonction (metehopInterpolatedAtMs) alimente cette pastille ET la série
-        // "Metehop interpolée" du graphique comparatif : mêmes valeurs aux deux endroits.
-        // Retourne '' si les données sont insuffisantes : jamais de NaN, jamais de
-        // valeur inventée, et la pastille MET Norway existante (au-dessus) n'est pas touchée.
-        function metCorrectedPillHtml(d) {
-            try {
-                const tz = stationChartTimeZone();
-                const refMs = Date.now();
-                const offInfo = metOffsetInfo(d, tz, refMs);             // offset = MET Norway corrigé(T) − Metehop_microclimat(T)
-                const tFinal = metehopInterpolatedAtMs(refMs, tz, offInfo);
-                if (tFinal === null || !isFinite(tFinal)) return '';
-                // min/max (et leur HEURE) affichés = ceux que Metehop affiche réellement pour
-                // aujourd'hui (metehopDayMinMaxHour, voir plus haut) — jamais ceux de MET Norway,
-                // jamais une valeur/heure recalculée par une courbe (voir correctif ci-dessus).
-                const dayIdx0 = metMicroclimateDayIdx(refMs, tz);
-                const mm = metehopDayMinMaxHour(dayIdx0);
-                const pad2h = n => String(n).padStart(2, '0');
-                const meta = mm ? `<span class="met-corrected-meta">temp. min ${pad2h(mm.hourMin)}:00 · max ${pad2h(mm.hourMax)}:00</span>` : '';
-                let titleTxt = "T° Metehop interpolée, recalée sur le dernier relevé MET Norway";
-                try {
-                    if (typeof microModelVersion !== 'undefined') {
-                        const mv = (microModelVersion === '2.11' ? 'V2.11' : 'V2.1');
-                        titleTxt += ' (micro-climat ' + mv + ')';
-                    }
-                    if (offInfo && offInfo.ok) {
-                        titleTxt += ' — offset ' + omSigned(offInfo.offset, 1) + ' °C au ' +
-                            (metLocalHm(offInfo.tLast, tz) || '');
-                    }
-                } catch (e) { /* titre informatif seulement */ }
-                return `<span class="met-corrected-pill" title="${titleTxt}"><i class="fa-solid fa-temperature-half"></i>` +
-                    `<span class="met-corrected-temp">${omFmt(tFinal, 1)} °C</span>${meta}</span>`;
-            } catch (e) { return ''; }
-        }
-
-        // ---- Graphique journalier comparatif de la rubrique (25/09/2026) ----
-        // "Température heure par heure & précipitations" (dernier élément de la carte
-        // "Stations météo à proximité") : reprend exactement la représentation du graphique
-        // principal — mêmes axes (°C à gauche, mm/cm à droite), mêmes ticks, mêmes barreaux,
-        // même dégradé, même légende HTML — en superposant les températures Open-Meteo
-        // (corrigées d'altitude, cf. omHourlyCorrectedTemps) et MET Norway. Aucune requête
-        // supplémentaire : tout provient des caches de la rubrique et de weatherData.
-
-        // Fuseau d'alignement : celui de weatherData (timezone=auto de la requête principale)
-        // fait foi, puisque weatherData.hourly.time est exprimé dedans. Repli sur le fuseau
-        // renvoyé par Open-Meteo pour la rubrique, puis sur celui du navigateur — la conversion
-        // reste exacte, aucune valeur n'est inventée.
+        // Fuseau horaire de référence : celui de weatherData (timezone=auto de la requête
+        // principale), puis celui d'Open-Meteo Current, puis celui du navigateur.
         function stationChartTimeZone() {
             try {
                 if (weatherData && typeof weatherData.timezone === 'string' && weatherData.timezone) return weatherData.timezone;
@@ -9070,194 +9115,6 @@ function applyDisplayMode() {
             } catch (e) {}
             return null;
         }
-
-        // Clé d'heure locale "YYYY-MM-DDTHH" à partir d'un instant ISO UTC (MET Norway renvoie
-        // des timestamps UTC, weatherData des chaînes locales naïves). hourCycle 'h23' garantit
-        // des heures 00..23. Retourne null si l'instant est illisible : l'heure sera alors
-        // simplement absente du graphique (trou conservé, jamais interpolé).
-        function stationHourKeyFromUtc(isoUtc, timeZone) {
-            try {
-                const d = new Date(isoUtc);
-                if (isNaN(d.getTime())) return null;
-                let day = null, hour = null;
-                if (timeZone) {
-                    const parts = new Intl.DateTimeFormat('en-CA', {
-                        timeZone: timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
-                        hour: '2-digit', hourCycle: 'h23'
-                    }).formatToParts(d);
-                    const get = t => { const p = parts.find(x => x.type === t); return p ? p.value : null; };
-                    const y = get('year'), m = get('month'), dd = get('day'), hh = get('hour');
-                    if (!y || !m || !dd || hh === null) return null;
-                    day = `${y}-${m}-${dd}`;
-                    hour = parseInt(hh, 10);
-                } else {
-                    day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                    hour = d.getHours();
-                }
-                if (hour === null || isNaN(hour)) return null;
-                return `${day}T${String(hour).padStart(2, '0')}`;
-            } catch (e) { return null; }
-        }
-
-        // Redessine le graphique comparatif — REFONTE 27/09/2026 : historique GLISSANT des 24
-        // dernières heures (heure locale en cours incluse), et non plus un jour calendaire fixe
-        // — la comparaison au dernier relevé MET Norway (recalage) n'a de sens que sur des heures
-        // réellement écoulées, et la courbe doit progresser heure par heure (point 3 de la
-        // demande), pas seulement au changement de jour calendaire. Le paramètre dayIdx est
-        // conservé (compatibilité des appelants existants) mais n'est plus utilisé : ce
-        // graphique montre toujours la fenêtre glissante actuelle.
-        function updateStationCompareChart(dayIdx) {
-            const canvas = document.getElementById('stationCompareChart');
-            if (!canvas) return;
-            if (typeof weatherData === 'undefined' || !weatherData || !weatherData.hourly || !Array.isArray(weatherData.hourly.time)) return;
-
-            const tz = stationChartTimeZone();
-            const refMs = Date.now();
-            const H = 3600000;
-            const curHourStart = metLocalHourStartMs(refMs, tz);
-            if (!isFinite(curHourStart)) return;
-            // 24 créneaux horaires, du plus ancien au plus récent, se terminant à l'heure locale
-            // en cours (incluse) : fenêtre glissante, jamais un jour calendaire figé.
-            const slotMs = [];
-            for (let i = 23; i >= 0; i--) slotMs.push(curHourStart - i * H);
-
-            const pad2 = n => String(n).padStart(2, '0');
-            const localKeyOf = ms => { const p = metZoneParts(ms, tz); return p ? `${p.y}-${pad2(p.mo)}-${pad2(p.d)}T${pad2(p.h)}` : null; };
-            const keys = slotMs.map(localKeyOf);
-            const labels = slotMs.map(ms => { const p = metZoneParts(ms, tz); return p ? `${pad2(p.h)}h` : ''; });
-
-            // Précipitations : mêmes tableaux et même règle que le graphique principal
-            // (rain, sinon precipitation ; snowfall) — donc même unité et même présentation.
-            // Reprojetées sur la fenêtre glissante via la clé horaire locale (une heure sans
-            // donnée reste null : jamais de zéro inventé).
-            const rainSrc = weatherData.hourly.rain ? weatherData.hourly.rain : weatherData.hourly.precipitation;
-            const snowSrc = weatherData.hourly.snowfall;
-            const whByKey = new Map();
-            weatherData.hourly.time.forEach((t, i) => { if (typeof t === 'string') whByKey.set(t.substring(0, 13), i); });
-            const rain = keys.map(k => (k !== null && whByKey.has(k) && Array.isArray(rainSrc)) ? omNum(rainSrc[whByKey.get(k)]) : null);
-            const snowfall = keys.map(k => (k !== null && whByKey.has(k) && Array.isArray(snowSrc)) ? omNum(snowSrc[whByKey.get(k)]) : null);
-
-            const omBlock = (typeof openMeteoCurrentCache !== 'undefined') ? openMeteoCurrentCache : null;
-            const mnBlock = (typeof metNorwayCache !== 'undefined') ? metNorwayCache : null;
-
-            const omTempsByKey = new Map();
-            const omPrecipByKey = new Map();
-            if (omBlock && Array.isArray(omBlock.hourlyTime)) {
-                const omSeries = omHourlyCorrectedTemps(omBlock);
-                for (let i = 0; i < omBlock.hourlyTime.length; i++) {
-                    const t = omBlock.hourlyTime[i];
-                    if (typeof t !== 'string') continue;
-                    const key = t.substring(0, 13);
-                    omTempsByKey.set(key, omNum(omSeries[i]));
-                    if (Array.isArray(omBlock.hourlyPrecip)) omPrecipByKey.set(key, omNum(omBlock.hourlyPrecip[i]));
-                }
-            }
-            const mnTempsByKey = new Map();
-            const mnPrecipByKey = new Map();
-            if (mnBlock && Array.isArray(mnBlock.hourlyTime) && Array.isArray(mnBlock.hourlyTemps)) {
-                for (let i = 0; i < mnBlock.hourlyTime.length; i++) {
-                    const k = stationHourKeyFromUtc(mnBlock.hourlyTime[i], tz);
-                    if (!k) continue;
-                    mnTempsByKey.set(k, omNum(mnBlock.hourlyTemps[i]));
-                    if (Array.isArray(mnBlock.hourlyPrecip)) mnPrecipByKey.set(k, omNum(mnBlock.hourlyPrecip[i]));
-                }
-            }
-            // Une heure sans donnée pour une source reste null : Chart.js trace alors un trou
-            // (spanGaps désactivé par défaut) au lieu d'une valeur fabriquée.
-            const omTemps = keys.map(k => (k !== null && omTempsByKey.has(k)) ? omTempsByKey.get(k) : null);
-            const mnTemps = keys.map(k => (k !== null && mnTempsByKey.has(k)) ? mnTempsByKey.get(k) : null);
-
-            // Moteur unique de recalage (bloc "REFONTE 27/09/2026" plus haut) — mêmes fonctions
-            // que la pastille de la carte MET Norway (metCorrectedPillHtml), une seule source de
-            // vérité (point 6 de la demande) :
-            //   · MET Norway corrigé micro-climat(h)     : metProjectionAtMs(mnBlock, h)
-            //   · Prévision Metehop micro-climat(h)      : metehopMicroAtMs(h)
-            //   · Metehop interpolée/recalée(h)          : metehopMicroAtMs(h) + offset du
-            //     dernier relevé MET Norway disponible (metOffsetInfo, calculé UNE FOIS pour
-            //     toute la courbe, jamais point par point — point 2 de la demande).
-            const offInfo = mnBlock ? metOffsetInfo(mnBlock, tz, refMs) : { ok: false, offset: 0, tLast: null };
-            const mnCorrTemps = slotMs.map(ms => {
-                if (!mnBlock) return null;
-                const proj = metProjectionAtMs(mnBlock, ms, tz);
-                return proj ? omNum(proj.tFinal) : null;
-            });
-            const metehopMicroTemps = slotMs.map(ms => omNum(metehopMicroAtMs(ms, tz)));
-            const projTemps = slotMs.map(ms => omNum(metehopInterpolatedAtMs(ms, tz, offInfo)));
-
-            const hasRain = rain.some(v => (v || 0) > 0);
-            const hasSnow = snowfall.some(v => (v || 0) > 0);
-            const precipUnit = (hasRain && hasSnow) ? 'mm/cm' : (hasSnow ? 'cm' : 'mm');
-            const precipAxisColor = (hasSnow && !hasRain) ? '#8b5cf6' : '#5a9bd4';
-
-            if (stationCompareChart) {
-                try { stationCompareChart.destroy(); } catch (e) {}
-                stationCompareChart = null;
-            }
-            stationCompareChart = buildHourlyWeatherChart('stationCompareChart', labels, (tempGradient) => [
-                { type: 'line', label: 'Open-Meteo (°C)', data: omTemps, borderColor: '#d97736', borderWidth: 2, fill: true, backgroundColor: tempGradient, tension: 0.4, pointRadius: 0, yAxisID: 'yTemp' },
-                { type: 'line', label: 'MET Norway (°C)', data: mnTemps, borderColor: '#0e7490', borderWidth: 2, fill: false, tension: 0.4, pointRadius: 0, yAxisID: 'yTemp' },
-                // MET Norway corrigé micro-climat (27/09/2026) : sert au calcul de l'offset,
-                // affiché ici pour la traçabilité (point 3 de la demande).
-                { type: 'line', label: 'MET Norway + micro-climat (°C)', data: mnCorrTemps, borderColor: '#7c3aed', borderWidth: 1.5, borderDash: [2, 2], fill: false, tension: 0.4, pointRadius: 0, spanGaps: false, yAxisID: 'yTemp' },
-                // Prévision Metehop avec micro-climat, AVANT recalage sur MET Norway (point 3).
-                { type: 'line', label: 'Metehop micro-climat (°C)', data: metehopMicroTemps, borderColor: '#be123c', borderWidth: 1.5, fill: false, tension: 0.4, pointRadius: 0, spanGaps: false, yAxisID: 'yTemp' },
-                // Metehop interpolée/recalée (27/09/2026) : Metehop micro-climat + offset du
-                // dernier relevé MET Norway corrigé — pointillé vert (la même valeur alimente la
-                // pastille de la carte MET Norway ci-dessus, voir metCorrectedPillHtml).
-                { type: 'line', label: 'Metehop interpolée (°C)', data: projTemps, borderColor: '#166534', borderWidth: 2, borderDash: [5, 3], fill: false, tension: 0.4, pointRadius: 0, spanGaps: false, yAxisID: 'yTemp' },
-                { type: 'bar', label: 'Pluie (mm)', data: rain, backgroundColor: 'rgba(94, 156, 204, 0.65)', borderRadius: 4, barThickness: 4, yAxisID: 'yPrecip' },
-                { type: 'bar', label: 'Neige (cm)', data: snowfall, backgroundColor: 'rgba(139, 92, 246, 0.75)', borderRadius: 4, barThickness: 4, yAxisID: 'yPrecip' }
-            ], precipUnit, precipAxisColor);
-
-            const omVals = omTemps.filter(v => typeof v === 'number');
-            const maxEl = document.getElementById('station-chart-max-label');
-            if (maxEl) maxEl.innerText = omVals.length ? `${Math.round(Math.max.apply(null, omVals))}° pic Open-Meteo` : '--°';
-
-            const subEl = document.getElementById('station-chart-sub');
-            if (subEl) {
-                let sub = '24 dernières heures glissantes — Open-Meteo / MET Norway / Metehop, histogramme de pluie (mm) et neige (cm)';
-                const missing = [];
-                if (!omVals.length) missing.push('Open-Meteo');
-                if (!mnTemps.some(v => typeof v === 'number')) missing.push('MET Norway');
-                if (missing.length) sub += ` · ${missing.join(' et ')} indisponible${missing.length > 1 ? 's' : ''} (trous conservés)`;
-                if (mnBlock && !offInfo.ok) sub += ' · recalage Metehop indisponible pour le moment (aucun relevé MET Norway exploitable)';
-                subEl.innerText = sub;
-            }
-
-            // ---- Cumul de pluie + min/max par source (25/09/2026) : chaque source a sa propre
-            // série de précipitation horaire (omPrecipByKey/mnPrecipByKey, ci-dessus) — le cumul
-            // et les extrêmes sont donc calculés séparément pour Open-Meteo et MET Norway plutôt
-            // que de partager les barreaux "Pluie (mm)" du graphique (qui restent la prévision
-            // générale de l'app, commune aux deux lignes de température). Une source sans donnée
-            // sur ce jour affiche "—", jamais un cumul partiel présenté comme complet.
-            const summaryEl = document.getElementById('station-chart-summary');
-            if (summaryEl) {
-                const mnVals = mnTemps.filter(v => typeof v === 'number');
-                const omPrecipVals = keys.map(k => (k !== null && omPrecipByKey.has(k)) ? omPrecipByKey.get(k) : null).filter(v => typeof v === 'number');
-                const mnPrecipVals = keys.map(k => (k !== null && mnPrecipByKey.has(k)) ? mnPrecipByKey.get(k) : null).filter(v => typeof v === 'number');
-                const sum = arr => arr.reduce((a, b) => a + b, 0);
-                const fmt1 = v => v.toFixed(1).replace('.', ',');
-                const omMinMax = omVals.length ? `${Math.round(Math.min.apply(null, omVals))}° / ${Math.round(Math.max.apply(null, omVals))}°` : '—';
-                const mnMinMax = mnVals.length ? `${Math.round(Math.min.apply(null, mnVals))}° / ${Math.round(Math.max.apply(null, mnVals))}°` : '—';
-                const omCumul = omPrecipVals.length ? `${fmt1(sum(omPrecipVals))} mm` : '—';
-                const mnCumul = mnPrecipVals.length ? `${fmt1(sum(mnPrecipVals))} mm` : '—';
-                summaryEl.innerHTML =
-                    `<b>Open-Meteo</b> — min/max ${omMinMax} · cumul pluie ${omCumul}` +
-                    `&nbsp;&nbsp;·&nbsp;&nbsp;<b>MET Norway</b> — min/max ${mnMinMax} · cumul pluie ${mnCumul}`;
-            }
-        }
-
-        // Rafraîchit le graphique comparatif s'il est sur un onglet affiché : un canvas sous
-        // display:none a une taille nulle, Chart.js le dessinerait mal (cf. resizeGroupCharts).
-        // Simple redessin depuis les caches, zéro requête réseau.
-        function syncStationCompareChart(dayIdx) {
-            try {
-                const section = document.getElementById('station-compare-section');
-                if (!section || section.offsetParent === null) return;
-                updateStationCompareChart(typeof dayIdx === 'number' ? dayIdx : selectedDayIndex);
-            } catch (e) {}
-        }
-
 
                 // ---- Balise de vent Pioupiou/OpenWindMap la plus proche (11/09/2026) ----
         // 4e source de la carte "Stations météo à proximité" (voir loadOpenMeteoCurrent,
@@ -9484,8 +9341,11 @@ function applyDisplayMode() {
             // lieu demandé : on purge celles qui restent d'un autre endroit (garde-fou 30 km,
             // même helper que les autres caches de la carte) avant tout réaffichage.
             try {
-                if (openMeteoCurrentCache && isCacheStaleForLocation(openMeteoCurrentCache, lat, lon, 30)) openMeteoCurrentCache = null;
-                if (metNorwayCache && isCacheStaleForLocation(metNorwayCache, lat, lon, 30)) metNorwayCache = null;
+                // 29/09/2026 : à CHAQUE changement de ville, Open-Meteo Current et MET Norway sont
+                // purgés (plus de garde-fou 30 km ici) puis recalculés au chargement suivant.
+                openMeteoCurrentCache = null;
+                metNorwayCache = null;
+                metNorwayLoaded = false;
             } catch (e) {}
             document.getElementById('title').innerText = locationName;
             document.getElementById('radar-sub-location').innerText = `${locationName} et alentours`;
@@ -10107,6 +9967,7 @@ render16DayTable();
             const source = document.getElementById(sourceId || 'micro-climate-toggle');
             microClimateEnabled = source.checked;
             updateMicroClimateToggleUI(); // répercute immédiatement sur l'autre interrupteur
+            try { microClimateDayCache = {}; omRefreshAfterMicroChange(); metRefreshAfterMicroChange(); } catch (e) {}
             try { localStorage.setItem('metehop_microclimate_enabled_v2', String(microClimateEnabled)); } catch (e) { /* tant pis, préférence non persistée */ }
 
             if (microClimateEnabled) {
@@ -10223,6 +10084,7 @@ render16DayTable();
             if (weatherData) { render16DayTable();
                 setTimeout(()=>{ try{ renderCloudProfileChart(); }catch(e){ console.error(e); } }, 500); renderCarousel(); }
             refreshModelDisagreeDetailsIfOpen();
+            omRefreshAfterMicroChange();
         }
 
         // ============================================================================
@@ -10937,6 +10799,7 @@ render16DayTable();
             if (myToken !== localEffectsRequestToken) return; // un lieu plus récent a été recherché entre-temps
 
             microClimateGeoSignals = signals;
+            try { microClimateDayCache = {}; omRefreshAfterMicroChange(); metRefreshAfterMicroChange(); } catch (e) {}
             microClimateDayCache = {}; // nouveaux signaux : invalide les ajustements par jour précédemment mis en cache
 
             // Rafraîchit l'affichage (encart effets locaux, bandeau, rangée horaire, min/max,
@@ -15371,7 +15234,6 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
             document.getElementById('sw-wind').innerText = `${avgWind} - ${maxGust} km/h`;
 
             updateChart(dayIdx);
-            try { syncStationCompareChart(dayIdx); } catch (e) {}
             updateAstroChart(dayIdx);
             updatePressureChart(dayIdx);
             updateSnowLimitChart(dayIdx);
