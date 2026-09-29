@@ -4130,6 +4130,43 @@
              via document.getElementById(...) suivi d'un test de nullité (`elt && ...`), donc leur absence
              ne casse rien — c'est resté défensif par design. -->
 
+        <!-- Onglet Loisir (plage) — 29/09/2026 : deux graphiques vent juste avant "Conditions marines &
+             Littoral". 1) Direction du vent : balise Pioupiou/OpenWindMap la plus proche (même relevé
+             que "Stations météo à proximité"). 2) Vitesse du vent / rafales :
+             prévision Open-Meteo heure par heure du jour choisi dans "Explorer la journée". -->
+        <div class="chart-card" data-groups="leisure" id="beach-wind-dir-card" style="display:none;">
+            <div class="chart-header">
+                <div>
+                    <div class="card-sage-title"><i class="fa-solid fa-chart-pie" style="color: var(--accent-orange); margin-right: 6px;"></i> Direction du vent / rafales</div>
+                    <div class="card-sage-sub" id="beach-wind-dir-sub">Chargement de la balise Pioupiou...</div>
+                </div>
+            </div>
+            <div class="chart-container" id="beach-wind-dir-wrap" style="height:280px;">
+                <canvas id="beachWindDirChart"></canvas>
+            </div>
+            <div class="card-sage-sub" id="beach-wind-dir-msg" style="display:none; text-align:center; padding:10px 0; font-size:0.74rem;"></div>
+            <div class="astro-legend" style="margin-top:6px;">
+                <span class="astro-legend-item"><span class="legend-dot" style="background:#d97736;"></span> Vent (km/h)</span>
+                <span class="astro-legend-item"><span class="legend-dot" style="background:#8a8f8d;"></span> Rafales (km/h)</span>
+            </div>
+        </div>
+
+        <div class="chart-card" data-groups="leisure" id="beach-wind-speed-card" style="display:none;">
+            <div class="chart-header">
+                <div>
+                    <div class="card-sage-title"><i class="fa-solid fa-chart-line" style="color: var(--accent-orange); margin-right: 6px;"></i> Vitesse du vent / rafales</div>
+                    <div class="card-sage-sub" id="beach-wind-speed-sub">Prévision heure par heure</div>
+                </div>
+            </div>
+            <div class="chart-container" style="height:200px;">
+                <canvas id="beachWindSpeedChart"></canvas>
+            </div>
+            <div class="astro-legend" style="margin-top:6px;">
+                <span class="astro-legend-item"><span class="legend-dot" style="background:#d97736;"></span> Vent (km/h)</span>
+                <span class="astro-legend-item"><span class="legend-dot" style="background:#8a8f8d;"></span> Rafales (km/h)</span>
+            </div>
+        </div>
+
         <!-- TABLEAU MARINE (affiché si plage < 10km) -->
         <div class="marine-table-card" id="marine-table-card">
             <div class="section-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
@@ -4749,7 +4786,7 @@
                  à chaque modification livrée de ce fichier, mets à jour la ligne juste en-dessous
                  (footer-last-update) avec la date du jour (format JJ/MM/AAAA) et incrémente le
                  numéro de version de 1. Ne saute jamais un numéro, ne le laisse jamais inchangé. -->
-            <div class="footer-last-update">Dernière mise à jour : 29/09/2026 - 153</div>
+            <div class="footer-last-update">Dernière mise à jour : 29/09/2026 - 156</div>
         </footer>
 
     </div>
@@ -4881,7 +4918,7 @@
                 </div>
                 <div class="sources-item">
                     <strong>Température actuelle interpolée</strong>
-                    <span>En fin de chaque bloc : dernier relevé affiché (déjà corrigé selon le mode choisi) + variation de la température brute Open-Meteo entre l'heure du relevé et l'instant présent. Cette variation n'est jamais re-corrigée ; si une donnée manque, un message « indisponible » est affiché plutôt qu'une valeur inventée.</span>
+                    <span>En fin de chaque bloc : dernier relevé affiché (déjà corrigé selon le mode choisi) + variation de la température brute Open-Meteo entre l'heure du relevé et l'instant présent. Cette variation n'est jamais re-corrigée ; si une donnée manque, un message « indisponible » est affiché plutôt qu'une valeur inventée. Le « Temp. live ~5km » du bandeau est la moyenne des deux températures interpolées (Open-Meteo et MET Norway ; une seule si l'autre manque) ; la station ITENCI3, quand elle est à portée, garde la priorité.</span>
                 </div>
                 <div class="sources-item">
                     <strong>Recalcul au changement de lieu</strong>
@@ -4889,7 +4926,7 @@
                 </div>
                 <div class="sources-item">
                     <strong>Pioupiou / OpenWindMap</strong>
-                    <span>Balise de vent réelle la plus proche (≤ 30 km, mesure de moins de 3 h) : vent moyen, rafales et direction uniquement, sans température. <a href="https://developers.pioupiou.fr/" target="_blank" rel="noopener">pioupiou.fr</a></span>
+                    <span>Balise de vent réelle la plus proche (≤ 30 km, mesure de moins de 3 h) : vent moyen, rafales et direction uniquement, sans température. Le même relevé alimente le graphique « Direction du vent / rafales » de l'onglet Loisir (direction en secteur, vitesse et rafales en rayon). Le graphique « Vitesse du vent / rafales » du même onglet vient de la prévision Open-Meteo heure par heure du jour choisi. <a href="https://developers.pioupiou.fr/" target="_blank" rel="noopener">pioupiou.fr</a></span>
                 </div>
                 <div class="sources-item">
                     <strong>Station personnelle Tencin (ITENCI3) — Weather Underground</strong>
@@ -6600,7 +6637,29 @@
                     return;
                 }
             }
-            // Cas 2 : Open-Meteo Current — 2 m (modèle haute résolution de la rubrique
+            // Cas 2 (29/09/2026) : moyenne des "Température actuelle interpolée" d'Open-Meteo Current
+            // et de MET Norway Current (rubrique "Stations météo à proximité"). Si une seule des
+            // deux est disponible, on prend celle-là ; si aucune, repli sur l'ancien affichage
+            // (Open-Meteo Current) ci-dessous. Le cas ITENCI3 ci-dessus reste inchangé.
+            try {
+                if (typeof stationTempAtMs === 'function') {
+                    const nowMs = Date.now();
+                    const vals = [], names = [];
+                    const rOm = stationTempAtMs('om', nowMs);
+                    if (rOm && rOm.ok && isFinite(rOm.t)) { vals.push(rOm.t); names.push('Open-Meteo ' + omFmt(rOm.t, 1) + ' °C'); }
+                    const rMet = stationTempAtMs('met', nowMs);
+                    if (rMet && rMet.ok && isFinite(rMet.t)) { vals.push(rMet.t); names.push('MET Norway ' + omFmt(rMet.t, 1) + ' °C'); }
+                    if (vals.length) {
+                        const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+                        const tNow = formatObsTimeShort(nowMs);
+                        el.innerHTML = `Temp. live ~5km : ${Math.round(avg)}°C${tNow ? ` <span style="opacity:0.72; font-weight:500;">· ${tNow}</span>` : ''}`;
+                        el.title = (vals.length > 1 ? 'Moyenne des températures actuelles interpolées — ' : 'Température actuelle interpolée — ') + names.join(' · ');
+                        el.style.display = '';
+                        return;
+                    }
+                }
+            } catch(e) {}
+            // Repli : Open-Meteo Current — 2 m (modèle haute résolution de la rubrique
             // "Stations météo à proximité"), température déjà corrigée jusqu'à l'altitude du
             // point via le profil vertical réel de l'heure courante si celui-ci a pu être lu.
             try {
@@ -7387,6 +7446,9 @@ function applyDisplayMode() {
             // requêtes API envoyées au démarrage. Les tendances saisonnières restent, elles,
             // gatées derrière un bouton "Charger les données" (voir plus bas), le Jardinage ne
             // l'est plus depuis le passage à une requête archive mutualisée et mise en cache.
+            if (group === 'leisure' && currentLat !== null) {
+                try { renderBeachWindSpeedChart(selectedDayIndex); loadBeachWind(false); } catch (e) {}
+            }
             if ((group === 'leisure' || group === 'ski') && !extraLocalDataLoaded && currentLat !== null) {
                 extraLocalDataLoaded = true;
                 fetchExtraLocalData(currentLat, currentLon, document.getElementById('title').innerText);
@@ -8383,10 +8445,10 @@ function applyDisplayMode() {
         // ═════════════════════════════════════════════════════════════════════════════
         // LOGIQUE TEMPORELLE COMMUNE (29/09/2026) — Open-Meteo Current & MET Norway Current
         //   dernier relevé affiché (déjà corrigé : altitude / microclimat / mode)
-        //   + ΔT = brut de LA MÊME source (AROME brut pour Open-Meteo, MET brut pour MET Norway)
-        //     à l'instant cible − brut de cette source au dernier relevé
+        //   + ΔT = brut AROME (Open-Meteo) à l'instant cible − brut AROME au dernier relevé
+        //     (aussi pour MET Norway, qui ne renvoie rien entre deux relevés horaires)
         //   = température interpolée à l'instant cible.
-        // Le ΔT n'est calculé QUE sur la série brute de la source (jamais la valeur corrigée) et
+        // Le ΔT n'est calculé QUE sur la série brute AROME (jamais la valeur corrigée) et
         // n'est JAMAIS re-corrigé (ni altitude, ni microclimat) : la correction déjà portée par
         // le relevé affiché est conservée telle quelle.
         // ═════════════════════════════════════════════════════════════════════════════
@@ -8444,8 +8506,10 @@ function applyDisplayMode() {
         function stationInterpolate(shown, tLastMs, targetMs, source) {
             if (typeof shown !== 'number' || !isFinite(shown) || typeof tLastMs !== 'number' || !isFinite(tLastMs)) return { ok: false, reason: 'dernier relevé absent' };
             if (typeof targetMs !== 'number' || !isFinite(targetMs)) return { ok: false, reason: 'heure cible invalide' };
-            const src = (source === 'met') ? 'met' : 'om';
-            const nmRaw = (src === 'met') ? 'MET' : 'AROME';
+            // ΔT TOUJOURS calculé sur le brut AROME (Open-Meteo), y compris pour MET Norway : MET
+            // ne fournit rien entre deux relevés horaires (29/09/2026).
+            const src = 'om';
+            const nmRaw = 'AROME';
             const pts = stationRawSeries(src);
             if (!pts) return { ok: false, reason: 'brut ' + nmRaw + ' absent' };
             const r0 = stationSeriesAtMs(pts, tLastMs), r1 = stationSeriesAtMs(pts, targetMs);
@@ -8490,8 +8554,9 @@ function applyDisplayMode() {
                 if (!res.ok) {
                     return `<div class="card-sage-sub" style="font-size:0.72rem;"><i class="fa-solid fa-clock"></i> Température actuelle interpolée : indisponible (${res.reason})</div>`;
                 }
-                const rawNm = (source === 'met') ? 'MET' : 'AROME';
+                const rawNm = 'AROME';
                 const notes = [];
+                if (source === 'met') notes.push('ΔT calculé sur AROME (Open-Meteo) : MET Norway ne renvoie rien entre deux relevés horaires');
                 if (res.k1 === 'interp') notes.push('brut ' + rawNm + ' interpolé linéairement entre deux heures');
                 if (res.k1 === 'nearest' || res.k0 === 'nearest') notes.push('hors plage des données brutes : point le plus proche utilisé (rien d\'inventé)');
                 let h = `<div class="snow-pill" style="background: rgba(59,110,97,0.12); font-weight:700;"><i class="fa-solid fa-clock"></i> Température actuelle interpolée : ${omFmt(res.t, 1)} °C</div>`;
@@ -8511,6 +8576,7 @@ function applyDisplayMode() {
         function renderStationInterp() {
             try { const a = document.getElementById('mf-synop-temp-interp'); if (a) a.innerHTML = stationInterpHtml('om'); } catch (e) {}
             try { const b = document.getElementById('met-norway-interp'); if (b) b.innerHTML = stationInterpHtml('met'); } catch (e) {}
+            try { updateHeroLiveTemp(); } catch (e) {}
         }
 
         // symbol_code MET Norway (ex. "partlycloudy_day", "rainshowers_night", 25/09/2026) :
@@ -9346,6 +9412,7 @@ function applyDisplayMode() {
                 openMeteoCurrentCache = null;
                 metNorwayCache = null;
                 metNorwayLoaded = false;
+                beachWindResetForNewPlace();
             } catch (e) {}
             document.getElementById('title').innerText = locationName;
             document.getElementById('radar-sub-location').innerText = `${locationName} et alentours`;
@@ -9477,6 +9544,7 @@ render16DayTable();
                 // que Pioupiou ci-dessus (une fois par lieu, purgé si le lieu change de plus de 30 km).
                 metNorwayLoaded = (currentGroup === 'eau');
                 if (metNorwayLoaded) loadMetNorway(lat, lon).catch(() => {});
+                if (currentGroup === 'leisure') { try { loadBeachWind(true); } catch (e) {} }
                 // Classement des meilleures nuits : purement calculé (pas d'appel réseau), donc
                 // recalculé immédiatement si l'onglet Général (qui héberge désormais Astronomie, voir
                 // #astro-card) est déjà actif au changement de lieu.
@@ -15235,6 +15303,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
 
             updateChart(dayIdx);
             updateAstroChart(dayIdx);
+            try { renderBeachWindSpeedChart(dayIdx); } catch (e) {}
             updatePressureChart(dayIdx);
             updateSnowLimitChart(dayIdx);
             renderCloudProfileChart(dayIdx);
@@ -15373,6 +15442,161 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 }
             });
             nightShadingPluginRegistered = true;
+        }
+
+        // ═════════════════════════════════════════════════════════════════════════════
+        // ONGLET LOISIR — graphiques vent (29/09/2026)
+        //  • Direction : dernier relevé RÉEL de la balise Pioupiou/OpenWindMap la plus proche (même
+        //    balise et mêmes valeurs que "Stations météo à proximité") : rayon = vitesse (km/h),
+        //    secteur = direction. Aucune balise ≤ 30 km : message, jamais de donnée inventée.
+        //  • Vitesse / rafales : prévision Open-Meteo (weatherData) heure par heure du jour
+        //    choisi dans "Explorer la journée" (mêmes km/h que le reste de l'app).
+        // ═════════════════════════════════════════════════════════════════════════════
+        const BEACH_WIND_SECTORS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+        let beachWindDirChart = null, beachWindSpeedChart = null;
+        let beachWind = { key: null, ts: 0, loading: false, station: null, dist: null, live: null, error: null };
+
+        function beachWindResetForNewPlace() {
+            beachWind = { key: null, ts: 0, loading: false, station: null, dist: null, live: null, error: null };
+            try { renderBeachWindDirChart(); } catch (e) {}
+        }
+
+        function renderBeachWindDirChart() {
+            const canvas = document.getElementById('beachWindDirChart');
+            const wrap = document.getElementById('beach-wind-dir-wrap');
+            const msg = document.getElementById('beach-wind-dir-msg');
+            const sub = document.getElementById('beach-wind-dir-sub');
+            if (!canvas || !wrap || !msg || !sub) return;
+            const showMsg = (t) => {
+                wrap.style.display = 'none'; msg.style.display = ''; msg.innerText = t;
+                if (beachWindDirChart) { try { beachWindDirChart.destroy(); } catch (e) {} beachWindDirChart = null; }
+            };
+            if (beachWind.loading) { sub.innerText = 'Chargement de la balise Pioupiou...'; showMsg('Chargement...'); return; }
+            if (beachWind.error) { sub.innerText = 'Balise Pioupiou / OpenWindMap'; showMsg(beachWind.error); return; }
+            const lv = beachWind.live;
+            if (!lv || typeof lv.dir !== 'number' || typeof lv.avg !== 'number') { sub.innerText = 'Balise Pioupiou / OpenWindMap'; showMsg('Aucune mesure de direction disponible.'); return; }
+            const sector = Math.round(lv.dir / 22.5) % 16;
+            const gustV = (typeof lv.max === 'number' && lv.max > lv.avg) ? lv.max : lv.avg;
+            const hm = lv.date ? new Date(lv.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
+            // Mêmes valeurs que la rubrique "Stations météo à proximité" (même balise, même relevé)
+            sub.innerText = `Pioupiou/OpenWindMap — ${beachWind.station} (${beachWind.dist} km, vent réel) : ${Math.round(lv.avg)} km/h` +
+                (gustV > lv.avg ? ` (raf. ${Math.round(gustV)})` : '') + `, ${BEACH_WIND_SECTORS[sector]} (${Math.round(lv.dir)}°)` + (hm ? ` — ${hm}` : '');
+            msg.style.display = 'none'; wrap.style.display = '';
+            if (typeof Chart === 'undefined') return;
+            if (beachWindDirChart) { try { beachWindDirChart.destroy(); } catch (e) {} beachWindDirChart = null; }
+            const mk = v => BEACH_WIND_SECTORS.map((_, i) => i === sector ? Math.round(v * 10) / 10 : 0);
+            beachWindDirChart = new Chart(canvas.getContext('2d'), {
+                type: 'radar',
+                data: {
+                    labels: BEACH_WIND_SECTORS,
+                    datasets: [
+                        { label: 'Rafales (km/h)', data: mk(gustV), backgroundColor: 'rgba(138, 143, 141, 0.25)', borderColor: '#8a8f8d', borderWidth: 2, pointBackgroundColor: '#8a8f8d', pointRadius: 2 },
+                        { label: 'Vent (km/h)', data: mk(lv.avg), backgroundColor: 'rgba(217, 119, 54, 0.35)', borderColor: '#d97736', borderWidth: 2, pointBackgroundColor: '#d97736', pointRadius: 2 }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { label: c => c.parsed.r ? `${c.dataset.label.replace(' (km/h)', '')} : ${c.parsed.r} km/h` : '' } }
+                    },
+                    scales: { r: {
+                        beginAtZero: true, suggestedMax: Math.max(20, Math.ceil(gustV / 10) * 10),
+                        ticks: { precision: 0, font: { size: 9 }, backdropColor: 'transparent', color: '#5e706a' },
+                        pointLabels: { font: { size: 10 } },
+                        grid: { color: 'rgba(0, 0, 0, 0.06)' }, angleLines: { color: 'rgba(0, 0, 0, 0.06)' }
+                    } }
+                }
+            });
+            try { applyChartTheme(document.documentElement.classList.contains('dark')); } catch (e) {}
+        }
+
+        // Balise : MÊME sélection et MÊME relevé que loadPioupiouStation() (liste live partagée
+        // pioupiouCache, ≤ 30 km, mesure de moins de 3 h) → mêmes valeurs que la rubrique
+        // "Stations météo à proximité".
+        async function loadBeachWind(force) {
+            try {
+                if (typeof currentLat !== 'number' || typeof currentLon !== 'number') return;
+                const lat = currentLat, lon = currentLon;
+                const key = lat.toFixed(3) + ',' + lon.toFixed(3);
+                if (!force && beachWind.key === key && (Date.now() - beachWind.ts) < 5 * 60000 && !beachWind.loading) { renderBeachWindDirChart(); return; }
+                if (beachWind.loading && beachWind.key === key) return;
+                const mySeq = weatherRequestSeq;
+                beachWind = { key: key, ts: Date.now(), loading: true, station: null, dist: null, live: null, error: null };
+                renderBeachWindDirChart();
+                const fail = (t) => { if (mySeq !== weatherRequestSeq) return; beachWind.loading = false; beachWind.error = t; renderBeachWindDirChart(); };
+                if (!pioupiouCache || (Date.now() - pioupiouCache.ts) > 10 * 60000) {
+                    const r = await fetchWithTimeout('https://api.pioupiou.fr/v1/live/all', { timeout: 12000 }).catch(() => null);
+                    if (mySeq !== weatherRequestSeq) return;
+                    if (!r || !r.ok) return fail('Balise Pioupiou injoignable pour le moment.');
+                    const dj = await r.json();
+                    pioupiouCache = { ts: Date.now(), list: Array.isArray(dj.data) ? dj.data : [], attribution: dj.attribution || null };
+                }
+                if (mySeq !== weatherRequestSeq) return;
+                let best = null, bestD = Infinity;
+                (pioupiouCache.list || []).forEach(st => {
+                    const loc = st && st.location, mes = st && st.measurements;
+                    if (!loc || typeof loc.latitude !== 'number' || typeof loc.longitude !== 'number' || loc.success === false) return;
+                    if (!mes || typeof mes.wind_speed_avg !== 'number' || !mes.date) return;
+                    const ageH = (Date.now() - new Date(mes.date).getTime()) / 3600000;
+                    if (!(ageH >= 0) || ageH > 3) return;
+                    const d = calculateDistance(lat, lon, loc.latitude, loc.longitude);
+                    if (d < bestD) { bestD = d; best = st; }
+                });
+                if (!best || bestD > 30) return fail('Aucune balise Pioupiou récente à moins de 30 km de ce lieu.');
+                const mes = best.measurements;
+                beachWind.station = (best.meta && best.meta.name) || ('Pioupiou ' + best.id);
+                beachWind.dist = Math.round(bestD * 10) / 10;
+                beachWind.live = { dir: (typeof mes.wind_heading === 'number') ? mes.wind_heading : null, avg: mes.wind_speed_avg, max: mes.wind_speed_max, date: mes.date };
+                beachWind.loading = false;
+                renderBeachWindDirChart();
+            } catch (e) {
+                beachWind.loading = false; beachWind.error = 'Balise Pioupiou indisponible.';
+                try { renderBeachWindDirChart(); } catch (e2) {}
+            }
+        }
+
+        function renderBeachWindSpeedChart(dayIdx) {
+            try {
+                if (typeof Chart === 'undefined') return;
+                const canvas = document.getElementById('beachWindSpeedChart');
+                if (!canvas || !weatherData || !weatherData.hourly) return;
+                const di = (typeof dayIdx === 'number') ? dayIdx : selectedDayIndex;
+                const h = weatherData.hourly;
+                const a = di * 24, b = a + 24;
+                const times = (h.time || []).slice(a, b);
+                if (!times.length) return;
+                const labels = times.map(t => t.split('T')[1].substring(0, 2) + 'h');
+                const wind = (h.wind_speed_10m || []).slice(a, b).map(v => (typeof v === 'number') ? Math.round(v * 10) / 10 : null);
+                const gust = (h.wind_gusts_10m || []).slice(a, b).map(v => (typeof v === 'number') ? Math.round(v * 10) / 10 : null);
+                const sub = document.getElementById('beach-wind-speed-sub');
+                if (sub) {
+                    let dTxt = '';
+                    try { const d0 = weatherData.daily && weatherData.daily.time && weatherData.daily.time[di]; if (d0) dTxt = new Date(d0 + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }); } catch (e) {}
+                    sub.innerText = 'Prévision heure par heure' + (dTxt ? ' — ' + dTxt : '');
+                }
+                if (beachWindSpeedChart) { try { beachWindSpeedChart.destroy(); } catch (e) {} beachWindSpeedChart = null; }
+                beachWindSpeedChart = new Chart(canvas.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            { label: 'Rafales (km/h)', data: gust, borderColor: '#8a8f8d', backgroundColor: 'rgba(138, 143, 141, 0.18)', fill: true, tension: 0.3, borderWidth: 1.5, pointRadius: 2, pointBackgroundColor: '#8a8f8d' },
+                            { label: 'Vent (km/h)', data: wind, borderColor: '#d97736', backgroundColor: 'rgba(217, 119, 54, 0.25)', fill: true, tension: 0.3, borderWidth: 2, pointRadius: 2, pointBackgroundColor: '#d97736' }
+                        ]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        interaction: { mode: 'index', intersect: false },
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { grid: { color: 'rgba(0, 0, 0, 0.04)' }, ticks: { font: { size: 9 }, color: '#5e706a', maxTicksLimit: 12, maxRotation: 45 } },
+                            y: { beginAtZero: true, grid: { color: 'rgba(0, 0, 0, 0.04)' }, ticks: { font: { size: 9 }, color: '#5e706a' } }
+                        }
+                    }
+                });
+                try { applyChartTheme(document.documentElement.classList.contains('dark')); } catch (e) {}
+            } catch (e) { console.error(e); }
         }
 
         function updateAstroChart(dayIdx) {
