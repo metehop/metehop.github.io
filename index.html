@@ -4794,7 +4794,7 @@
                  à chaque modification livrée de ce fichier, mets à jour la ligne juste en-dessous
                  (footer-last-update) avec la date du jour (format JJ/MM/AAAA) et incrémente le
                  numéro de version de 1. Ne saute jamais un numéro, ne le laisse jamais inchangé. -->
-            <div class="footer-last-update">Dernière mise à jour : 29/09/2026 - 157</div>
+            <div class="footer-last-update">Dernière mise à jour : 30/09/2026 - 158</div>
         </footer>
 
     </div>
@@ -15585,6 +15585,34 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 const labels = times.map(t => t.split('T')[1].substring(0, 2) + 'h');
                 const wind = (h.wind_speed_10m || []).slice(a, b).map(v => (typeof v === 'number') ? Math.round(v * 10) / 10 : null);
                 const gust = (h.wind_gusts_10m || []).slice(a, b).map(v => (typeof v === 'number') ? Math.round(v * 10) / 10 : null);
+                const wdir = (h.wind_direction_10m || []).slice(a, b);
+                const windDirPlugin = {
+                    id: 'windDirArrows',
+                    afterDatasetsDraw(chart) {
+                        const { ctx, scales, chartArea } = chart;
+                        if (!scales.x || !chartArea) return;
+                        const col = (chart.options && chart.options.color) || Chart.defaults.color || '#5e706a';
+                        ctx.save();
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.font = '7px sans-serif';
+                        ctx.fillStyle = col;
+                        wdir.forEach((d, i) => {
+                            if (typeof d !== 'number') return;
+                            const x = scales.x.getPixelForValue(i);
+                            ctx.save();
+                            ctx.translate(x, chartArea.top - 11);
+                            ctx.rotate(((d + 180) % 360) * Math.PI / 180);
+                            ctx.fillStyle = '#d97736';
+                            ctx.beginPath();
+                            ctx.moveTo(0, -6); ctx.lineTo(3.5, 1); ctx.lineTo(1, 1); ctx.lineTo(1, 6);
+                            ctx.lineTo(-1, 6); ctx.lineTo(-1, 1); ctx.lineTo(-3.5, 1);
+                            ctx.closePath(); ctx.fill();
+                            ctx.restore();
+                        });
+                        ctx.restore();
+                    }
+                };
                 const sub = document.getElementById('beach-wind-speed-sub');
                 if (sub) {
                     let dTxt = '';
@@ -15594,6 +15622,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 if (beachWindSpeedChart) { try { beachWindSpeedChart.destroy(); } catch (e) {} beachWindSpeedChart = null; }
                 beachWindSpeedChart = new Chart(canvas.getContext('2d'), {
                     type: 'line',
+                    plugins: [windDirPlugin],
                     data: {
                         labels: labels,
                         datasets: [
@@ -15603,6 +15632,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                     },
                     options: {
                         responsive: true, maintainAspectRatio: false,
+                        layout: { padding: { top: 22 } },
                         interaction: { mode: 'index', intersect: false },
                         plugins: { legend: { display: false } },
                         scales: {
