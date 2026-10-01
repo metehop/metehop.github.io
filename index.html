@@ -4853,7 +4853,7 @@
                  à chaque modification livrée de ce fichier, mets à jour la ligne juste en-dessous
                  (footer-last-update) avec la date du jour (format JJ/MM/AAAA) et incrémente le
                  numéro de version de 1. Ne saute jamais un numéro, ne le laisse jamais inchangé. -->
-            <div class="footer-last-update">Dernière mise à jour : 01/10/2026 - 168</div>
+            <div class="footer-last-update">Dernière mise à jour : 01/10/2026 - 169</div>
         </footer>
 
     </div>
@@ -5843,7 +5843,7 @@
             } else if (d !== null && d <= STORM_WATCH_KM) {
                 level = 'watch';
                 message = `Orage à proximité, à ~${Math.round(d*10)/10}km de votre position.`;
-            } else if (eta !== null && eta <= STORM_WATCH_ETA_MIN && eta >= 0) {
+            } else if (eta !== null && eta <= ((approach && approach.confirmed) ? 180 : STORM_WATCH_ETA_MIN) && eta >= 0) {
                 level = 'watch';
                 // v149 - vérification cohérence distance / vitesse / ETA
                 // Cas signalé : 250km / 15km/h / 7min => physiquement impossible.
@@ -5877,8 +5877,7 @@
                 } else {
                     message = `Orage${dTxt}${sTxt} se dirigeant vers votre position, arrivée estimée dans ~${Math.max(1, Math.round(eta))} min.`;
                 }
-                // Si incohérence extrême (ex 250km/7min), on rétrograde en watch mais on garde l'alerte
-                // plutôt que de mentir sur la distance.
+                if (approach && approach.confirmed && eta <= 5) level = 'danger';
             }
 
             // Précipitation déjà présente sur la position (lecture directe du pixel radar) : même
@@ -13016,7 +13015,7 @@ render16DayTable();
                         if (nearestStormKm === null || dKm < nearestStormKm) nearestStormKm = dKm;
                     }
                 }
-                updateStormProximityBox(nearestStormKm, null, alreadyRaining ? clsNow : null);
+                updateStormProximityBox(null, null, alreadyRaining ? clsNow : null);
 
                 if (tracks.length === 0) {
                     if (alreadyRaining) {
@@ -13164,11 +13163,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                     return true;
                 });
                 const stormApproach = (stormApproachFiltered[0] || stormApproachRaw[0]);
-                updateStormProximityBox(nearestStormKm, stormApproach ? {
-                    etaMinutes: stormApproach.etaMinutes,
-                    distanceKm: stormApproach.distanceToStormKm,
-                    speedKmh: stormApproach.speedKmh
-                } : null, alreadyRaining ? clsNow : null);
+
 
                 // Ancrage sur l'observation directe : pluie reellement presente sur le repere => les
                 // premieres tranches ne peuvent pas etre inferieures a l'intensite observee (decroissance ~1h).
@@ -13203,6 +13198,23 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                     }
                 };
 
+                // Alerte orage alignee sur l'histogramme : seulement si une tranche orage/grele
+                // finale (apres fusion + ancrage) a une confiance > 50 %. ETA = debut de cette tranche.
+                const refreshStormBox = (bins, colors, confidence) => {
+                    let sIdx = -1;
+                    for (let s = 0; s < EVO_BIN_COUNT; s++) {
+                        if ((colors[s] === TYPE_COLOR.storm || colors[s] === TYPE_COLOR.hail) && bins[s] > 0 && confidence[s] > 50) { sIdx = s; break; }
+                    }
+                    const presentCls = alreadyRaining ? clsNow : null;
+                    if (sIdx < 0) { updateStormProximityBox(null, null, presentCls); return; }
+                    const eta = Math.max(0, Math.round((roundedStart.getTime() - Date.now()) / 60000 + sIdx * EVO_BIN_MINUTES));
+                    let owner = results.find(r => r.colors[sIdx] === colors[sIdx] && r.bins[sIdx] === bins[sIdx]) || results[0];
+                    updateStormProximityBox(null, {
+                        etaMinutes: eta, distanceKm: owner ? owner.distanceToStormKm : null,
+                        speedKmh: owner ? owner.speedKmh : null, confirmed: true
+                    }, presentCls);
+                };
+
                 if (results.length === 1) {
                     // ---- Mode simple (ou multi-cellules n'ayant retenu qu'une seule cellule
                     // exploitable) : rendu identique à l'ancien comportement, une seule cellule. ----
@@ -13215,6 +13227,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                     else if (alreadyRaining && (clsNow.type === 'rain_heavy' || clsNow.type === 'storm')) intensityLabel = 'forte';
 
                     anchorToNow(bins, colors, confidence, results[0]);
+                    refreshStormBox(bins, colors, confidence);
                     const modelBins = getModelBinsForEvo(roundedStart);
                     drawEvoChart(evoLabels(roundedStart), bins, colors, `Précipitations (radar, indicatif)`, precipUnit, precipAxisColor, confidence, modelBins ? modelBins.values : null, modelBins ? modelBins.colors : null);
 
@@ -13324,6 +13337,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                     else if (alreadyRaining && (clsNow.type === 'rain_heavy' || clsNow.type === 'storm')) intensityLabel = 'forte';
 
                     anchorToNow(bins, colors, confidence, results.reduce((a, r) => (r.lastCell && (!a || r.lastCell.count > a.lastCell.count)) ? r : a, null));
+                    refreshStormBox(bins, colors, confidence);
                     const modelBins = getModelBinsForEvo(roundedStart);
                     drawEvoChart(evoLabels(roundedStart), bins, colors, `Précipitations (radar, ${results.length} cellules)`, precipUnit, precipAxisColor, confidence, modelBins ? modelBins.values : null, modelBins ? modelBins.colors : null);
 
