@@ -4853,7 +4853,7 @@
                  à chaque modification livrée de ce fichier, mets à jour la ligne juste en-dessous
                  (footer-last-update) avec la date du jour (format JJ/MM/AAAA) et incrémente le
                  numéro de version de 1. Ne saute jamais un numéro, ne le laisse jamais inchangé. -->
-            <div class="footer-last-update">Dernière mise à jour : 01/10/2026 - 167</div>
+            <div class="footer-last-update">Dernière mise à jour : 01/10/2026 - 168</div>
         </footer>
 
     </div>
@@ -13172,8 +13172,25 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
 
                 // Ancrage sur l'observation directe : pluie reellement presente sur le repere => les
                 // premieres tranches ne peuvent pas etre inferieures a l'intensite observee (decroissance ~1h).
-                const anchorToNow = (bins, colors, confidence) => {
+                const anchorToNow = (bins, colors, confidence, ref) => {
                     if (!alreadyRaining || !clsNow || clsNow.type === 'none') return;
+                    // Confiance de persistance : il pleut DEJA ici, donc la question n'est pas "la cellule
+                    // arrivera-t-elle ?" mais "combien de temps reste-t-on sous elle ?". Temps de
+                    // traversee restant ~ demi-diametre de la cellule / vitesse ; confiance haute avant,
+                    // decroissante apres. Remplace la confiance de suivi (R2, distance...) qui n'a pas de
+                    // sens pour une pluie observee sur place. Applique aux tranches pluvieuses contigues.
+                    try {
+                        let remMin = 60;
+                        if (ref && ref.lastCell && ref.speedKmh > 2) {
+                            const diamKm = 2 * Math.sqrt(ref.lastCell.count / Math.PI) * kmPerPixel;
+                            remMin = Math.max(20, Math.min(240, 0.5 * diamKm / ref.speedKmh * 60));
+                        }
+                        for (let s = 0; s < EVO_BIN_COUNT && bins[s] > 0; s++) {
+                            const t = s * EVO_BIN_MINUTES, ratio = t / remMin;
+                            const pc = ratio <= 1 ? 90 - 25 * ratio : Math.max(30, 65 - 30 * (ratio - 1));
+                            confidence[s] = Math.max(confidence[s] || 0, Math.round(pc));
+                        }
+                    } catch (e) { /* optionnel */ }
                     const nowMm = Math.round(clsNow.mmEquiv * RATE_TO_10MIN_MM * 100) / 100;
                     if (!(nowMm > 0)) return;
                     for (let s = 0; s < EVO_BIN_COUNT; s++) {
@@ -13197,7 +13214,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                     else if (hasSnowBin) intensityLabel = 'neige';
                     else if (alreadyRaining && (clsNow.type === 'rain_heavy' || clsNow.type === 'storm')) intensityLabel = 'forte';
 
-                    anchorToNow(bins, colors, confidence);
+                    anchorToNow(bins, colors, confidence, results[0]);
                     const modelBins = getModelBinsForEvo(roundedStart);
                     drawEvoChart(evoLabels(roundedStart), bins, colors, `Précipitations (radar, indicatif)`, precipUnit, precipAxisColor, confidence, modelBins ? modelBins.values : null, modelBins ? modelBins.colors : null);
 
@@ -13306,7 +13323,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                     else if (hasSnowBin) intensityLabel = 'neige';
                     else if (alreadyRaining && (clsNow.type === 'rain_heavy' || clsNow.type === 'storm')) intensityLabel = 'forte';
 
-                    anchorToNow(bins, colors, confidence);
+                    anchorToNow(bins, colors, confidence, results.reduce((a, r) => (r.lastCell && (!a || r.lastCell.count > a.lastCell.count)) ? r : a, null));
                     const modelBins = getModelBinsForEvo(roundedStart);
                     drawEvoChart(evoLabels(roundedStart), bins, colors, `Précipitations (radar, ${results.length} cellules)`, precipUnit, precipAxisColor, confidence, modelBins ? modelBins.values : null, modelBins ? modelBins.colors : null);
 
