@@ -4853,7 +4853,7 @@
                  à chaque modification livrée de ce fichier, mets à jour la ligne juste en-dessous
                  (footer-last-update) avec la date du jour (format JJ/MM/AAAA) et incrémente le
                  numéro de version de 1. Ne saute jamais un numéro, ne le laisse jamais inchangé. -->
-            <div class="footer-last-update">Dernière mise à jour : 01/10/2026 - 166</div>
+            <div class="footer-last-update">Dernière mise à jour : 01/10/2026 - 167</div>
         </footer>
 
     </div>
@@ -16053,12 +16053,27 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 // Les barres Chart.js sont transparentes (elles servent aux infobulles) ; les nuages
                 // sont dessinés par le plugin ci-dessous sur toute l'épaisseur de la couche.
                 const CLOUD_MID_TOP_DRAWN = 4700, CLOUD_HIGH_ROW = [4750, 5000];
+                // Nuages bas : base estimée par le niveau de condensation (≈125 m × écart T−Td au-dessus
+                // du sol, brouillard si écart ≤ 1 °C), sommet = base + épaisseur croissante avec la
+                // couverture, plafonné à 2 000 m au-dessus du sol (limite haute de la tranche du modèle).
+                const tArr = hourly.temperature_2m ? hourly.temperature_2m.slice(start, end) : [];
+                const tdArr = hourly.dew_point_2m ? hourly.dew_point_2m.slice(start, end) : [];
+                const gAlt = locAlt !== null ? locAlt : 0;
+                const lowRanges = times.map((_, i) => {
+                    const p = pct[0][i], T = num(tArr[i]), Td = num(tdArr[i]);
+                    if (p === null || T === null || Td === null) return [CLOUD_BANDS[0].lo, CLOUD_BANDS[0].hi];
+                    const spread = Math.max(0, T - Td);
+                    const agl = spread <= 1 ? 0 : Math.min(1700, Math.max(80, 125 * spread));
+                    const top = Math.min(2000, agl + 250 + 6 * p);
+                    const base = Math.min(agl, top - 150);
+                    return [gAlt + Math.max(0, base), gAlt + top];
+                });
                 const layerRange = (b) => b.top ? CLOUD_HIGH_ROW : [b.lo, Math.min(b.hi, CLOUD_MID_TOP_DRAWN)];
                 const barDs = CLOUD_BANDS.map((b, bi) => {
                     const r = layerRange(b);
                     return {
                         type: 'bar', label: b.label, grouped: false, order: 2,
-                        data: pct[bi].map(p => (p === null || p < 3) ? null : r),
+                        data: pct[bi].map((p, hi) => (p === null || p < 3) ? null : (bi === 0 ? lowRanges[hi] : r)),
                         backgroundColor: 'transparent', borderWidth: 0, barPercentage: 0.9, categoryPercentage: 1
                     };
                 });
@@ -16098,10 +16113,9 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                         ctx.beginPath(); ctx.rect(area.left, area.top - 2, area.width, area.height + 2); ctx.clip();
                         ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
                         CLOUD_BANDS.forEach((b, bi) => {
-                            const r = layerRange(b), thick = r[1] - r[0];
+                            const rStatic = layerRange(b);
                             if (!pct[bi].some(p => p !== null && p >= 3)) return;
                             const img = octx.createImageData(W, H), d = img.data;
-                            const edge = Math.min(0.22, 260 / thick); // bords doux : ~260 m max (ou 22 % de la couche)
                             for (let u = 0; u < W; u++) {
                                 const px = area.left + (u + 0.5) / W * area.width;
                                 const f = Math.max(0, Math.min(hours.length - 1, (px - x0) / step));
@@ -16109,6 +16123,11 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                                 const g = i => { const p = pct[bi][i]; return (p === null || p < 3) ? 0 : p / 100; };
                                 const P = g(i0) * (1 - t) + g(i1) * t; // densité interpolée entre deux heures
                                 if (P <= 0.004) continue;
+                                const r = bi === 0
+                                    ? [lowRanges[i0][0] * (1 - t) + lowRanges[i1][0] * t, lowRanges[i0][1] * (1 - t) + lowRanges[i1][1] * t]
+                                    : rStatic;
+                                const thick = r[1] - r[0];
+                                const edge = Math.min(0.22, 260 / thick); // bords doux : ~260 m max (ou 22 % de la couche)
                                 const hx = f; // abscisse en heures pour le bruit
                                 for (let v = 0; v < H; v++) {
                                     const py = area.top + (v + 0.5) / H * area.height;
@@ -16200,6 +16219,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                                         const p = pct[bi][i];
                                         if (p === null || p < 3) return null;
                                         const b = CLOUD_BANDS[bi];
+                                        if (bi === 0) return `${b.label} : ${Math.round(p)} % · ~${fmtM(Math.round(lowRanges[i][0] / 50) * 50)} – ${fmtM(Math.round(lowRanges[i][1] / 50) * 50)} (base estimée T−Td)`;
                                         const thick = `épaisseur ${Math.round(b.hi - b.lo).toLocaleString('fr-FR')} m`;
                                         return b.top
                                             ? `${b.label} : ${Math.round(p)} % · ↑ ${b.range} (${thick}, au-dessus de l'échelle)`
