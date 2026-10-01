@@ -1519,6 +1519,9 @@
             cursor: pointer;
         }
         .radar-slider-sm { flex-grow: 1; accent-color: var(--primary-dark); }
+        .radar-tile-layer { filter: contrast(var(--radar-contrast, 1)) saturate(var(--radar-saturate, 1)); }
+        .radar-contrast-row { display:flex; align-items:center; gap:8px; padding:4px 2px 0; font-size:0.8rem; }
+        .radar-contrast-row input { flex-grow:1; accent-color: var(--primary-dark); }
         .radar-time-sm { font-size: 0.7rem; font-weight: 700; color: var(--primary-dark); }
 
         /* Graphiques */
@@ -3287,6 +3290,11 @@
                         <input type="range" id="radar-slider" class="radar-slider-sm" min="0" max="0" value="0" oninput="changeRadarFrame(this.value)">
                         <span id="radar-time" class="radar-time-sm">--:--</span>
                     </div>
+                    <div class="radar-contrast-row" title="Contraste des tuiles radar">
+                        <i class="fa-solid fa-circle-half-stroke"></i>
+                        <input type="range" id="radar-contrast" min="1" max="3" step="0.1" value="1" oninput="setRadarContrast(this.value)" aria-label="Contraste radar">
+                        <span id="radar-contrast-val">×1.0</span>
+                    </div>
 
                     <div class="forecast-legend-grid" id="forecast-legend-grid" style="display:none;">
                         <div class="fc-leg-item"><div class="fc-leg-box" style="background:#7dd3fc;"></div> Pluie faible</div>
@@ -4845,7 +4853,7 @@
                  à chaque modification livrée de ce fichier, mets à jour la ligne juste en-dessous
                  (footer-last-update) avec la date du jour (format JJ/MM/AAAA) et incrémente le
                  numéro de version de 1. Ne saute jamais un numéro, ne le laisse jamais inchangé. -->
-            <div class="footer-last-update">Dernière mise à jour : 01/10/2026 - 163</div>
+            <div class="footer-last-update">Dernière mise à jour : 01/10/2026 - 166</div>
         </footer>
 
     </div>
@@ -5817,7 +5825,7 @@
         // approach (facultatif) : { etaMinutes, distanceKm, speedKmh } de la cellule ORAGEUSE dont
         // la trajectoire projetée croise le lieu le plus tôt. Permet d'avertir d'un orage encore
         // lointain mais qui arrive, ce qu'un seuil de distance seul ne sait pas faire.
-        function updateStormProximityBox(distanceKm, approach) {
+        function updateStormProximityBox(distanceKm, approach, present) {
             const box = document.getElementById('storm-proximity-box');
             const text = document.getElementById('storm-proximity-text');
             if (!box || !text) return;
@@ -5873,13 +5881,41 @@
                 // plutôt que de mentir sur la distance.
             }
 
-            if (level) {
-                text.innerText = message;
-                box.classList.toggle('level-watch', level === 'watch');
-                box.style.display = 'flex';
-            } else {
+            // Précipitation déjà présente sur la position (lecture directe du pixel radar) : même
+            // code couleur que l'histogramme. Ne masque pas une alerte orage proche (danger/veille)
+            // sauf si la précipitation locale est elle-même orageuse/grêle.
+            const PRESENT = {
+                rain_light: { msg: 'Pluie fine sur votre position.', col: '#7dd3fc', txt: '#0c6a99', icon: 'fa-droplet' },
+                rain_heavy: { msg: 'Forte pluie sur votre position.', col: '#0284c7', txt: '#0369a1', icon: 'fa-cloud-showers-heavy' },
+                snow: { msg: 'Neige sur votre position.', col: '#8b5cf6', txt: '#6d28d9', icon: 'fa-snowflake' },
+                storm: { msg: 'Orage actuellement sur votre position.', col: '#ef4444', txt: '#b91c1c', icon: 'fa-bolt' },
+                hail: { msg: 'Grêle sur votre position.', col: '#eab308', txt: '#a16207', icon: 'fa-cloud-meatball' }
+            };
+            const pKey = present && present.type === 'hail_candidate' ? 'hail' : (present ? present.type : null);
+            const pInfo = pKey ? PRESENT[pKey] : null;
+            const pStrong = pKey === 'storm' || pKey === 'hail';
+            const usePresent = !!pInfo && (!level || pStrong);
+            const icon = box.querySelector('i');
+            if (usePresent) {
+                text.innerText = pInfo.msg;
                 box.classList.remove('level-watch');
-                box.style.display = 'none';
+                box.style.background = pInfo.col + '1f';
+                box.style.borderColor = pInfo.col + '99';
+                box.style.color = pInfo.txt;
+                if (icon) { icon.className = 'fa-solid ' + pInfo.icon; icon.style.color = pInfo.col; }
+                box.style.display = 'flex';
+                if (pStrong) level = 'danger';
+            } else {
+                box.style.background = ''; box.style.borderColor = ''; box.style.color = '';
+                if (icon) { icon.className = 'fa-solid fa-bolt'; icon.style.color = ''; }
+                if (level) {
+                    text.innerText = message;
+                    box.classList.toggle('level-watch', level === 'watch');
+                    box.style.display = 'flex';
+                } else {
+                    box.classList.remove('level-watch');
+                    box.style.display = 'none';
+                }
             }
 
             const fast = level === 'danger' || (eta !== null && eta <= STORM_FAST_REFRESH_ETA_MIN);
@@ -11789,7 +11825,7 @@ render16DayTable();
                         const avgDbzTmp = sumDbz / count;
                         // PATCH FAUX POSITIF nébulosité (09/2026) : ignore les cellules trop faibles
                         // en moyenne (<7 dBZ = bruit / clutter / voile) même si alpha>seuil
-                        if (avgDbzTmp < 7) continue;
+                        if (avgDbzTmp < 4) continue;
                         // Repli sur le centroïde géométrique si aucun pixel n'atteint le plancher
                         // de pondération (cellule entièrement composée d'échos très faibles) : la
                         // somme des poids serait nulle et le centroïde pondéré indéfini.
@@ -11966,7 +12002,7 @@ render16DayTable();
         //    et une tendance representatives du systeme dangereux, pas de la traine stratiforme) ;
         // 6. sinon -> enveloppes (coeur unique centre : l'enveloppe suffit, plus stable car
         //    plus massive que son noyau).
-        function decideCoreModeAuto(lastFrame, lastImgData, isSnowMode) {
+        function decideCoreModeAuto(lastFrame, lastImgData, isSnowMode, locKey) {
             if (isSnowMode) return { useCores: false, reason: 'neige : enveloppes' };
             if (!lastFrame || !lastFrame.cells || !lastFrame.cells.length || !lastFrame.labels || !lastImgData) {
                 return { useCores: false, reason: 'aucune cellule' };
@@ -11994,6 +12030,14 @@ render16DayTable();
                 } catch (e) { /* classification optionnelle */ }
             });
             if (!nCores) return { useCores: false, reason: 'pluie stratiforme (aucun coeur >=40 dBZ)' };
+            // Pluie faible observee sur place, dans une enveloppe sans coeur ni convection : l'enveloppe
+            // decrit mieux la situation locale que des noyaux eloignes.
+            try {
+                if (typeof locKey === 'number' && lastFrame.labels[locKey] >= 0 && !convective && nMulti === 0) {
+                    const hostId = lastFrame.labels[locKey];
+                    if (!(coresByParent.get(hostId) || []).length) return { useCores: false, reason: 'pluie faible sur place sans coeur (enveloppe)' };
+                }
+            } catch (e) { /* optionnel */ }
             if (nMulti > 0) return { useCores: true, reason: nMulti + ' enveloppe(s) a coeurs multiples (scission)' };
             if (maxDecenter > CORE_AUTO_DECENTER_RATIO) return { useCores: true, reason: 'coeur decentre (cellule difforme)' };
             if (convective) return { useCores: true, reason: 'coeur convectif >=40 dBZ' };
@@ -12943,7 +12987,7 @@ render16DayTable();
                     metehopCoresActiveNow = false;
                     metehopCoreAutoReason = '';
                 } else {
-                    const decision = decideCoreModeAuto(cellFrames[cellFrames.length - 1], imageDatas[imageDatas.length - 1].data, isSnowMode);
+                    const decision = decideCoreModeAuto(cellFrames[cellFrames.length - 1], imageDatas[imageDatas.length - 1].data, isSnowMode, cy * 768 + cx);
                     metehopCoresActiveNow = decision.useCores;
                     metehopCoreAutoReason = decision.reason;
                 }
@@ -12972,7 +13016,7 @@ render16DayTable();
                         if (nearestStormKm === null || dKm < nearestStormKm) nearestStormKm = dKm;
                     }
                 }
-                updateStormProximityBox(nearestStormKm);
+                updateStormProximityBox(nearestStormKm, null, alreadyRaining ? clsNow : null);
 
                 if (tracks.length === 0) {
                     if (alreadyRaining) {
@@ -13124,7 +13168,23 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                     etaMinutes: stormApproach.etaMinutes,
                     distanceKm: stormApproach.distanceToStormKm,
                     speedKmh: stormApproach.speedKmh
-                } : null);
+                } : null, alreadyRaining ? clsNow : null);
+
+                // Ancrage sur l'observation directe : pluie reellement presente sur le repere => les
+                // premieres tranches ne peuvent pas etre inferieures a l'intensite observee (decroissance ~1h).
+                const anchorToNow = (bins, colors, confidence) => {
+                    if (!alreadyRaining || !clsNow || clsNow.type === 'none') return;
+                    const nowMm = Math.round(clsNow.mmEquiv * RATE_TO_10MIN_MM * 100) / 100;
+                    if (!(nowMm > 0)) return;
+                    for (let s = 0; s < EVO_BIN_COUNT; s++) {
+                        const floor = Math.round(nowMm * Math.max(0, 1 - s / 6) * 100) / 100;
+                        if (floor > 0 && bins[s] < floor) {
+                            bins[s] = floor;
+                            colors[s] = clsNow.color === 'transparent' ? 'rgba(94, 156, 204, 0.6)' : clsNow.color;
+                            if (confidence) confidence[s] = Math.max(confidence[s] || 0, Math.max(25, 70 - s * 8));
+                        }
+                    }
+                };
 
                 if (results.length === 1) {
                     // ---- Mode simple (ou multi-cellules n'ayant retenu qu'une seule cellule
@@ -13137,6 +13197,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                     else if (hasSnowBin) intensityLabel = 'neige';
                     else if (alreadyRaining && (clsNow.type === 'rain_heavy' || clsNow.type === 'storm')) intensityLabel = 'forte';
 
+                    anchorToNow(bins, colors, confidence);
                     const modelBins = getModelBinsForEvo(roundedStart);
                     drawEvoChart(evoLabels(roundedStart), bins, colors, `Précipitations (radar, indicatif)`, precipUnit, precipAxisColor, confidence, modelBins ? modelBins.values : null, modelBins ? modelBins.colors : null);
 
@@ -13245,6 +13306,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                     else if (hasSnowBin) intensityLabel = 'neige';
                     else if (alreadyRaining && (clsNow.type === 'rain_heavy' || clsNow.type === 'storm')) intensityLabel = 'forte';
 
+                    anchorToNow(bins, colors, confidence);
                     const modelBins = getModelBinsForEvo(roundedStart);
                     drawEvoChart(evoLabels(roundedStart), bins, colors, `Précipitations (radar, ${results.length} cellules)`, precipUnit, precipAxisColor, confidence, modelBins ? modelBins.values : null, modelBins ? modelBins.colors : null);
 
@@ -20074,8 +20136,14 @@ async function loadInversionLevels(lat, lon){
         // automatique périodique (toutes les 5 minutes tant que l'application reste ouverte).
         async function refreshRadarFrames() {
             try {
-                const res = await fetchWithTimeout('https://api.rainviewer.com/public/weather-maps.json', { timeout: 4000 });
-                const data = await res.json();
+                let data = null;
+                for (let attempt = 0; attempt < 3 && !(data && data.radar); attempt++) {
+                    try {
+                        const res = await fetchWithTimeout('https://api.rainviewer.com/public/weather-maps.json' + (attempt ? '?_=' + Date.now() : ''), { timeout: 10000 });
+                        if (res && res.ok) data = await res.json();
+                    } catch (e) { /* nouvel essai */ }
+                }
+                if (!data || !data.radar) throw new Error('RainViewer indisponible');
                 radarHost = data.host || radarHost;
                 radarTimestamps = [...(data.radar.past || []), ...(data.radar.nowcast || [])];
                 radarPastCount = (data.radar.past || []).length;
@@ -20242,6 +20310,24 @@ async function loadInversionLevels(lat, lon){
             }
         }
 
+        let radarContrast = 1;
+        try { const v = parseFloat(localStorage.getItem('metehopRadarContrast')); if (v >= 1 && v <= 3) radarContrast = v; } catch (e) {}
+        function radarOpacityFor(c) { return Math.min(1, 0.6 + (c - 1) * 0.2); }
+        function applyRadarContrast() {
+            document.documentElement.style.setProperty('--radar-contrast', radarContrast);
+            document.documentElement.style.setProperty('--radar-saturate', 1 + (radarContrast - 1) * 0.5);
+            Object.values(radarTileLayers || {}).forEach(l => { try { l.setOpacity(radarOpacityFor(radarContrast)); } catch (e) {} });
+            const sl = document.getElementById('radar-contrast'), lb = document.getElementById('radar-contrast-val');
+            if (sl) sl.value = radarContrast;
+            if (lb) lb.innerText = '×' + radarContrast.toFixed(1);
+        }
+        function setRadarContrast(v) {
+            radarContrast = Math.min(3, Math.max(1, parseFloat(v) || 1));
+            try { localStorage.setItem('metehopRadarContrast', radarContrast); } catch (e) {}
+            applyRadarContrast();
+        }
+        document.addEventListener('DOMContentLoaded', applyRadarContrast);
+
         function changeRadarFrame(index) {
             currentRadarIndex = parseInt(index);
 
@@ -20264,7 +20350,8 @@ async function loadInversionLevels(lat, lon){
             if (!radarTileLayers[frame.time]) {
                 const emptyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORTH5CYII=';
                 const layer = L.tileLayer(`${radarHost}${frame.path}/256/{z}/{x}/{y}/2/1_1.png`, {
-                    opacity: 0.6,
+                    opacity: radarOpacityFor(radarContrast),
+                    className: 'radar-tile-layer',
                     tileSize: 256,
                     maxNativeZoom: RADAR_TILE_NATIVE_MAX_ZOOM,
                     maxZoom: RADAR_MAX_ZOOM,
