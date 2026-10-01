@@ -2937,6 +2937,56 @@
         }
         html.dark .leaflet-control-attribution a { color: #a9b4d8 !important; }
 
+        /* ===== Détection foudre (popup) ===== */
+        .foudre-open-btn {
+            display: inline-flex; flex-direction: column; align-items: center; gap: 1px;
+            flex: 0 0 auto; align-self: center; margin: 0 6px 0 10px; padding: 0;
+            border: none; background: none; cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .foudre-open-btn .fo-icon {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 24px; height: 24px; border-radius: 7px; font-size: 0.85rem; line-height: 1;
+            background: linear-gradient(135deg, #ffd43b 0%, #f59f00 55%, #e8590c 100%);
+            box-shadow: 0 1px 4px rgba(232, 89, 12, 0.35);
+        }
+        .foudre-open-btn .fo-label { font-size: 0.58rem; font-weight: 700; line-height: 1; color: var(--text-muted); text-transform: none; letter-spacing: 0; }
+        .foudre-open-btn:active { transform: scale(0.92); }
+        .foudre-modal { max-width: 420px; }
+        .foudre-modal h3 { margin-bottom: 10px; }
+        .foudre-modal h3 .install-modal-title { font-size: 0.9rem; line-height: 1.25; }
+        .foudre-status {
+            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+            font-size: 0.7rem; color: var(--text-muted); margin-bottom: 12px;
+        }
+        .foudre-dot { width: 9px; height: 9px; border-radius: 50%; background: #adb5bd; flex: none; }
+        .foudre-dot.ok { background: #2f9e44; box-shadow: 0 0 0 3px rgba(47,158,68,0.18); }
+        .foudre-dot.busy { background: #f59f00; animation: foudrePulse 0.9s infinite; }
+        .foudre-dot.err { background: #e03131; }
+        @keyframes foudrePulse { 50% { opacity: 0.35; } }
+        .foudre-card {
+            background: var(--card-inner-bg); border-radius: var(--radius-medium);
+            padding: 12px 14px; border: 1px solid rgba(0,0,0,0.06); margin-bottom: 10px;
+        }
+        .foudre-card.flash { animation: foudreFlash 1.2s ease-out; }
+        @keyframes foudreFlash { 0% { background: rgba(245,159,0,0.35); } 100% { background: var(--card-inner-bg); } }
+        .foudre-card-label { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px; color: var(--accent-orange); margin-bottom: 4px; }
+        .foudre-main { font-size: 1.05rem; font-weight: 800; color: var(--primary-dark); }
+        .foudre-sub { font-size: 0.74rem; color: var(--text-muted); margin-top: 4px; line-height: 1.45; }
+        .foudre-stats { display: flex; gap: 8px; margin-bottom: 10px; }
+        .foudre-stat { flex: 1; background: var(--card-inner-bg); border: 1px solid rgba(0,0,0,0.06); border-radius: var(--radius-medium); padding: 8px 10px; }
+        .foudre-stat b { display: block; font-size: 1.05rem; color: var(--primary-dark); }
+        .foudre-stat span { font-size: 0.66rem; color: var(--text-muted); }
+        .foudre-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 10px 0 4px; font-size: 0.78rem; font-weight: 700; color: var(--primary-dark); }
+        .foudre-range { width: 100%; accent-color: var(--accent-orange); margin: 4px 0 2px; }
+        .foudre-btn {
+            border: 1px solid rgba(0,0,0,0.1); background: var(--card-inner-bg); color: var(--primary-dark);
+            border-radius: var(--radius-small); padding: 6px 10px; font-size: 0.74rem; font-weight: 700; cursor: pointer;
+        }
+        .foudre-btn.on { background: var(--accent-orange); color: #fff; border-color: var(--accent-orange); }
+        .foudre-list { list-style: none; margin: 6px 0 0; padding: 0; font-size: 0.74rem; color: var(--text-muted); }
+        .foudre-list li { display: flex; justify-content: space-between; gap: 8px; padding: 5px 0; border-top: 1px solid rgba(0,0,0,0.06); }
+        .foudre-list li b { color: var(--primary-dark); }
 </style>
 </head>
 <body>
@@ -3260,7 +3310,7 @@
              le même horizon "tout court terme", plutôt qu'entre le graphique horaire et les pollens. -->
         <div class="chart-card" data-groups="general" data-level="expert">
             <div class="chart-header">
-                <div>
+                <div style="flex:1;min-width:0;">
                     <div class="card-sage-title">
                         <i class="fa-solid fa-flask" style="color: var(--accent-purple); margin-right: 6px;"></i>
                         Évolution des 3 prochaines heures <span class="badge-experimental">Expérimental</span>
@@ -3277,6 +3327,7 @@
                         </div>
                     </div>
                                 </div>
+                <button type="button" class="foudre-open-btn" onclick="openFoudreModal()" aria-label="Détection de foudre en temps réel" title="Détection foudre"><span class="fo-icon">⚡</span><span class="fo-label">Live</span></button>
             </div>
             <div class="astro-legend" id="evo-legend" style="margin-bottom: 6px;">
                 <span class="astro-legend-item"><span class="legend-dot" style="background:#7dd3fc;"></span> Pluie faible</span>
@@ -4794,7 +4845,7 @@
                  à chaque modification livrée de ce fichier, mets à jour la ligne juste en-dessous
                  (footer-last-update) avec la date du jour (format JJ/MM/AAAA) et incrémente le
                  numéro de version de 1. Ne saute jamais un numéro, ne le laisse jamais inchangé. -->
-            <div class="footer-last-update">Dernière mise à jour : 30/09/2026 - 158</div>
+            <div class="footer-last-update">Dernière mise à jour : 01/10/2026 - 163</div>
         </footer>
 
     </div>
@@ -4882,6 +4933,41 @@
                 <button type="button" class="mode-choice-btn" id="favorite-modal-confirm" onclick="confirmFavoriteModal()"><strong>✅ Enregistrer</strong></button>
                 <button type="button" class="mode-choice-btn" id="favorite-modal-remove" onclick="removeFavoriteModalPlace()" style="display:none;"><strong>🗑 Retirer des favoris</strong></button>
             </div>
+        </div>
+    </div>
+
+    <!-- Popup détection foudre (données Blitzortung.org / LightningMaps.org) -->
+    <div class="install-modal-overlay" id="foudre-modal-overlay" onclick="if(event.target===this) closeFoudreModal()">
+        <div class="install-modal foudre-modal" role="dialog" aria-modal="true" aria-labelledby="foudre-title">
+            <h3>
+                <span class="install-modal-title"><span>⚡</span><span id="foudre-title">Détection foudre 20 km</span></span>
+                <button class="install-close" onclick="closeFoudreModal()" aria-label="Fermer">✕</button>
+            </h3>
+            <div class="foudre-status">
+                <span class="foudre-dot" id="foudre-dot"></span>
+                <span id="foudre-state">Connexion…</span>
+                <span id="foudre-refresh" style="margin-left:auto;"></span>
+            </div>
+            <div class="foudre-card" id="foudre-last">
+                <div class="foudre-card-label">⚡ Dernier impact</div>
+                <div class="foudre-main" id="foudre-last-main">Aucun impact détecté</div>
+                <div class="foudre-sub" id="foudre-last-sub">Aucun impact dans le rayon sélectionné pour le moment.</div>
+            </div>
+            <div class="foudre-stats">
+                <div class="foudre-stat"><b id="foudre-count">0</b><span>impacts (10 min)</span></div>
+                <div class="foudre-stat"><b id="foudre-nearest">—</b><span>le plus proche</span></div>
+            </div>
+            <div class="foudre-row">
+                <span id="foudre-radius-label">Rayon de détection : 20 km</span>
+            </div>
+            <input type="range" class="foudre-range" id="foudre-radius" min="5" max="200" step="1" value="20" aria-label="Rayon de détection">
+            <div class="foudre-row" style="margin-top:12px;">
+                <button class="foudre-btn" id="foudre-sound-btn" type="button">🔊 Son : désactivé</button>
+                <button class="foudre-btn" id="foudre-test-btn" type="button">▶ Tester le son</button>
+            </div>
+            <div class="foudre-row" style="margin-top:14px;"><span>Derniers impacts</span></div>
+            <ul class="foudre-list" id="foudre-list"><li><span>—</span></li></ul>
+            <div class="install-note">Données : Blitzortung.org (usage non commercial). Flux temps réel : seuls les impacts survenus fenêtre ouverte sont détectés.</div>
         </div>
     </div>
 
@@ -20511,5 +20597,204 @@ async function loadInversionLevels(lat, lon){
             }).catch(() => { /* PWA indisponible : la page reste utilisable normalement */ });
         }
     </script>
+<script>
+/* Détection foudre — flux temps réel Blitzortung (WebSocket, même source que la carte live).
+   Le flux HTTP /l/ de foudre.html ne renvoie aucun impact sans zone => remplacé par le WebSocket. */
+(function () {
+    'use strict';
+    const HOSTS = ['wss://ws1.blitzortung.org/', 'wss://ws7.blitzortung.org/', 'wss://ws8.blitzortung.org/'];
+    const KEEP = 120, MAX_R = 200, WINDOW_MS = 10 * 60 * 1000, SILENCE_MS = 45000;
+    const $ = id => document.getElementById(id);
+    let radius = 20, running = false, ws = null, hostIdx = 0, retry = 0, retryTimer = null, tick = null, watchdog = null;
+    let connected = false, lastMsg = 0, lastRefresh = 0, gotData = false, loopId = 0;
+    let strikes = [], seen = new Set(), alerted = new Set(), lastImpact = null;
+    let soundOn = false, audioCtx = null, placeKey = '', pendingFlash = false, rxCount = 0, rxOther = 0;
+
+    function place() {
+        const lat = (typeof currentLat !== 'undefined') ? currentLat : null;
+        const lon = (typeof currentLon !== 'undefined') ? currentLon : null;
+        const name = (typeof currentLocationName !== 'undefined' && currentLocationName) ? currentLocationName
+            : ((document.getElementById('title') || {}).textContent || 'Lieu actuel');
+        return { lat, lon, name };
+    }
+    function hav(a1, o1, a2, o2) {
+        const r = Math.PI / 180, dLa = (a2 - a1) * r, dLo = (o2 - o1) * r;
+        const a = Math.sin(dLa / 2) ** 2 + Math.cos(a1 * r) * Math.cos(a2 * r) * Math.sin(dLo / 2) ** 2;
+        return 12742 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+    function bearing(a1, o1, a2, o2) {
+        const r = Math.PI / 180, dLo = (o2 - o1) * r;
+        const y = Math.sin(dLo) * Math.cos(a2 * r);
+        const x = Math.cos(a1 * r) * Math.sin(a2 * r) - Math.sin(a1 * r) * Math.cos(a2 * r) * Math.cos(dLo);
+        return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    }
+    const compass = b => ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'][Math.round(b / 45) % 8];
+    function elapsed(ms) {
+        const s = Math.max(0, Math.floor(ms / 1000));
+        if (s < 3) return "à l'instant";
+        if (s < 60) return 'il y a ' + s + ' s';
+        const m = Math.floor(s / 60);
+        if (m < 60) return 'il y a ' + m + ' min ' + (s % 60) + ' s';
+        return 'il y a ' + Math.floor(m / 60) + ' h ' + (m % 60) + ' min';
+    }
+    function fmtKm(k) { return (k < 10 ? k.toFixed(1) : Math.round(k).toString()).replace('.', ',') + ' km'; }
+
+    // Décompression LZW des messages Blitzortung (decode() du site)
+    function decode(b) {
+        let e = {}, d = b.split(''), c = d[0], f = c, g = [c], h = 256, o = h;
+        for (let i = 1; i < d.length; i++) {
+            const code = d[i].charCodeAt(0);
+            let a = h > code ? d[i] : (e[code] ? e[code] : f + c);
+            g.push(a); c = a.charAt(0); e[o] = f + c; o++; f = a;
+        }
+        return g.join('');
+    }
+
+    function onStrike(j) {
+        const p = place();
+        if (p.lat == null || p.lon == null) return;
+        const lat = +j.lat, lon = +j.lon;
+        if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return;
+        rxCount++;
+        const dist = hav(p.lat, p.lon, lat, lon);
+        if (dist > MAX_R) return;
+        let abs = +j.time / 1e6;                     // ns -> ms
+        if (!isFinite(abs) || abs < 1e12) abs = Date.now();
+        // horloge locale décalée : on borne à "maintenant" pour l'affichage
+        const now = Date.now(); if (abs > now) abs = now;
+        const id = String(j.time) + '|' + lat.toFixed(4) + '|' + lon.toFixed(4);
+        if (seen.has(id)) return;
+        seen.add(id);
+        const dev = isFinite(+j.mds) && +j.mds > 0 ? Math.round(+j.mds) : null;
+        const s = { id, abs, lat, lon, dev, dist, dir: compass(bearing(p.lat, p.lon, lat, lon)) };
+        strikes.push(s);
+        strikes.sort((x, y) => y.abs - x.abs);
+        if (strikes.length > KEEP) strikes.length = KEEP;
+        if (seen.size > 3000) seen = new Set(strikes.map(x => x.id));
+        lastRefresh = now;
+        if (dist <= radius && !alerted.has(id)) {
+            alerted.add(id);
+            render(true);
+            if (soundOn) beep();
+        }
+    }
+
+    function setState(cls, txt) { $('foudre-dot').className = 'foudre-dot ' + cls; $('foudre-state').textContent = txt; }
+
+    function connect() {
+        if (!running) return;
+        clearTimeout(retryTimer);
+        const my = loopId;
+        const url = HOSTS[hostIdx % HOSTS.length];
+        setState('busy', 'Connexion…');
+        let sock;
+        try { sock = new WebSocket(url); } catch (e) { return scheduleRetry(my); }
+        ws = sock;
+        sock.onopen = () => { if (my !== loopId) return; sock.send(JSON.stringify({ a: 111 })); lastMsg = Date.now(); };
+        sock.onmessage = ev => {
+            if (my !== loopId) return;
+            lastMsg = Date.now();
+            if (!connected) { connected = true; retry = 0; }
+            gotData = true;
+            try {
+                const txt = typeof ev.data === 'string' ? ev.data : '';
+                let j; try { j = JSON.parse(txt); } catch (e) { j = JSON.parse(decode(txt)); }
+                if (j && j.lat !== undefined) onStrike(j); else rxOther++;
+            } catch (e) { /* message ignoré */ }
+        };
+        sock.onerror = () => {};
+        sock.onclose = () => { if (my !== loopId) return; connected = false; scheduleRetry(my); };
+    }
+    function scheduleRetry(my) {
+        if (!running || my !== loopId) return;
+        retry++; hostIdx++;
+        setState('err', 'Déconnecté — nouvelle tentative…');
+        retryTimer = setTimeout(connect, Math.min(1000 * retry, 8000));
+    }
+    function closeSocket() {
+        const w = ws; ws = null;
+        if (w) { w.onopen = w.onmessage = w.onerror = w.onclose = null; try { w.close(); } catch (e) {} }
+    }
+
+    function inRange() { return strikes.filter(s => s.dist <= radius); }
+    function render(flash) {
+        const p = place(), now = Date.now();
+        $('foudre-title').textContent = p.name + ' — Détection foudre ' + radius + ' km';
+        $('foudre-radius-label').textContent = 'Rayon de détection : ' + radius + ' km';
+        const r = inRange();
+        const rec = r.filter(s => now - s.abs <= WINDOW_MS);
+        $('foudre-count').textContent = rec.length;
+        $('foudre-nearest').textContent = rec.length ? fmtKm(Math.min(...rec.map(s => s.dist))) : '—';
+        lastImpact = r.length ? r[0] : null;
+        const main = $('foudre-last-main'), sub = $('foudre-last-sub');
+        if (lastImpact) {
+            main.textContent = fmtKm(lastImpact.dist) + ' • ' + lastImpact.dir + ' — ' + elapsed(now - lastImpact.abs);
+            sub.textContent = 'À ' + fmtKm(lastImpact.dist) + ' au ' + lastImpact.dir + ' de ' + p.name +
+                (lastImpact.dev != null ? ' • précision ± ' + lastImpact.dev + ' m' : '');
+        } else {
+            main.textContent = 'Aucun impact détecté';
+            sub.textContent = 'Aucun impact dans un rayon de ' + radius + ' km depuis l’ouverture — écoute en cours.';
+        }
+        const ul = $('foudre-list');
+        ul.innerHTML = r.length ? r.slice(0, 5).map(s =>
+            '<li><b>' + fmtKm(s.dist) + ' • ' + s.dir + '</b><span>' + elapsed(now - s.abs) + (s.dev != null ? ' · ±' + s.dev + ' m' : '') + '</span></li>').join('')
+            : '<li><span>Aucun impact</span></li>';
+        if (connected && rxCount > 0) setState('ok', 'Connecté • temps réel'); else if (connected) setState('busy', 'Connecté • en attente de données…');
+        $('foudre-refresh').textContent = lastMsg ? 'Flux ' + new Date(lastMsg).toLocaleTimeString('fr-FR') + ' • ' + rxCount + ' reçus' : '';
+        if (flash) { const c = $('foudre-last'); c.classList.remove('flash'); void c.offsetWidth; c.classList.add('flash'); }
+    }
+
+    function ensureAudio() {
+        try {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        } catch (e) { audioCtx = null; }
+        return audioCtx;
+    }
+    function beep() {
+        const c = ensureAudio(); if (!c) return;
+        const t = c.currentTime;
+        [[880, 0], [1320, 0.16]].forEach(([f, d]) => {
+            const o = c.createOscillator(), g = c.createGain();
+            o.type = 'sine'; o.frequency.value = f;
+            g.gain.setValueAtTime(0.0001, t + d);
+            g.gain.exponentialRampToValueAtTime(0.35, t + d + 0.02);
+            g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.28);
+            o.connect(g); g.connect(c.destination); o.start(t + d); o.stop(t + d + 0.3);
+        });
+    }
+
+    function reset() { strikes = []; seen = new Set(); alerted = new Set(); lastImpact = null; }
+    function start() {
+        const p = place(), key = p.lat + ',' + p.lon;
+        if (key !== placeKey) { reset(); placeKey = key; }
+        running = true; loopId++; rxCount = 0; rxOther = 0; retry = 0; connected = false; gotData = false; lastMsg = 0;
+        render(false);
+        connect();
+        tick = setInterval(() => {
+            render(false);
+            if (running && ws && Date.now() - lastMsg > SILENCE_MS) { // flux muet : on se reconnecte
+                const my = loopId; connected = false; closeSocket(); scheduleRetry(my);
+            }
+        }, 1000);
+    }
+    function stop() { running = false; loopId++; clearTimeout(retryTimer); clearInterval(tick); closeSocket(); connected = false; }
+
+    window.openFoudreModal = function () { $('foudre-modal-overlay').classList.add('visible'); if (!running) start(); };
+    window.closeFoudreModal = function () { $('foudre-modal-overlay').classList.remove('visible'); stop(); };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        $('foudre-radius').addEventListener('input', e => { radius = +e.target.value; render(false); });
+        $('foudre-sound-btn').addEventListener('click', e => {
+            soundOn = !soundOn;
+            if (soundOn) ensureAudio();
+            e.currentTarget.textContent = soundOn ? '🔊 Son : activé' : '🔊 Son : désactivé';
+            e.currentTarget.classList.toggle('on', soundOn);
+        });
+        $('foudre-test-btn').addEventListener('click', beep);
+        document.addEventListener('keydown', e => { if (e.key === 'Escape' && running) closeFoudreModal(); });
+    });
+})();
+</script>
 </body>
 </html>
