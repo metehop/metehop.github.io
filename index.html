@@ -5827,6 +5827,11 @@
 
         // Met à jour l'encart de proximité d'orage et la cadence de rafraîchissement en conséquence.
         // distanceKm = null signifie "aucun orage suivi" (encart masqué, cadence normale rétablie).
+        // approach.rainEtaMinutes (facultatif, v154) : heure d'arrivée des PREMIÈRES précipitations
+        // (toute intensité) quand elles précèdent le noyau orageux. Le message devient alors
+        // « Pluie dès ~X min, noyau orageux vers ~Y min » : la distance et la vitesse de la cellule
+        // entière (bord pluvieux) ne se divisent pas pour donner l'ETA du noyau (premier créneau
+        // orage/grêle de confiance > 50 %), d'où l'ancienne incohérence « 5 km à 18 km/h → 64 min ».
         // approach (facultatif) : { etaMinutes, distanceKm, speedKmh } de la cellule ORAGEUSE dont
         // la trajectoire projetée croise le lieu le plus tôt. Permet d'avertir d'un orage encore
         // lointain mais qui arrive, ce qu'un seuil de distance seul ne sait pas faire.
@@ -5877,7 +5882,13 @@
 
                 const dTxt = (showDist && typeof dVal === 'number') ? ` à ~${Math.round(dVal*10)/10}km` : '';
                 const sTxt = (showSpeed && typeof sVal === 'number') ? ` (~${Math.round(sVal)} km/h)` : '';
-                if (dTxt === '' && sTxt === '') {
+                const rainEta = approach && typeof approach.rainEtaMinutes === 'number' && isFinite(approach.rainEtaMinutes) ? approach.rainEtaMinutes : null;
+                if (rainEta !== null && rainEta + 5 < eta) {
+                    const stormTxt = `noyau orageux vers ~${Math.max(1, Math.round(eta))} min`;
+                    message = rainEta <= 0
+                        ? `Pluie en cours, ${stormTxt}.`
+                        : `Pluie dès ~${Math.max(1, Math.round(rainEta))} min, ${stormTxt}.`;
+                } else if (dTxt === '' && sTxt === '') {
                     message = `Orage se dirigeant vers votre position, arrivée estimée dans ~${Math.max(1, Math.round(eta))} min.`;
                 } else {
                     message = `Orage${dTxt}${sTxt} se dirigeant vers votre position, arrivée estimée dans ~${Math.max(1, Math.round(eta))} min.`;
@@ -13406,9 +13417,18 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                     if (sIdx < 0) { updateStormProximityBox(null, null, presentCls); return; }
                     const eta = Math.max(0, Math.round((roundedStart.getTime() - Date.now()) / 60000 + sIdx * EVO_BIN_MINUTES));
                     let owner = results.find(r => r.colors[sIdx] === colors[sIdx] && r.bins[sIdx] === bins[sIdx]) || results[0];
+                    // v154 : premières précipitations (toute intensité, confiance > 50 %) AVANT le noyau
+                    let rainIdx = -1;
+                    for (let s = 0; s < sIdx; s++) {
+                        if (bins[s] > 0.05 && confidence[s] > 50) { rainIdx = s; break; }
+                    }
+                    const rainEta = rainIdx >= 0
+                        ? Math.max(0, Math.round((roundedStart.getTime() - Date.now()) / 60000 + rainIdx * EVO_BIN_MINUTES))
+                        : null;
                     updateStormProximityBox(null, {
                         etaMinutes: eta, distanceKm: owner ? owner.distanceToStormKm : null,
-                        speedKmh: owner ? owner.speedKmh : null, confirmed: true
+                        speedKmh: owner ? owner.speedKmh : null, confirmed: true,
+                        rainEtaMinutes: rainEta
                     }, presentCls);
                 };
 

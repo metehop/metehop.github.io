@@ -8,7 +8,7 @@
 //
 // IMPORTANT : incrémente CACHE_VERSION à chaque déploiement (ou automatise-le dans ton build).
 // C'est ce numéro qui déclenche la détection de mise à jour côté navigateur.
-const CACHE_VERSION = 'metehop-v153';
+const CACHE_VERSION = 'metehop-v154';
 
 const APP_SHELL = [
     './',
