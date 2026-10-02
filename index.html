@@ -4565,6 +4565,9 @@
 
                 <!-- ===== Choix du modèle microclimat (27/09/2026) =====
                      V2.1 reste le modèle par défaut : aucun changement de comportement existant.
+                     V2.12 (02/10/2026) : même squelette que V2.11 mais effet de la nébulosité recalibré
+                     (couches bas/moyen/haut, fenêtre nocturne, pooling modulé par le relief) ; V2.1 et
+                     V2.11 sont strictement inchangés.
                      V2.11 est la MÊME physique (PHYS_MICRO_V211 = copie de PHYS_MICRO) avec
                      SEULEMENT deux coefficients de calibration nocturne réajustés à partir des
                      observations du 27/09/2026 (K_RAD et K_UHI_N). Le choix pilote réellement le
@@ -4581,12 +4584,14 @@
                             <select id="micro-model-select" class="micro-model-select" onchange="onMicroModelChange(this.value)">
                                 <option value="2.1">Microclimat V2.1</option>
                                 <option value="2.11">Microclimat V2.11</option>
+                                <option value="2.12">Microclimat V2.12</option>
                             </select>
                         </div>
                     </div>
 
                     <div id="micro-model-description" style="margin-top:10px; font-size:0.73rem; line-height:1.55; color:var(--text-muted);"></div>
                     <div id="micro-model-coefs" style="margin-top:10px; overflow-x:auto;"></div>
+                    <div id="micro-model-compare" style="margin-top:12px; overflow-x:auto;"></div>
                 </div>
 
                 <!-- Désaccord entre modèles météo (chantier 2, 12/09/2026) : visible seulement si, sur au
@@ -5115,8 +5120,8 @@
             <div class="sources-group">
                 <h4>Effets locaux (micro-climat)</h4>
                 <div class="sources-item">
-                    <strong>Modèle 2.1 / 2.11 — moteur physique générique (Europe)</strong>
-                    <span>Le sélecteur propose V2.1 et V2.11 (même physique, V2.11 étant une copie indépendante permettant de comparer les évolutions). Le modèle 2.1 n'utilise aucune table par ville : il calcule un profil horaire de correction ΔT(h) à partir de la topographie réelle (DEM Open-Meteo, 81 points / 16 azimuts) et de la météo prévue. Composantes : (1) refroidissement par rayonnement de longue d'onde nocturne, atténué par les nuages (poids bas/moyen/haut) et le vent effectif au sol abrité ; (2) cold-air-pooling en fonction du Sky View Factor, de l'encaissement d'horizon, de la fermeture du cirque et de la pente (un versant exposé ne stocke pas d'air froid) ; (3) extra de plaine ouverte ; (4) îlot de chaleur urbain Oke/Landsberg (nuit ×0,40, après-midi ×0,05–0,08 — AROME intègre déjà l'UHI des grandes villes) ; (5) résidu de nappe le jour en cirque fermé ; (6) apport solaire d'exposition de versant ; (7) chaleur piégée en vallée basse. Les niveaux de pression Open-Meteo (inversion d'altitude 0–6 h) modulent la stagnation. Constantes PHYS_MICRO calibrées sur les relevés des 22 et 23/09/2026 (Bessans, Tencin, Grenoble, Paris, Lyon, Nantes, Chamrousse) — erreur moyenne ≈ 0,6 °C sur ce jeu. Version 2.11 : même modèle, seuls deux coefficients de calibration nocturne réajustés sur les observations du 27/09/2026 (K_RAD 7,8 → 12,0 et K_UHI_N 0,40 → 0,20) — sélectionnable via le sélecteur « Modèle Microclimat » de la section « Metehop pour les geeks », V2.1 restant le défaut. Sources physiques : Rupp et al. 2020 (cold-air pools) ; Oke (UHI) ; études de valley cold pools.</span>
+                    <strong>Modèle 2.1 / 2.11 / 2.12 — moteur physique générique (Europe)</strong>
+                    <span>Le sélecteur propose V2.1 et V2.11 (même physique, V2.11 étant une copie indépendante permettant de comparer les évolutions). Le modèle 2.1 n'utilise aucune table par ville : il calcule un profil horaire de correction ΔT(h) à partir de la topographie réelle (DEM Open-Meteo, 81 points / 16 azimuts) et de la météo prévue. Composantes : (1) refroidissement par rayonnement de longue d'onde nocturne, atténué par les nuages (poids bas/moyen/haut) et le vent effectif au sol abrité ; (2) cold-air-pooling en fonction du Sky View Factor, de l'encaissement d'horizon, de la fermeture du cirque et de la pente (un versant exposé ne stocke pas d'air froid) ; (3) extra de plaine ouverte ; (4) îlot de chaleur urbain Oke/Landsberg (nuit ×0,40, après-midi ×0,05–0,08 — AROME intègre déjà l'UHI des grandes villes) ; (5) résidu de nappe le jour en cirque fermé ; (6) apport solaire d'exposition de versant ; (7) chaleur piégée en vallée basse. Les niveaux de pression Open-Meteo (inversion d'altitude 0–6 h) modulent la stagnation. Constantes PHYS_MICRO calibrées sur les relevés des 22 et 23/09/2026 (Bessans, Tencin, Grenoble, Paris, Lyon, Nantes, Chamrousse) — erreur moyenne ≈ 0,6 °C sur ce jeu. Version 2.11 : même modèle, seuls deux coefficients de calibration nocturne réajustés sur les observations du 27/09/2026 (K_RAD 7,8 → 12,0 et K_UHI_N 0,40 → 0,20) — sélectionnable via le sélecteur « Modèle Microclimat » de la section « Metehop pour les geeks », V2.1 restant le défaut. Version 2.12 : mêmes coefficients de ciel clair que 2.11 (K_RAD, K_POOL, K_UHI_N… inchangés — un ciel dégagé donne exactement le même résultat), mais l'effet de la nébulosité est recalibré : la clarté est désormais multiplicative par couche (bas/moyen/haut, mêmes pourcentages que la « Coupe nuageuse par altitude », le nuage bas pesant selon sa base estimée T−Td), évaluée sur la nuit en cours (soirée de la veille dès 20 h + matin) et non sur l'heure seule ; la clarté nocturne est élevée à la puissance 2,5 (un ciel partiellement nuageux freine nettement le refroidissement, ciel clair inchangé) ; le pooling conserve un plancher qui dépend de la fermeture du cirque, de l'encaissement et d'une inversion d'altitude détectée. Le panneau compare V2.1, V2.11 et V2.12 sur le lieu et le jour affichés. Sources physiques : Rupp et al. 2020 (cold-air pools) ; Oke (UHI) ; études de valley cold pools.</span>
                 </div>
                 <div class="sources-item">
                     <strong>Fond de vallée / cuvette — inversion thermique</strong>
@@ -10220,27 +10225,41 @@ render16DayTable();
             DRAIN_POP: 'Population au-delà de laquelle le drainage d\'air froid s\'atténue',
             URBAN_POP: 'Population au-delà de laquelle le refroidissement LW s\'atténue',
             WIND_REF: 'Vent (km/h) qui détruit l\'inversion au sol',
-            WIND_EXP: 'Exposant de réponse du refroidissement au vent'
+            WIND_EXP: 'Exposant de réponse du refroidissement au vent',
+            CLOUD_A_LOW: 'Part du refroidissement LW bloquée par 100 % de nuages bas',
+            CLOUD_A_MID: 'Part bloquée par 100 % de nuages moyens',
+            CLOUD_A_HIGH: 'Part bloquée par 100 % de nuages hauts (cirrus)',
+            CLOUD_LOW_BASE_W: 'Baisse du blocage d\'un nuage bas dont la base monte à 1 700 m (estimée T−Td)',
+            CLOUD_CLEAR_EXP: 'Exposant de la clarté nocturne (>1 : nuages partiels freinent davantage le refroidissement)',
+            NIGHT_MEMORY: 'Poids de la clarté moyenne de la nuit vs. clarté de l\'heure',
+            POOL_CLOUD_EXP: 'Exposant de sensibilité du pooling à la nébulosité',
+            POOL_RETAIN: 'Part max du pooling conservée sous nuages (cirque fermé encaissé)',
+            POOL_RETAIN_NOSTAB: 'Multiplicateur du plancher sans inversion d\'altitude détectée'
         };
 
         function renderMicroModelPanel() {
+            const isV212 = microModelVersion === '2.12';
             const isV211 = microModelVersion === '2.11';
             const sel = document.getElementById('micro-model-select');
-            if (sel) sel.value = isV211 ? '2.11' : '2.1';
+            if (sel) sel.value = isV212 ? '2.12' : (isV211 ? '2.11' : '2.1');
             const nameEl = document.getElementById('micro-model-active-name');
-            if (nameEl) nameEl.innerText = 'Microclimat ' + (isV211 ? 'V2.11' : 'V2.1');
+            if (nameEl) nameEl.innerText = 'Microclimat ' + (isV212 ? 'V2.12' : (isV211 ? 'V2.11' : 'V2.1'));
             const descEl = document.getElementById('micro-model-description');
             if (descEl) {
-                descEl.innerHTML = isV211
+                descEl.innerHTML = isV212
+                    ? '<b>V2.12 = V2.11 avec l\'effet de la nébulosité recalibré.</b> Ciel dégagé : résultat identique à V2.11 (mêmes K_RAD, K_POOL, K_UHI_N). Nuages : clarté multiplicative par couche (bas/moyen/haut — mêmes données que la « Coupe nuageuse par altitude »), moyennée sur la nuit en cours, et pooling plus sensible aux nuages mais avec un plancher lié au relief (cirque fermé, encaissement) et à la stabilité d\'altitude. Aucune équation de V2.1/V2.11 n\'est modifiée.'
+                    : isV211
                     ? '<b>V2.11 = modèle physique V2.1 avec coefficients de calibration nocturne réajustés à partir des observations du 27/09/2026.</b> Ce n\'est pas un nouveau modèle physique : aucune équation, aucune condition, aucune donnée d\'entrée n\'a changé — seuls <b>K_RAD (7.8 → 12.0)</b> et <b>K_UHI_N (0.40 → 0.20)</b> diffèrent. Sur les 4 lieux observés, la MAE passe de 2.1 à 0.5 °C et le biais moyen de +2.1 à +0.05 °C.'
                     : '<b>Modèle physique de référence (moteur « Modèle 2.1 »), inchangé.</b> Refroidissement radiatif nocturne, cold-air-pooling / nappe d\'air froid, îlot de chaleur urbain, exposition de versant et gradient orographique, calibré les 22-23/09/2026. C\'est le modèle par défaut de l\'app. Coefficients :';
             }
+            try { renderMicroModelCompare(); } catch (e) { /* comparaison optionnelle */ }
             const coefsEl = document.getElementById('micro-model-coefs');
             if (!coefsEl) return;
             let rows = '';
             Object.keys(PHYS_MICRO).forEach(function (k) {
                 const v21 = PHYS_MICRO[k];
                 const v211 = PHYS_MICRO_V211[k];
+                const v212 = PHYS_MICRO_V212[k];
                 const changed = (v21 !== v211);
                 const badge = changed
                     ? ' <span style="font-size:0.58rem; font-weight:800; text-transform:uppercase; letter-spacing:0.3px; color:var(--accent-orange);">réajusté</span>'
@@ -10250,20 +10269,73 @@ render16DayTable();
                     + '<td style="padding:3px 6px; color:var(--text-muted);">' + (MICRO_MODEL_COEF_LABELS[k] || '') + '</td>'
                     + '<td style="padding:3px 6px; text-align:right; white-space:nowrap;">' + v21 + '</td>'
                     + '<td style="padding:3px 6px; text-align:right; white-space:nowrap;">' + v211 + '</td>'
+                    + '<td style="padding:3px 6px; text-align:right; white-space:nowrap;">' + v212 + '</td>'
                     + '</tr>';
             });
-            coefsEl.innerHTML = '<div style="font-size:0.66rem; font-weight:800; text-transform:uppercase; letter-spacing:0.3px; color:var(--text-muted);">Coefficients par version (PHYS_MICRO · PHYS_MICRO_V211) — indépendants du sélecteur</div>'
+            Object.keys(PHYS_MICRO_V212_NEW).forEach(function (k) {
+                rows += '<tr>'
+                    + '<td style="padding:3px 6px; white-space:nowrap;"><b>' + k + '</b> <span style="font-size:0.58rem; font-weight:800; text-transform:uppercase; letter-spacing:0.3px; color:var(--accent-orange);">V2.12</span></td>'
+                    + '<td style="padding:3px 6px; color:var(--text-muted);">' + (MICRO_MODEL_COEF_LABELS[k] || '') + '</td>'
+                    + '<td style="padding:3px 6px; text-align:right;">—</td>'
+                    + '<td style="padding:3px 6px; text-align:right;">—</td>'
+                    + '<td style="padding:3px 6px; text-align:right; white-space:nowrap;">' + PHYS_MICRO_V212_NEW[k] + '</td>'
+                    + '</tr>';
+            });
+            coefsEl.innerHTML = '<div style="font-size:0.66rem; font-weight:800; text-transform:uppercase; letter-spacing:0.3px; color:var(--text-muted);">Coefficients par version (PHYS_MICRO · PHYS_MICRO_V211 · PHYS_MICRO_V212) — indépendants du sélecteur</div>'
                 + '<table style="width:100%; border-collapse:collapse; font-size:0.69rem; margin-top:4px;">'
                 + '<thead><tr style="color:var(--text-muted); text-align:right;">'
                 + '<th style="padding:3px 6px; text-align:left; border-bottom:1px solid rgba(0,0,0,0.12);">Constante</th>'
                 + '<th style="padding:3px 6px; text-align:left; border-bottom:1px solid rgba(0,0,0,0.12);">Rôle</th>'
                 + '<th style="padding:3px 6px; border-bottom:1px solid rgba(0,0,0,0.12);">V2.1</th>'
                 + '<th style="padding:3px 6px; border-bottom:1px solid rgba(0,0,0,0.12);">V2.11</th>'
+                + '<th style="padding:3px 6px; border-bottom:1px solid rgba(0,0,0,0.12);">V2.12</th>'
                 + '</tr></thead><tbody>' + rows + '</tbody></table>';
         }
 
+        // Comparaison des trois versions sur le MÊME lieu et le MÊME jour (jour sélectionné) : calcul
+        // direct du moteur avec le jeu de coefficients de chaque version (3e paramètre), sans toucher
+        // à la sélection ni au cache. Affiche la correction la plus froide 5 h-9 h et l'heure, plus
+        // la clarté LW nocturne moyenne du matin pour V2.12.
+        function renderMicroModelCompare(dayIdx) {
+            const el = document.getElementById('micro-model-compare');
+            if (!el) return;
+            const d = (typeof dayIdx === 'number') ? dayIdx : ((typeof selectedDayIndex === 'number') ? selectedDayIndex : 0);
+            const th = 'padding:3px 6px; border-bottom:1px solid rgba(0,0,0,0.12);';
+            const title = '<div style="font-size:0.66rem; font-weight:800; text-transform:uppercase; letter-spacing:0.3px; color:var(--text-muted);">Comparaison des versions — même lieu, même jour</div>';
+            if (typeof weatherData === 'undefined' || !weatherData || typeof microClimateGeoSignals === 'undefined' || !microClimateGeoSignals) {
+                el.innerHTML = title + '<div style="font-size:0.7rem; color:var(--text-muted); margin-top:4px;">Disponible une fois la prévision et le relief du lieu chargés.</div>';
+                return;
+            }
+            let rows = '';
+            ['2.1', '2.11', '2.12'].forEach(function (ver) {
+                let res = null;
+                try { res = computePhysicalMicroClimateModel(d, microClimateGeoSignals, ver); } catch (e) { res = null; }
+                let mn = 0, mh = null;
+                if (res && Array.isArray(res.hourlyDelta)) {
+                    for (let h = 5; h <= 9; h++) { const v = res.hourlyDelta[h]; if (v < mn) { mn = v; mh = h; } }
+                }
+                const clear = (res && res.cloudInfo) ? Math.round(res.cloudInfo.morningClearness * 100) + ' %' : '—';
+                const active = (ver === microModelVersion);
+                rows += '<tr' + (active ? ' style="font-weight:800;"' : '') + '>'
+                    + '<td style="padding:3px 6px; white-space:nowrap;">V' + ver + (active ? ' ●' : '') + '</td>'
+                    + '<td style="padding:3px 6px; text-align:right; white-space:nowrap;">' + (mh === null ? '0,0' : mn.toFixed(1).replace('.', ',')) + ' °C</td>'
+                    + '<td style="padding:3px 6px; text-align:right;">' + (mh === null ? '—' : mh + ' h') + '</td>'
+                    + '<td style="padding:3px 6px; text-align:right;">' + clear + '</td>'
+                    + '</tr>';
+            });
+            el.innerHTML = title
+                + '<table style="width:100%; border-collapse:collapse; font-size:0.69rem; margin-top:4px;">'
+                + '<thead><tr style="color:var(--text-muted); text-align:right;">'
+                + '<th style="' + th + ' text-align:left;">Version</th>'
+                + '<th style="' + th + '">ΔT le plus froid 5-9 h</th>'
+                + '<th style="' + th + '">à</th>'
+                + '<th style="' + th + '">Clarté LW matin</th>'
+                + '</tr></thead><tbody>' + rows + '</tbody></table>'
+                + '<div style="font-size:0.62rem; color:var(--text-muted); margin-top:4px;">Correction micro-climat seule, à ajouter à la température brute. ● = version active.</div>';
+        }
+
         function onMicroModelChange(value) {
-            const v = (value === '2.11') ? '2.11' : '2.1';
+            const v = (value === '2.12') ? '2.12' : ((value === '2.11') ? '2.11' : '2.1');
             if (v === microModelVersion) { renderMicroModelPanel(); return; }
             microModelVersion = v;
             try { localStorage.setItem('metehop_micro_model_v1', v); } catch (e) { /* préférence non conservée */ }
@@ -10654,17 +10726,61 @@ render16DayTable();
         // ============================================================================
         const PHYS_MICRO_V211 = Object.assign({}, PHYS_MICRO, { K_RAD: 12.0, K_UHI_N: 0.20 });
 
-        // Modèle microclimat sélectionné par l'utilisateur : '2.1' (défaut, inchangé) ou '2.11'.
+        // ============================================================================
+        // MICROCLIMAT V2.12 (02/10/2026) — recalibrage de l'effet de la NÉBULOSITÉ.
+        //
+        // Constat (relevés du matin le plus froid : Tencin, Grenoble, Chambéry, Bessans) : V2.11
+        // sous-estime la température de 3,6 / 2,5 / 5,7 °C à Tencin / Chambéry / Bessans alors que
+        // l'Open-Meteo brut était à moins de 0,5 °C de la mesure. Cause : la « clarté » V2.1/V2.11
+        //   clarté = 1 − (0,5·bas + 0,35·moy + 0,15·haut)/100/0,9
+        // est LINÉAIRE et additive : une couche unique à 100 % laisse 44 % (bas), 61 % (moyen) ou
+        // 83 % (haut) du refroidissement radiatif du ciel clair, alors que K_RAD a été relevé de
+        // 7,8 à 12,0 en V2.11 (calibré sur une nuit CLAIRE). Le même coefficient amplifiait donc
+        // aussi les nuits couvertes. Le pooling (K_POOL) utilisait la même clarté, sans lien avec
+        // le relief ni la stabilité.
+        //
+        // V2.12 = V2.11 (K_RAD, K_POOL, K_UHI_N… inchangés → ciel clair IDENTIQUE à V2.11) avec :
+        //   1. transmissivité LW multiplicative par couche (recouvrement aléatoire) :
+        //        clarté = (1−A_BAS·bas)(1−A_MOY·moy)(1−A_HAUT·haut)  — mêmes % bas/moyen/haut que la
+        //        coupe nuageuse ; le blocage d'un nuage bas dépend de sa base (même estimateur T−Td
+        //        que la coupe : cloudLowLayerAGL) — un nuage bas rasant (stratus) bloque plus ;
+        //   2. fenêtre NOCTURNE : la clarté de l'heure h est mélangée (NIGHT_MEMORY) à la clarté
+        //        moyenne de la nuit en cours (soirée J−1 dès 20 h + matin J) — le refroidissement
+        //        s'accumule sur toute la nuit ; un brouillard/stratus tardif (conséquence de la
+        //        nappe) n'annule plus tout le refroidissement déjà acquis ;
+        //   3. pooling : sensibilité plus forte à la nébulosité (POOL_CLOUD_EXP) MAIS conservation
+        //        d'un plancher POOL_RETAIN × fermeture du cirque × encaissement (× stabilité d'altitude
+        //        détectée) : une cuvette encaissée garde une part de son inversion sous les nuages ;
+        //   4. la plaine ouverte et l'UHI nocturne utilisent la même clarté nocturne.
+        // Aucun de ces termes n'existe en V2.1/V2.11 (branches inchangées, vérifié bit-à-bit).
+        // ============================================================================
+        const PHYS_MICRO_V212_NEW = {
+            CLOUD_A_LOW: 0.90,       // part du refroidissement LW bloquée par 100 % de nuages bas
+            CLOUD_A_MID: 0.75,       // idem nuages moyens (altostratus épais)
+            CLOUD_A_HIGH: 0.30,      // idem nuages hauts (cirrus : peu opaques en IR)
+            CLOUD_LOW_BASE_W: 0.20,  // réduction du blocage d'un nuage bas dont la base monte à 1700 m
+            CLOUD_CLEAR_EXP: 2.5,    // (calibré sur les relevés du 02/10/2026 ; 1 = désactivé) exposant appliqué à la clarté nocturne (>1 : un ciel partiellement nuageux freine davantage le refroidissement)
+            NIGHT_MEMORY: 0.60,      // poids de la clarté moyenne de la nuit vs. clarté de l'heure
+            POOL_CLOUD_EXP: 1.0,     // exposant de la clarté appliquée au pooling (>1 = plus sensible)
+            POOL_RETAIN: 0.30,       // part max du pooling conservée sous couverture (cirque fermé encaissé)
+            POOL_RETAIN_NOSTAB: 0.50 // multiplicateur du plancher si aucune inversion d'altitude détectée
+        };
+        const PHYS_MICRO_V212 = Object.assign({}, PHYS_MICRO_V211, PHYS_MICRO_V212_NEW);
+
+        // Modèle microclimat sélectionné par l'utilisateur : '2.1' (défaut, inchangé), '2.11' ou '2.12'.
         let microModelVersion = '2.1';
         try {
             const storedMicroModel = localStorage.getItem('metehop_micro_model_v1');
-            if (storedMicroModel === '2.11') microModelVersion = '2.11';
+            if (storedMicroModel === '2.11' || storedMicroModel === '2.12') microModelVersion = storedMicroModel;
         } catch (e) { /* localStorage indisponible : on garde V2.1 */ }
 
         // Point d'entrée unique des coefficients dans le moteur : c'est bien le sélecteur qui
         // pilote le calcul (voir computePhysicalMicroClimateModel), pas seulement l'affichage.
-        function getMicroCoefficients() {
-            return microModelVersion === '2.11' ? PHYS_MICRO_V211 : PHYS_MICRO;
+        // `ver` optionnel : permet de calculer une autre version sans changer la sélection (comparaison).
+        function getMicroCoefficients(ver) {
+            const v = ver || microModelVersion;
+            if (v === '2.12') return PHYS_MICRO_V212;
+            return v === '2.11' ? PHYS_MICRO_V211 : PHYS_MICRO;
         }
 
         function physClamp(x, a, b) { return Math.max(a, Math.min(b, x)); }
@@ -10740,7 +10856,64 @@ render16DayTable();
             } catch (e) { return null; }
         }
 
-        function computePhysicalMicroClimateModel(dayIdx, signals) {
+        // Géométrie du nuage bas par rapport au sol — MÊME estimateur que la « Coupe nuageuse par
+        // altitude » (qui l'appelle) : base ≈ 125 m × écart T−Td (brouillard si ≤ 1 °C), sommet =
+        // base + épaisseur croissante avec la couverture, plafonné à 2 000 m. Renvoie null si une
+        // donnée manque (aucune valeur inventée). p en %, T et Td en °C.
+        function cloudLowLayerAGL(p, T, Td) {
+            if (typeof p !== 'number' || !isFinite(p) || typeof T !== 'number' || !isFinite(T) || typeof Td !== 'number' || !isFinite(Td)) return null;
+            const spread = Math.max(0, T - Td);
+            const agl = spread <= 1 ? 0 : Math.min(1700, Math.max(80, 125 * spread));
+            const top = Math.min(2000, agl + 250 + 6 * p);
+            const base = Math.max(0, Math.min(agl, top - 150));
+            return { agl, top, base };
+        }
+
+        // V2.12 — clarté LW instantanée (1 = ciel clair, 0 = opaque) pour l'index horaire absolu idx
+        // de hourly : transmissivité multiplicative par couche (bas/moyen/haut). null si hors tableau
+        // ou si aucune des trois couches n'est disponible.
+        function physLwClearness212(hourly, idx, C) {
+            if (!hourly || idx < 0) return null;
+            const g = (arr) => (arr && typeof arr[idx] === 'number' && isFinite(arr[idx])) ? physClamp(arr[idx] / 100, 0, 1) : null;
+            const nl = g(hourly.cloud_cover_low), nm = g(hourly.cloud_cover_mid), nh = g(hourly.cloud_cover_high);
+            if (nl === null && nm === null && nh === null) return null;
+            let aLow = C.CLOUD_A_LOW;
+            if (nl !== null && nl > 0 && hourly.temperature_2m && hourly.dew_point_2m) {
+                const geo = cloudLowLayerAGL(nl * 100, hourly.temperature_2m[idx], hourly.dew_point_2m[idx]);
+                if (geo) aLow = C.CLOUD_A_LOW * (1 - C.CLOUD_LOW_BASE_W * physClamp(geo.agl / 1700, 0, 1));
+            }
+            return (1 - aLow * (nl || 0)) * (1 - C.CLOUD_A_MID * (nm || 0)) * (1 - C.CLOUD_A_HIGH * (nh || 0));
+        }
+
+        // V2.12 — clarté LW EFFECTIVE par heure h (0-23) du jour dayIdx : mélange de la clarté de
+        // l'heure et de la moyenne de la NUIT EN COURS. Fenêtre : h ≥ 18 → 18 h..h du même jour ;
+        // sinon soirée de la veille (dès 20 h, seulement si dayIdx ≥ 1 : la prévision ne remonte pas
+        // avant aujourd'hui 00 h) + 00 h..min(h, lever du soleil) du jour.
+        function physNightClearness212(hourly, dayIdx, sunriseH, C) {
+            const base = dayIdx * 24, inst = [], eff = [];
+            const f = (off) => physLwClearness212(hourly, base + off, C);
+            for (let h = 0; h < 24; h++) inst.push(f(h));
+            const out = [];
+            for (let h = 0; h < 24; h++) {
+                const offs = [];
+                if (h >= 18) { for (let o = 18; o <= h; o++) offs.push(o); }
+                else {
+                    for (let o = -4; o <= -1; o++) offs.push(o);
+                    for (let o = 0; o <= Math.min(h, Math.floor(sunriseH)); o++) offs.push(o);
+                }
+                let sum = 0, n = 0;
+                offs.forEach(o => { const v = (o >= 0 && o < 24) ? inst[o] : f(o); if (v !== null && v !== undefined) { sum += v; n++; } });
+                const mean = n ? sum / n : null;
+                const cur = inst[h];
+                if (cur === null && mean === null) out.push(1);
+                else if (cur === null) out.push(mean);
+                else if (mean === null) out.push(cur);
+                else out.push((1 - C.NIGHT_MEMORY) * cur + C.NIGHT_MEMORY * mean);
+            }
+            return (C.CLOUD_CLEAR_EXP === 1) ? out : out.map(v => Math.pow(v, C.CLOUD_CLEAR_EXP));
+        }
+
+        function computePhysicalMicroClimateModel(dayIdx, signals, versionOverride) {
             if (!weatherData || !weatherData.hourly || !weatherData.hourly.temperature_2m) return null;
             const sig = ensurePhysSignals(signals);
             const phys = sig.phys || { svf: 0.9, enclosureM: 50, slopeDeg: 0, closedFrac: 0.2, degraded: true };
@@ -10755,7 +10928,8 @@ render16DayTable();
             const nearestWater = sig.nearestWater;
             // Jeu de coefficients selon le modèle choisi dans "Metehop pour les geeks" :
             // PHYS_MICRO (V2.1, défaut) ou PHYS_MICRO_V211 (V2.11). Aucune autre différence.
-            const C = getMicroCoefficients();
+            const C = getMicroCoefficients(versionOverride);
+            const isV212 = (versionOverride || microModelVersion) === '2.12';
             const sunriseH = physSunriseHour(dayIdx);
             const hourly = weatherData.hourly;
             const dayStart = dayIdx * 24;
@@ -10780,6 +10954,16 @@ render16DayTable();
             // Forte inversion d'altitude (couches OM) → stagnation favorisée
             const fStag = (freeAtm && freeAtm.invAloft > 2) ? 1.12 : 1.0;
 
+            // V2.12 : clarté LW nocturne effective (par couche, fenêtre de nuit) + pooling sous nuages.
+            // Pour V2.1/V2.11 : effClear reste null et clrLW/clrPool = clarté d'origine (aucun changement).
+            let effClear = null, cloudInfo = null;
+            let poolRetain = 0;
+            if (isV212) {
+                effClear = physNightClearness212(hourly, dayIdx, sunriseH, C);
+                poolRetain = C.POOL_RETAIN * closed * physClamp(encM / 400, 0, 1)
+                    * ((fStag > 1) ? 1 : C.POOL_RETAIN_NOSTAB);
+            }
+
             const components = { pool: [], rad: [], uhiN: [], plain: [], resid: [], uhiD: [], aspect: [], vday: [] };
             const hourlyDelta = [];
             let maxNightDelta = 0, maxDayDelta = 0;
@@ -10795,6 +10979,8 @@ render16DayTable();
                 const cloudTotal = (typeof hourly.cloud_cover[idx] === 'number') ? hourly.cloud_cover[idx] : (low + mid + high) / 3;
                 // clarté LW : low pèse moins (brouillard = conséquence de la nappe)
                 const clearness = physClamp(1 - (0.5 * low + 0.35 * mid + 0.15 * high) / 100 / 0.9, 0, 1);
+                const clrLW = isV212 ? effClear[h] : clearness;
+                const clrPool = isV212 ? (poolRetain + (1 - poolRetain) * Math.pow(effClear[h], C.POOL_CLOUD_EXP)) : clearness;
                 // vent effectif au sol (abrité si encaissé)
                 const uEff = wind * (0.4 + 0.6 * svf);
                 const fWind = Math.pow(physClamp(1 - uEff / C.WIND_REF, 0, 1), C.WIND_EXP);
@@ -10802,16 +10988,16 @@ render16DayTable();
                 const wNight = physNocturnalWeight(h, sunriseH);
 
                 // 1. Rayonnement LW nocturne
-                const dRad = -C.K_RAD * clearness * fWind * urbanMix * (0.55 + 0.45 * skyLoss) * (0.35 + 0.65 * flat) * fLocal;
+                const dRad = -C.K_RAD * clrLW * fWind * urbanMix * (0.55 + 0.45 * skyLoss) * (0.35 + 0.65 * flat) * fLocal;
                 // 2. Cold-air-pooling
-                const dPool = -C.K_POOL * skyLoss * fEnc * clearness * fWind * drainageMix * flat * closed * fLocal * fStag;
+                const dPool = -C.K_POOL * skyLoss * fEnc * clrPool * fWind * drainageMix * flat * closed * fLocal * fStag;
                 // 3. Plaine ouverte
                 const dPlain = (svf > 0.9 && encM < 80 && elev < 400)
-                    ? -C.K_PLAIN * clearness * fWind * urbanMix : 0;
+                    ? -C.K_PLAIN * clrLW * fWind * urbanMix : 0;
                 // 4. UHI nocturne
                 let dUhiN = 0;
                 if (oke != null && ((pop >= 150000 && wind < 6) || pop >= 1500000)) {
-                    dUhiN = oke * C.K_UHI_N * clearness * physClamp(1 - wind / 25, 0, 1);
+                    dUhiN = oke * C.K_UHI_N * clrLW * physClamp(1 - wind / 25, 0, 1);
                 }
 
                 const dNoct = (dRad + dPool + dPlain) * wNight + dUhiN * wNight;
@@ -10904,6 +11090,15 @@ render16DayTable();
             if (hasVday) {
                 chips.push({ emoji: '🌄', alert: false, label: `Chaleur piégée en vallée basse — <strong>+${Number(Math.max(...components.vday)).toFixed(1)}°C jour</strong>` });
             }
+            if (isV212) {
+                let cm = 0, cn = 0;
+                for (let h = 5; h <= 9; h++) { cm += effClear[h]; cn++; }
+                const morningClear = cn ? cm / cn : 1;
+                cloudInfo = { morningClearness: Math.round(morningClear * 100) / 100, poolRetain: Math.round(poolRetain * 100) / 100, hourlyClearness: effClear.map(v => Math.round(v * 100) / 100) };
+                if (morningClear < 0.6 && (hasPool || hasPlain || poolAm <= -0.1)) {
+                    chips.push({ emoji: '☁️', alert: false, label: `Nébulosité nocturne : refroidissement radiatif limité à <strong>${Math.round(morningClear * 100)} %</strong> du ciel clair <em>(couches bas/moyen/haut, nuit en cours)</em>` });
+                }
+            }
             if (waterDetected) {
                 chips.push({ emoji: '🌊', alert: false, label: 'Cours d\'eau / plan d\'eau proche (effet modérateur)' });
             }
@@ -10934,6 +11129,7 @@ render16DayTable();
                 valley, uhi, nightUhi, plainCool, dayMod,
                 chips,
                 waterDetected,
+                ...(cloudInfo ? { cloudInfo } : {}),
                 hourlySource: hasPool ? 'valley' : (hasUhiD || hasUhiN ? 'uhi' : (hasAspect || hasVday ? 'max-jour' : 'phys'))
             };
         }
@@ -10957,6 +11153,7 @@ render16DayTable();
         // coût perceptible. Corrigé le 05/09/2026 : c'est cet appel, absent du changement de jour
         // jusqu'ici, qui manquait pour que l'encart se recalcule en passant d'un jour à l'autre.
         function renderLocalEffectsPanel(dayIdx) {
+            try { renderMicroModelCompare(dayIdx); } catch (e) { /* comparaison optionnelle */ }
             const note = document.getElementById('local-effects-note');
             const list = document.getElementById('local-effects-list');
             if (!microClimateEnabled) {
@@ -16090,14 +16287,11 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 const tArr = hourly.temperature_2m ? hourly.temperature_2m.slice(start, end) : [];
                 const tdArr = hourly.dew_point_2m ? hourly.dew_point_2m.slice(start, end) : [];
                 const gAlt = locAlt !== null ? locAlt : 0;
+                // Estimateur partagé avec le modèle Microclimat V2.12 (cloudLowLayerAGL) : un seul calcul.
                 const lowRanges = times.map((_, i) => {
-                    const p = pct[0][i], T = num(tArr[i]), Td = num(tdArr[i]);
-                    if (p === null || T === null || Td === null) return [CLOUD_BANDS[0].lo, CLOUD_BANDS[0].hi];
-                    const spread = Math.max(0, T - Td);
-                    const agl = spread <= 1 ? 0 : Math.min(1700, Math.max(80, 125 * spread));
-                    const top = Math.min(2000, agl + 250 + 6 * p);
-                    const base = Math.min(agl, top - 150);
-                    return [gAlt + Math.max(0, base), gAlt + top];
+                    const g = cloudLowLayerAGL(pct[0][i], num(tArr[i]), num(tdArr[i]));
+                    if (!g) return [CLOUD_BANDS[0].lo, CLOUD_BANDS[0].hi];
+                    return [gAlt + g.base, gAlt + g.top];
                 });
                 const layerRange = (b) => b.top ? CLOUD_HIGH_ROW : [b.lo, Math.min(b.hi, CLOUD_MID_TOP_DRAWN)];
                 const barDs = CLOUD_BANDS.map((b, bi) => {
