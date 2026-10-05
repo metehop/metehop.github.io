@@ -5965,8 +5965,42 @@
             75: { icon: 'fa-snowflake', label: 'Neige forte' },
             80: { icon: 'fa-cloud-sun-rain', label: 'Averses' },
             85: { icon: 'fa-snowflake', label: 'Av. neige' },
-            95: { icon: 'fa-cloud-bolt', label: 'Orage' }
+            95: { icon: 'fa-cloud-bolt', label: 'Orage' },
+            // Codes WMO ajoutés (07/10/2026) : leur absence faisait retomber sur "Ensoleillé" (wmoMap[0]).
+            48: { icon: 'fa-smog', label: 'Brouillard givrant' },
+            53: { icon: 'fa-cloud-rain', label: 'Bruine' },
+            55: { icon: 'fa-cloud-rain', label: 'Bruine forte' },
+            56: { icon: 'fa-cloud-rain', label: 'Bruine verglaçante' },
+            57: { icon: 'fa-cloud-rain', label: 'Bruine verglaçante' },
+            66: { icon: 'fa-cloud-showers-heavy', label: 'Pluie verglaçante' },
+            67: { icon: 'fa-cloud-showers-heavy', label: 'Pluie verglaçante' },
+            77: { icon: 'fa-snowflake', label: 'Grains de neige' },
+            81: { icon: 'fa-cloud-sun-rain', label: 'Averses mod.' },
+            82: { icon: 'fa-cloud-showers-heavy', label: 'Averses fortes' },
+            86: { icon: 'fa-snowflake', label: 'Av. neige forte' },
+            96: { icon: 'fa-cloud-bolt', label: 'Orage grêle' },
+            99: { icon: 'fa-cloud-bolt', label: 'Orage grêle' }
         };
+        // Recherche d'une condition WMO ; code inconnu/absent => nuage neutre, jamais soleil.
+        function wmoCond(code) {
+            const c = (typeof code === 'number' && isFinite(code)) ? Math.round(code) : null;
+            return (c !== null && wmoMap[c]) || { icon: 'fa-cloud', label: 'Indéterminé' };
+        }
+        // Code représentatif d'une journée (6h-20h) pour le carrousel : phénomène le plus sévère
+        // présent au moins 2 h (orage : 1 h), sinon code le plus fréquent. Aligné avec le tableau 16j / le trio.
+        function wmoDayCode(start) {
+            const arr = weatherData.hourly.weather_code || [];
+            const rank = c => c >= 95 ? 8 : (c >= 71 && c <= 77) || c === 85 || c === 86 ? 7 : (c >= 61 && c <= 67) || (c >= 80 && c <= 82) ? 6 : (c >= 51 && c <= 57) ? 5 : (c === 45 || c === 48) ? 4 : c;
+            const codes = [];
+            for (let h = 6; h <= 20; h++) { const c = arr[start + h]; if (typeof c === 'number' && isFinite(c)) codes.push(Math.round(c)); }
+            if (!codes.length) return null;
+            const mode = list => { const m = {}; list.forEach(c => m[c] = (m[c] || 0) + 1); return +Object.keys(m).sort((a, b) => m[b] - m[a])[0]; };
+            for (let r = 8; r >= 4; r--) {
+                const hits = codes.filter(c => rank(c) === r);
+                if (hits.length >= (r === 8 ? 1 : 2)) return mode(hits);
+            }
+            return mode(codes.filter(c => rank(c) <= 3).length ? codes.filter(c => rank(c) <= 3) : codes);
+        }
 
         function calculateDistance(lat1, lon1, lat2, lon2) {
             const R = 6371;
@@ -7458,7 +7492,7 @@ function applyDisplayMode() {
                 const r = results[i];
                 const label = `${p.time.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })} ${p.time.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
                 if (!r) return `<tr><td>${label}</td><td colspan="4" style="color:var(--text-muted);">Indisponible</td></tr>`;
-                const cond = wmoMap[r.code] || wmoMap[0];
+                const cond = wmoCond(r.code);
                 return `<tr>
                     <td>${label}</td>
                     <td><i class="fa-solid ${cond.icon}"></i> ${cond.label}</td>
@@ -14802,8 +14836,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 const adjustedTemps = applyMicroClimateToTemps(temps, hourOffsetsCarousel, idx);
                 const maxT = Math.round(Math.max(...adjustedTemps));
                 const minT = Math.round(Math.min(...adjustedTemps));
-                const code = weatherData.hourly.weather_code[start + 12] || 0;
-                const cond = wmoMap[code] || wmoMap[0];
+                const cond = wmoCond(wmoDayCode(start));
 
                 const tab = document.createElement('div');
                 // Corrigé le 06/09/2026 : reconstruire ce carrousel après coup (nouvel ajustement
@@ -15426,7 +15459,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
             const rawCurrentTemp = weatherData.hourly.temperature_2m[currentHourIdx] ?? weatherData.hourly.temperature_2m[start + 12];
             const currentHourOfDay = (dayIdx === 0) ? now.getHours() : 12;
             const currentCode = weatherData.hourly.weather_code[currentHourIdx] || 0;
-            const cond = wmoMap[currentCode] || wmoMap[0];
+            const cond = wmoCond(currentCode);
             const isDayNow = weatherData.hourly.is_day ? weatherData.hourly.is_day[currentHourIdx] : 1;
 
             // Le code météo 0 ("Ensoleillé") ne veut rien dire la nuit : on l'affiche comme "Nuit claire".
@@ -15492,7 +15525,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 const idx = start + h;
                 const code = weatherData.hourly.weather_code ? (weatherData.hourly.weather_code[idx] || 0) : 0;
                 const isDayAt = weatherData.hourly.is_day ? weatherData.hourly.is_day[idx] : 1;
-                const c = wmoMap[code] || wmoMap[0];
+                const c = wmoCond(code);
                 return (isDayAt === 0 && code === 0) ? { icon: 'fa-moon', label: 'Nuit claire' } : c;
             };
             [['morning', 9], ['afternoon', 15], ['evening', 20]].forEach(([key, h]) => {
@@ -15658,7 +15691,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 const hCode = weatherData.hourly.weather_code[i] || 0;
                 const hRain = weatherData.hourly.rain ? (weatherData.hourly.rain[i] || 0) : (weatherData.hourly.precipitation[i] || 0);
                 const hSnow = weatherData.hourly.snowfall ? (weatherData.hourly.snowfall[i] || 0) : 0;
-                const hCond = wmoMap[hCode] || wmoMap[0];
+                const hCond = wmoCond(hCode);
                 const isCurrentHour = (i === currentHourIdx);
                 if (isCurrentHour) currentHourItemIndex = i - start;
 
@@ -20106,8 +20139,8 @@ async function loadInversionLevels(lat, lon){
                 const dayStr = day === 0 ? "Aujourd'hui" : d.toLocaleDateString('fr-FR', { weekday: 'short' });
                 const dateNum = d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 
-                const condMatin = wmoMap[weatherData.hourly.weather_code[start + 9] || 0] || wmoMap[0];
-                const condApres = wmoMap[weatherData.hourly.weather_code[start + 15] || 0] || wmoMap[0];
+                const condMatin = wmoCond(weatherData.hourly.weather_code[start + 9]);
+                const condApres = wmoCond(weatherData.hourly.weather_code[start + 15]);
                 const temps = weatherData.hourly.temperature_2m.slice(start, start + 24);
                 // Corrigé le 05/09/2026 : chaque jour du tableau applique désormais SON PROPRE
                 // ajustement micro-climat (favorabilité météo ce jour-là), et non plus uniquement
