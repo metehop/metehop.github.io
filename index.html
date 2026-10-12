@@ -3325,11 +3325,12 @@
                     </div>
                     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                         <div class="card-sage-sub" id="evo-chart-note">Estimation Metehop à partir du radar, par tranches de 10 minutes</div>
-                        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;" title="Choix du suivi : auto (diagnostic par analyse : multi-noyaux si scission, coeur decentre ou convection, sinon enveloppe), enveloppe (classique), ou multi-noyaux ≥40 dBZ force (segmentation multi-seuils façon SCIT/TITAN).">
+                        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;" title="Choix du suivi : auto (diagnostic par analyse : multi-noyaux si scission, coeur decentre ou convection ; fusion si coeur unique modérement decentré ; sinon enveloppe), fusion (une entité par enveloppe positionnée sur le coeur actif pondéré par l'intensité), enveloppe (classique), ou multi-noyaux ≥40 dBZ force (segmentation multi-seuils façon SCIT/TITAN).">
                             <span style="font-size:0.62rem;color:var(--text-muted);font-weight:700;">noyaux</span>
                             <select id="multicore-mode" onchange="onCoreModeChange()" title="Mode de suivi des cellules" style="font-size:0.62rem;font-weight:700;color:var(--primary-dark);background:#ffffff;border:none;border-radius:6px;padding:3px 5px;cursor:pointer;outline:none;">
                                 <option value="auto">auto</option>
                                 <option value="mono">enveloppe</option>
+                                <option value="fusion">fusion</option>
                                 <option value="multi">multi-noyaux</option>
                             </select>
                         </div>
@@ -4858,7 +4859,7 @@
                  à chaque modification livrée de ce fichier, mets à jour la ligne juste en-dessous
                  (footer-last-update) avec la date du jour (format JJ/MM/AAAA) et incrémente le
                  numéro de version de 1. Ne saute jamais un numéro, ne le laisse jamais inchangé. -->
-            <div class="footer-last-update">Dernière mise à jour : 01/10/2026 - 169</div>
+            <div class="footer-last-update">Dernière mise à jour : 12/10/2026 - 170</div>
         </footer>
 
     </div>
@@ -9708,10 +9709,11 @@ render16DayTable();
                     loadNearbyStation({silent: currentGroup !== 'eau'}).catch(()=>{});
                     startNearbyStationAutoRefresh();
                 }
+                // Marqueur de chargement pour setGroup() : l'appel réseau ci-dessus couvre déjà
+                // les deux cas (visible si onglet Eau, silencieux sinon) — plus de second appel
+                // redondant ici (correction performance 09/10/2026 : la station était fetchée
+                // deux fois lorsque l'onglet Eau était actif au changement de lieu).
                 nearbyStationLoaded = (currentGroup === 'eau' && nearbyStationInRange);
-                if (nearbyStationLoaded) {
-                    if (currentGroup === 'eau') loadNearbyStation({silent: false}).catch(()=>{});
-                }
                 try { updateHeroLiveTemp(); } catch(e) {}
                 // Balise Pioupiou/OpenWindMap la plus proche : même carte/onglet que la station Tencin
                 // ci-dessus (fusionnées dans la même zone), toujours recherchée quel que soit le lieu
@@ -11759,7 +11761,8 @@ render16DayTable();
 
         function setEvoLoading(msg) {
             const mods = [];
-            if (metehopCoresActiveNow) mods.push(metehopCoreMode === 'auto' ? 'noyaux \u226540 dBZ (auto)' : 'noyaux \u226540 dBZ');
+            if (metehopFusionActiveNow) mods.push(metehopCoreMode === 'auto' ? 'fusion (auto)' : 'fusion');
+            else if (metehopCoresActiveNow) mods.push(metehopCoreMode === 'auto' ? 'noyaux \u226540 dBZ (auto)' : 'noyaux \u226540 dBZ');
             else if (metehopCoreMode === 'auto' && metehopCoreAutoReason) mods.push('enveloppe (auto)');
             if (metehopTrecActiveNow) mods.push('TREC');
             let suffix = mods.length ? ' [' + mods.join('+') + ']' : '';
@@ -11822,6 +11825,14 @@ render16DayTable();
         }
 
         const ALPHA_THRESHOLD = 70;
+        // Seuil bas anti-faux-positif "pluie fine" (correction 09/10/2026) : dans le barème
+        // "Universal Blue" de RainViewer, les teintes bleues (vraie pluie détectable) ne commencent
+        // qu'à 15 dBZ ; en-dessous, les teintes brunâtre/grises correspondent à du clutter de
+        // sol / propagation anormale / voile de nébulosité — jamais à de la précipitation qui
+        // atteint le sol. Un pixel de cette famille, même avec alpha > seuil, déclenchait à tort
+        // "Pluie fine sur votre position" par ciel très nuageux. On classifie donc explicitement
+        // tout écho < 15 dBZ comme 'none' (voir classifyByDbz et alreadyRaining plus bas).
+        const RAIN_LIGHT_MIN_DBZ = 15;
         const EVO_HORIZON_HOURS = EVO_BIN_COUNT * EVO_BIN_MINUTES / 60; // durée totale du graphique (3h actuellement)
         // Vitesse de déplacement maximale documentée pour un système pluvieux rapide en Europe :
         // les lignes de grains se déplacent le plus souvent à moins de 56 km/h (30 nœuds), mais les
@@ -11930,6 +11941,9 @@ render16DayTable();
             }
             if (dbz >= 45) return { type: 'storm', color: '#ef4444', mmEquiv: round1(rainRate) };
             if (dbz >= 35) return { type: 'rain_heavy', color: '#0284c7', mmEquiv: round1(rainRate) };
+            // Pluie fine : seuil bas (voir RAIN_LIGHT_MIN_DBZ) — un écho < 15 dBZ est du
+            // clutter/voile de nébulosité, pas de la vraie pluie (correction faux positifs).
+            if (dbz < RAIN_LIGHT_MIN_DBZ) return { type: 'none', color: 'transparent', mmEquiv: 0 };
             return { type: 'rain_light', color: '#7dd3fc', mmEquiv: round1(rainRate) };
         }
 
@@ -12204,18 +12218,20 @@ render16DayTable();
         const MULTICORE_MIN_PIXELS = 6; // un noyau peut etre petit : son coeur intense compte, pas sa surface
         const MULTICORE_MAX_PER_ENVELOPE = 3; // au-dela, on ne garde que les 3 noyaux les plus massifs
         const CORE_AUTO_DECENTER_RATIO = 0.6; // au-dela de 60% du rayon, le centroide d'enveloppe est juge trompeur
-        let metehopCoreMode = 'auto'; // 'auto' | 'mono' | 'multi'
+        const FUSION_DECENTER_MIN = 0.3; // en-deca de ce decentrement, l'enveloppe suffit ; au-dela (et <= CORE_AUTO_DECENTER_RATIO), la fusion evite le saut brutal noyaux
+        let metehopCoreMode = 'auto'; // 'auto' | 'mono' | 'fusion' | 'multi'
         let metehopCoresActiveNow = false; // vrai pendant une analyse loadEvoMetehop utilisant les noyaux (suffixe de setEvoLoading)
+        let metehopFusionActiveNow = false; // vrai pendant une analyse utilisant le 3e mode "fusion" (enveloppe + coeur pondéré)
         let metehopCoreAutoReason = ''; // motif du diagnostic auto, pour le suffixe de setEvoLoading
         try {
             const savedMode = localStorage.getItem('metehop_coremode_v1');
-            if (savedMode === 'mono' || savedMode === 'multi' || savedMode === 'auto') metehopCoreMode = savedMode;
+            if (savedMode === 'mono' || savedMode === 'multi' || savedMode === 'fusion' || savedMode === 'auto') metehopCoreMode = savedMode;
             else if (localStorage.getItem('metehop_multicore_v1') === '1') metehopCoreMode = 'multi'; // migration de l'ancien toggle
         } catch (e) { /* preference non persistee */ }
         function onCoreModeChange() {
             const el = document.getElementById('multicore-mode');
             const v = el && el.value;
-            metehopCoreMode = (v === 'mono' || v === 'multi') ? v : 'auto';
+            metehopCoreMode = (v === 'mono' || v === 'multi' || v === 'fusion') ? v : 'auto';
             try { localStorage.setItem('metehop_coremode_v1', metehopCoreMode); } catch (e) { /* tant pis */ }
             loadEvoMetehop().catch(() => {});
         }
@@ -12229,30 +12245,36 @@ render16DayTable();
             const el = document.getElementById('multicore-mode');
             if (el) el.value = metehopCoreMode;
         });
-        // ---- Diagnostic automatique mono-enveloppe vs multi-noyaux (10/09/2026) ----
+        // ---- Diagnostic automatique mono-enveloppe / fusion / multi-noyaux (10/09/2026,
+        // étendu au 3e mode "fusion" le 09/10/2026) ----
         // decideCoreModeAuto() examine la DERNIERE image uniquement (pas de surcout notable :
-        // une seule passe d'extraction) et renvoie { useCores, reason }. Regles, par ordre :
+        // une seule passe d'extraction) et renvoie { useCores, useFusion, reason }. Regles, dans
+        // l'ordre exact d'évaluation du code ci-dessous :
         // 1. neige -> enveloppes (les noyaux >=40 dBZ n'existent quasiment jamais en neige) ;
         // 2. aucun coeur >=40 dBZ -> enveloppes (pluie stratiforme : le mode noyaux serait
         //    identique aux enveloppes, voir buildMultiCoreRepLists) ;
         // 3. au moins une enveloppe a >=2 coeurs -> noyaux (scission : deux systemes actifs
         //    sous le meme contour, le centroide d'enveloppe ne suit ni l'un ni l'autre) ;
-        // 4. coeur unique mais decentre a plus de CORE_AUTO_DECENTER_RATIO du rayon ->
-        //    noyaux (cellule difforme/arc : le centroide tombe loin du coeur actif, voire au sec) ;
+        // 4. coeur unique fortement decentre (> CORE_AUTO_DECENTER_RATIO) -> noyaux (cellule
+        //    difforme/arc : le centroide tombe loin du coeur actif, voire au sec) ;
         // 5. coeur convectif (pic orage/grele) -> noyaux (le suivi du coeur donne une vitesse
         //    et une tendance representatives du systeme dangereux, pas de la traine stratiforme) ;
-        // 6. sinon -> enveloppes (coeur unique centre : l'enveloppe suffit, plus stable car
+        // 6. coeur unique modérement decentre (entre FUSION_DECENTER_MIN et CORE_AUTO_DECENTER_RATIO,
+        //    non convectif) -> fusion (le centroide d'enveloppe est legerement trompeur, mais pas
+        //    assez pour justifier un saut brutal aux noyaux ; la fusion garde UNE entite stable
+        //    tout en positionnant le point sur le coeur actif) ;
+        // 7. sinon -> enveloppes (coeur unique centre : l'enveloppe suffit, plus stable car
         //    plus massive que son noyau).
         function decideCoreModeAuto(lastFrame, lastImgData, isSnowMode, locKey) {
-            if (isSnowMode) return { useCores: false, reason: 'neige : enveloppes' };
+            if (isSnowMode) return { useCores: false, useFusion: false, reason: 'neige : enveloppes' };
             if (!lastFrame || !lastFrame.cells || !lastFrame.cells.length || !lastFrame.labels || !lastImgData) {
-                return { useCores: false, reason: 'aucune cellule' };
+                return { useCores: false, useFusion: false, reason: 'aucune cellule' };
             }
             let coresByParent = null;
             try { coresByParent = extractCoresSinglePass(lastImgData, lastFrame.labels, MULTICORE_DBZ_THRESHOLD); }
-            catch (e) { return { useCores: false, reason: 'diagnostic indisponible' }; }
+            catch (e) { return { useCores: false, useFusion: false, reason: 'diagnostic indisponible' }; }
             if (!coresByParent || !coresByParent.size) {
-                return { useCores: false, reason: 'pluie stratiforme (aucun coeur >=40 dBZ)' };
+                return { useCores: false, useFusion: false, reason: 'pluie stratiforme (aucun coeur >=40 dBZ)' };
             }
             let nMulti = 0, nCores = 0, maxDecenter = 0, convective = false;
             lastFrame.cells.forEach(env => {
@@ -12270,19 +12292,25 @@ render16DayTable();
                     if (peakType === 'storm' || peakType === 'hail' || peakType === 'hail_candidate') convective = true;
                 } catch (e) { /* classification optionnelle */ }
             });
-            if (!nCores) return { useCores: false, reason: 'pluie stratiforme (aucun coeur >=40 dBZ)' };
+            if (!nCores) return { useCores: false, useFusion: false, reason: 'pluie stratiforme (aucun coeur >=40 dBZ)' };
             // Pluie faible observee sur place, dans une enveloppe sans coeur ni convection : l'enveloppe
             // decrit mieux la situation locale que des noyaux eloignes.
             try {
                 if (typeof locKey === 'number' && lastFrame.labels[locKey] >= 0 && !convective && nMulti === 0) {
                     const hostId = lastFrame.labels[locKey];
-                    if (!(coresByParent.get(hostId) || []).length) return { useCores: false, reason: 'pluie faible sur place sans coeur (enveloppe)' };
+                    if (!(coresByParent.get(hostId) || []).length) return { useCores: false, useFusion: false, reason: 'pluie faible sur place sans coeur (enveloppe)' };
                 }
             } catch (e) { /* optionnel */ }
-            if (nMulti > 0) return { useCores: true, reason: nMulti + ' enveloppe(s) a coeurs multiples (scission)' };
-            if (maxDecenter > CORE_AUTO_DECENTER_RATIO) return { useCores: true, reason: 'coeur decentre (cellule difforme)' };
-            if (convective) return { useCores: true, reason: 'coeur convectif >=40 dBZ' };
-            return { useCores: false, reason: 'coeur unique centre (enveloppe suffisante)' };
+            if (nMulti > 0) return { useCores: true, useFusion: false, reason: nMulti + ' enveloppe(s) a coeurs multiples (scission)' };
+            if (maxDecenter > CORE_AUTO_DECENTER_RATIO) return { useCores: true, useFusion: false, reason: 'coeur decentre (cellule difforme)' };
+            if (convective) return { useCores: true, useFusion: false, reason: 'coeur convectif >=40 dBZ' };
+            // 3e cas (09/10/2026) : coeur unique modérement decentre, non convectif -> fusion.
+            // Le centroide d'enveloppe est legerement trompeur (leger deplacement vers le coeur)
+            // mais pas assez pour justifier un saut brutal aux noyaux ; la fusion garde UNE entite
+            // stable par enveloppe tout en suivant le coeur actif. Comportement enveloppe/noyaux
+            // des cas ci-dessus strictement inchange.
+            if (maxDecenter > FUSION_DECENTER_MIN) return { useCores: false, useFusion: true, reason: 'coeur unique modérement decentre (fusion)' };
+            return { useCores: false, useFusion: false, reason: 'coeur unique centre (enveloppe suffisante)' };
         }
         // ---- Vent TREC (1) : toujours actif (toggle retire le 11/09/2026 sur demande) ----
         const metehopTrecEnabled = true;
@@ -12373,6 +12401,54 @@ render16DayTable();
                             minPx: env.minPx, maxPx: env.maxPx, minPy: env.minPy, maxPy: env.maxPy,
                             envCount: env.count, isCore: true
                         });
+                    });
+                });
+                return reps;
+            });
+        }
+        // ---- 3e algorithme "fusion" (unifié enveloppe + noyaux, 09/10/2026) ----
+        // Construit, pour CHAQUE image, une liste d'entités à suivre qui FUSIONNE les deux
+        // représentations existantes : UNE seule entité par enveloppe (comme en mode enveloppe —
+        // stabilité, pas de fragmentation), mais positionnée sur le centroïde PONDÉRÉ PAR
+        // L'INTENSITÉ des noyaux ≥40 dBZ de cette enveloppe (comme en mode noyaux — le point
+        // suit le coeur actif, pas la traine stratiforme). Poids d'un noyau = son dBZ moyen
+        // (reflet de l'intensité réelle), pas sa surface, pour qu'un petit noyau intense pèse
+        // davantage qu'une vaste zone faible. Enveloppe SANS noyau : l'enveloppe reste l'entité
+        // (identique aux deux autres modes). Sortie de même forme que buildMultiCoreRepLists /
+        // les cellules brutes, donc consommable par trackAllCellsBackward/projectTrackToBins
+        // SANS MODIFICATION. Ne remplace ni l'enveloppe ni les noyaux : c'est un 3e choix
+        // explicite (select "fusion") et un cas du diagnostic auto (voir decideCoreModeAuto).
+        function buildFusionRepLists(imageDatas, cellFrames) {
+            return imageDatas.map((f, i) => {
+                const frame = cellFrames[i];
+                const envCells = frame.cells;
+                const envLabels = frame.labels;
+                if (!envCells.length || !envLabels) return envCells.slice();
+                const coresByParent = extractCoresSinglePass(f.data, envLabels, MULTICORE_DBZ_THRESHOLD);
+                const reps = [];
+                envCells.forEach(env => {
+                    const cores = (coresByParent.get(env.cellId) || []).sort((a, b) => b.count - a.count).slice(0, MULTICORE_MAX_PER_ENVELOPE);
+                    if (!cores.length) {
+                        reps.push({ ...env, isCore: false, isFusion: true });
+                        return;
+                    }
+                    // Centroïde fusionné : moyenne des positions de coeur pondérée par le dBZ moyen
+                    // de chaque coeur (intensité), bornée à [0,1] via un plancher de poids pour
+                    // qu'un coeur très faible (mais >= seuil) ne puisse pas être complètement
+                    // ignoré s'il est le seul.
+                    let sumW = 0, sumWX = 0, sumWY = 0;
+                    cores.forEach(core => {
+                        const w = Math.max(0.1, core.avgDbz);
+                        sumW += w; sumWX += w * core.cx; sumWY += w * core.cy;
+                    });
+                    reps.push({
+                        cellId: env.cellId,
+                        cx: sumWX / sumW, cy: sumWY / sumW,
+                        count: env.count, avgDbz: env.avgDbz,
+                        peakR: env.peakR, peakG: env.peakG, peakB: env.peakB, peakAlpha: env.peakAlpha,
+                        maxAlpha: env.maxAlpha,
+                        minPx: env.minPx, maxPx: env.maxPx, minPy: env.minPy, maxPy: env.maxPy,
+                        envCount: env.count, isCore: true, isFusion: true
                     });
                 });
                 return reps;
@@ -13174,14 +13250,19 @@ render16DayTable();
                 const lastImg = imageDatas[imageDatas.length - 1].data;
                 const idxNow = (cy * 768 + cx) * 4;
                 const rNow = lastImg.data[idxNow], gNow = lastImg.data[idxNow + 1], bNow = lastImg.data[idxNow + 2], alphaNow = lastImg.data[idxNow + 3];
-                const alreadyRaining = alphaNow > ALPHA_THRESHOLD;
+                // "Pluie déjà présente" : alpha > seuil ET dBZ réel de pluie (>= RAIN_LIGHT_MIN_DBZ).
+                // Un pixel brunâtre/voile (clutter, ciel très nuageux sans pluie) a parfois un alpha
+                // élevé mais un dBZ < 15 : sans cette seconde condition, il déclenchait à tort
+                // "Pluie fine sur votre position" (correction faux positifs 09/10/2026).
+                const alreadyRaining = alphaNow > ALPHA_THRESHOLD && estimateDbzFromRgb(rNow, gNow, bNow) >= RAIN_LIGHT_MIN_DBZ;
 
                 const nowTemp = getCurrentTempEstimate();
                 const isSnowMode = typeof nowTemp === 'number' && nowTemp <= 0.5;
-                // Le choix noyaux/enveloppes est tranche PLUS BAS, apres construction des
+                // Le choix noyaux/fusion/enveloppes est tranche PLUS BAS, apres construction des
                 // enveloppes (le diagnostic auto a besoin de la derniere image). En attendant,
-                // aucune hypothese : les deux drapeaux sont re virginises ici a chaque analyse.
+                // aucune hypothese : les drapeaux sont re virginises ici a chaque analyse.
                 metehopCoresActiveNow = false;
+                metehopFusionActiveNow = false;
                 metehopCoreAutoReason = '';
                 const precipUnit = isSnowMode ? 'cm/10min' : 'mm/10min';
                 const precipAxisColor = isSnowMode ? '#8b5cf6' : '#5a9bd4';
@@ -13220,20 +13301,30 @@ render16DayTable();
                     if (rawLast.cells.length) cellFrames[cellFrames.length - 1] = rawLast;
                 }
                 // 2e temps : choix du modele — force (select) ou diagnostic auto (voir
-                // decideCoreModeAuto). Le mode noyaux reste sans effet en mode neige.
+                // decideCoreModeAuto). Le mode noyaux/fusion reste sans effet en mode neige
+                // (retour enveloppes). Les deux drapeaux (noyaux, fusion) sont exclusifs.
                 if (metehopCoreMode === 'multi') {
                     metehopCoresActiveNow = !isSnowMode;
+                    metehopFusionActiveNow = false;
                     metehopCoreAutoReason = isSnowMode ? 'neige : enveloppes' : 'mode force multi-noyaux';
+                } else if (metehopCoreMode === 'fusion') {
+                    metehopCoresActiveNow = false;
+                    metehopFusionActiveNow = !isSnowMode;
+                    metehopCoreAutoReason = isSnowMode ? 'neige : enveloppes' : 'mode force fusion';
                 } else if (metehopCoreMode === 'mono') {
                     metehopCoresActiveNow = false;
+                    metehopFusionActiveNow = false;
                     metehopCoreAutoReason = '';
                 } else {
                     const decision = decideCoreModeAuto(cellFrames[cellFrames.length - 1], imageDatas[imageDatas.length - 1].data, isSnowMode, cy * 768 + cx);
                     metehopCoresActiveNow = decision.useCores;
+                    metehopFusionActiveNow = !decision.useCores && !!decision.useFusion;
                     metehopCoreAutoReason = decision.reason;
                 }
                 const useCoresActive = metehopCoresActiveNow;
-                const cellFramesList = useCoresActive ? buildMultiCoreRepLists(imageDatas, cellFrames) : cellFrames.map(f => f.cells);
+                const cellFramesList = useCoresActive
+                    ? buildMultiCoreRepLists(imageDatas, cellFrames)
+                    : (metehopFusionActiveNow ? buildFusionRepLists(imageDatas, cellFrames) : cellFrames.map(f => f.cells));
                 const lastLabels = cellFrames[cellFrames.length - 1].labels;
                 const times = imageDatas.map(f => f.time);
                 const tracks = trackAllCellsBackward(cellFramesList, times, kmPerPixel, cx, cy, isSnowMode, lastLabels, MULTI_CELL_CANDIDATES);
