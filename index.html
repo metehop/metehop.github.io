@@ -214,6 +214,32 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.04);
             flex-shrink: 0;
         }
+        .btn-refresh {
+            background: #ffffff;
+            color: var(--primary-dark);
+            border: none;
+            border-radius: 50%;
+            width: 38px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            flex-shrink: 0;
+            transition: opacity 0.2s;
+        }
+        .btn-refresh:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .btn-refresh.spinning i {
+            animation: spin 0.9s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
         /* Favoris : bouton étoile (ajout/retrait du lieu courant) + rangée de chips pour basculer
            rapidement entre les lieux enregistrés. L'étoile ouvre le popup #favorite-modal-overlay
            (voir toggleFavoriteCurrentLocation) : saisie du nom, retrait si déjà favori, message de
@@ -2847,6 +2873,7 @@
         /* Surfaces claires codées en dur → fonds sombres */
         html.dark input[type="text"],
         html.dark .btn-geo,
+        html.dark .btn-refresh,
         html.dark .btn-favorite,
         html.dark .btn-swap-trajet,
         html.dark .btn-remove-stop,
@@ -3018,6 +3045,9 @@
                 </button>
                 <button id="geo-btn" class="btn-geo" onclick="locateUser()" title="Ma position">
                     <i class="fa-solid fa-location-crosshairs"></i>
+                </button>
+                <button id="refresh-btn" class="btn-refresh" onclick="triggerManualRefresh()" title="Actualiser les données météo" aria-label="Actualiser les données météo">
+                    <i class="fa-solid fa-arrows-rotate" id="refresh-btn-icon"></i>
                 </button>
             </div>
         </div>
@@ -6788,6 +6818,11 @@
                     } catch (e) {}
                     return '';
                 }
+                // Format température live avec 1 décimale, virgule française (v152.1 correction)
+                function formatLiveTempFr(temp) {
+                    if (typeof temp !== 'number' || !isFinite(temp)) return '--,-';
+                    return temp.toFixed(1).replace('.', ',');
+                }
 
                 function updateHeroLiveTemp() {
             const el = document.getElementById('hero-live-temp');
@@ -6806,13 +6841,13 @@
                     if (curAlt !== null && stationAlt !== null && Math.abs(curAlt - stationAlt) > (NEARBY_STATION.maxAltDiffM || 100)) {
                     } else {
                         const t1 = formatObsTimeShort(nearbyStationLiveTime);
-                        el.innerHTML = `Temp. live : ${Math.round(nearbyStationLiveTemp)}°C${t1 ? ` <span style="opacity:0.72; font-weight:500;">· ${t1}</span>` : ''}`;
+                        el.innerHTML = `Temp. live : ${formatLiveTempFr(nearbyStationLiveTemp)}°C${t1 ? ` <span style="opacity:0.72; font-weight:500;">· ${t1}</span>` : ''}`;
                         el.title = 'Station ITENCI3 - Tencin (live)';
                         el.style.display = '';
                         return;
                     }
                 } catch(e) {
-                    el.innerText = `Temp. live : ${Math.round(nearbyStationLiveTemp)}°C`;
+                    el.innerText = `Temp. live : ${formatLiveTempFr(nearbyStationLiveTemp)}°C`;
                     el.style.display = '';
                     return;
                 }
@@ -6832,7 +6867,7 @@
                     if (vals.length) {
                         const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
                         const tNow = formatObsTimeShort(nowMs);
-                        el.innerHTML = `Temp. live ~5km : ${Math.round(avg)}°C${tNow ? ` <span style="opacity:0.72; font-weight:500;">· ${tNow}</span>` : ''}`;
+                        el.innerHTML = `Temp. live ~5km : ${formatLiveTempFr(avg)}°C${tNow ? ` <span style="opacity:0.72; font-weight:500;">· ${tNow}</span>` : ''}`;
                         el.title = (vals.length > 1 ? 'Moyenne des températures actuelles interpolées — ' : 'Température actuelle interpolée — ') + names.join(' · ');
                         el.style.display = '';
                         return;
@@ -6846,7 +6881,7 @@
                 if (typeof openMeteoCurrentCache !== 'undefined' && openMeteoCurrentCache && typeof openMeteoCurrentCache.temp === 'number' && isFinite(openMeteoCurrentCache.temp)) {
                     const omC = openMeteoCurrentCache;
                     const t2 = formatObsTimeShort(omC.time);
-                    el.innerHTML = `Temp. live ~5km : ${Math.round(omC.temp)}°C${t2 ? ` <span style="opacity:0.72; font-weight:500;">· ${t2}</span>` : ''}`;
+                    el.innerHTML = `Temp. live ~5km : ${formatLiveTempFr(omC.temp)}°C${t2 ? ` <span style="opacity:0.72; font-weight:500;">· ${t2}</span>` : ''}`;
                     el.title = `${omC.modelLabel} (${omC.modelRes})${omC.corrected ? (omC.mode === 'metehop' ? ' — correction Metehop' : ' — correction météo France') : ' — valeur 2 m non corrigée'}${omC.modelAlt !== null ? ` - maille à ${Math.round(omC.modelAlt)} m` : ''}`;
                     el.style.display = '';
                     return;
@@ -9785,6 +9820,190 @@ render16DayTable();
         function retryWeatherLoad() {
             if (lastWeatherRequest) fetchWeather(lastWeatherRequest.lat, lastWeatherRequest.lon, lastWeatherRequest.name, lastWeatherRequest.population);
         }
+
+        // ============================================================================
+        // ACTUALISATION CENTRALISÉE (bouton ♻️ + visibilitychange/pageshow) — v152
+        // ============================================================================
+        // Centralise toute la logique de rafraîchissement pour éviter les doublons d'appels API.
+        // - Bouton manuel en haut à droite (refresh-btn)
+        // - Auto-refresh au retour premier plan (visibilitychange / pageshow)
+        // - Gestion animation, anti-clics multiples, conservation cache en cas d'échec
+        let isRefreshing = false;
+        let lastFullRefreshAt = 0;
+        let visibilityDebounceTimer = null;
+        const REFRESH_DEBOUNCE_MS = 300;
+        const REFRESH_MIN_INTERVAL_MS = 2000; // évite les déclenchements simultanés
+
+        function setRefreshButtonState(spinning) {
+            const btn = document.getElementById('refresh-btn');
+            const icon = document.getElementById('refresh-btn-icon');
+            if (!btn) return;
+            if (spinning) {
+                btn.disabled = true;
+                btn.classList.add('spinning');
+                btn.title = 'Actualisation en cours…';
+                btn.setAttribute('aria-busy', 'true');
+            } else {
+                btn.disabled = false;
+                btn.classList.remove('spinning');
+                btn.title = 'Actualiser les données météo';
+                btn.removeAttribute('aria-busy');
+            }
+        }
+
+        async function performFullRefresh(opts = {}) {
+            const source = opts.source || 'manual';
+            if (isRefreshing) {
+                console.log('[Metehop] Refresh déjà en cours, ignoré (source:', source, ')');
+                return;
+            }
+            const now = Date.now();
+            // Anti-redondance pour les événements système (visibility + pageshow qui peuvent s'enchaîner)
+            if (source !== 'manual' && (now - lastFullRefreshAt) < REFRESH_MIN_INTERVAL_MS) {
+                console.log('[Metehop] Refresh récent, anti-doublon (source:', source, ')');
+                return;
+            }
+            isRefreshing = true;
+            lastFullRefreshAt = now;
+            setRefreshButtonState(true);
+            console.log('[Metehop] Début actualisation complète (source:', source, ')');
+
+            try {
+                // Conserver les données actuelles en cache pendant le chargement (pas de clear d'écran)
+                // La fonction fetchWeather garde l'affichage jusqu'à succès, et conserve les dernières
+                // données valides en cas d'échec réseau (voir catch dans fetchWeather).
+
+                if (typeof currentLat === 'number' && typeof currentLon === 'number' && currentLocationName) {
+                    await fetchWeather(currentLat, currentLon, currentLocationName, currentPopulation);
+                } else if (lastWeatherRequest && typeof lastWeatherRequest.lat === 'number') {
+                    await fetchWeather(lastWeatherRequest.lat, lastWeatherRequest.lon, lastWeatherRequest.name, lastWeatherRequest.population);
+                } else {
+                    const saved = (typeof loadLastLocation === 'function') ? loadLastLocation() : null;
+                    if (saved && typeof saved.lat === 'number') {
+                        await fetchWeather(saved.lat, saved.lon, saved.name, typeof saved.population === 'number' ? saved.population : null);
+                    } else if (typeof loadDefaultLocation === 'function') {
+                        await loadDefaultLocation();
+                    }
+                }
+
+                // Rafraîchissements secondaires explicites pour garantir la complétude
+                // (fetchWeather les déclenche déjà, mais on s'assure qu'ils sont bien relancés
+                // même si le lieu n'a pas changé, sans générer de doublons grâce au seq anti-course)
+                try {
+                    if (typeof currentLat === 'number' && typeof currentLon === 'number') {
+                        // Données Live / modèles
+                        if (typeof loadOpenMeteoCurrent === 'function') {
+                            loadOpenMeteoCurrent(currentLat, currentLon).catch(()=>{});
+                        }
+                        if (typeof loadMetNorway === 'function' && (currentGroup === 'eau' || true)) {
+                            // Toujours tenter MET Norway (purge déjà faite dans fetchWeather)
+                            loadMetNorway(currentLat, currentLon).catch(()=>{});
+                        }
+                        if (typeof loadNearbyStation === 'function' && nearbyStationInRange) {
+                            loadNearbyStation({silent: true}).catch(()=>{});
+                        }
+                        if (typeof loadPioupiouStation === 'function') {
+                            loadPioupiouStation(currentLat, currentLon).catch(()=>{});
+                        }
+                        if (typeof loadStormRiskForLocation === 'function') {
+                            loadStormRiskForLocation(currentLat, currentLon).catch(()=>{});
+                        }
+                        if (typeof loadEnsembleConfidence === 'function') {
+                            loadEnsembleConfidence(currentLat, currentLon).catch(()=>{});
+                        }
+                        if (typeof loadDailyTempNormals === 'function') {
+                            loadDailyTempNormals(currentLat, currentLon).catch(()=>{});
+                        }
+                    }
+                } catch (e2) {
+                    console.warn('[Metehop] Sous-rafraîchissements partiels', e2);
+                }
+
+                try { if (typeof updateHeroLiveTemp === 'function') updateHeroLiveTemp(); } catch(e){}
+                try { if (typeof renderOpenMeteoCurrentCard === 'function') renderOpenMeteoCurrentCard(); } catch(e){}
+
+                // Mémorise l'heure de dernière actualisation réussie
+                try {
+                    localStorage.setItem('metehop_last_refresh_v1', String(Date.now()));
+                } catch(e) {}
+
+                console.log('[Metehop] Actualisation complète terminée');
+
+            } catch (e) {
+                console.warn('[Metehop] Échec actualisation complète, conservation cache', e);
+                // Gestion erreur réseau : on conserve les dernières données valides
+                // Pas de clear, le bandeau d'erreur existant (showWeatherError) gère l'UI si besoin
+            } finally {
+                isRefreshing = false;
+                setRefreshButtonState(false);
+            }
+        }
+
+        function triggerManualRefresh() {
+            performFullRefresh({source: 'manual'});
+        }
+
+        // Expose pour debug / autres modules
+        window.triggerManualRefresh = triggerManualRefresh;
+        window.performFullRefresh = performFullRefresh;
+
+        // Auto-refresh au retour premier plan
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                clearTimeout(visibilityDebounceTimer);
+                visibilityDebounceTimer = setTimeout(() => {
+                    // Ne pas rafraîchir si offline (garde cache)
+                    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+                        console.log('[Metehop] Retour premier plan mais hors-ligne, pas de refresh');
+                        return;
+                    }
+                    performFullRefresh({source: 'visibilitychange'});
+                }, REFRESH_DEBOUNCE_MS);
+            }
+        });
+
+        // pageshow : gère le bfcache (retour arrière) et le rechargement
+        window.addEventListener('pageshow', (e) => {
+            if (e.persisted) {
+                // Page restaurée depuis le bfcache : données potentiellement obsolètes
+                console.log('[Metehop] pageshow avec bfcache, refresh');
+                clearTimeout(visibilityDebounceTimer);
+                visibilityDebounceTimer = setTimeout(() => {
+                    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+                    performFullRefresh({source: 'pageshow-bfcache'});
+                }, REFRESH_DEBOUNCE_MS);
+            } else {
+                // Rechargement normal : fetchWeather est déjà appelé au démarrage via loadDefaultLocation.
+                // On ne force pas un second appel immédiat pour éviter le doublon, mais on s'assure que
+                // la date de dernière actualisation est à jour.
+                console.log('[Metehop] pageshow sans bfcache (rechargement initial)');
+                try {
+                    const last = parseInt(localStorage.getItem('metehop_last_refresh_v1')||'0',10);
+                    if (!last || (Date.now() - last) > 10*60*1000) {
+                        localStorage.setItem('metehop_last_refresh_v1', String(Date.now()));
+                    }
+                } catch(err){}
+            }
+        });
+
+        // Bonus : focus window comme filet de sécurité supplémentaire (optionnel, avec debounce)
+        // Ne déclenche que si la page était cachée depuis >5 minutes pour éviter le spam.
+        let lastHiddenAt = 0;
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') lastHiddenAt = Date.now();
+        });
+        window.addEventListener('focus', () => {
+            if (lastHiddenAt && (Date.now() - lastHiddenAt) > 5*60*1000) {
+                clearTimeout(visibilityDebounceTimer);
+                visibilityDebounceTimer = setTimeout(() => {
+                    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+                    if (document.visibilityState === 'visible') {
+                        performFullRefresh({source: 'focus-after-long-hidden'});
+                    }
+                }, REFRESH_DEBOUNCE_MS);
+            }
+        });
+
 
         // ---- Bandeau hors-ligne (13/09/2026) ----
         // Le service worker met déjà l'app shell et les dernières données en cache, mais
@@ -15581,7 +15800,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
             const hourOfDay = currentHourIdx - start;
             const heroMc = microClimateDeltaAtHour(hourOfDay, dayIdx);
             const modelTemp = Math.round(rawCurrentTemp); // valeur modèle brute (jamais ajustée), pour l'infobulle
-            let displayTemp = Math.round(rawCurrentTemp + heroMc.delta); // valeur affichée : ajustement appliqué une seule fois
+            let displayTemp = Math.round(rawCurrentTemp + heroMc.delta); // valeur affichée : ajustement appliqué une seule fois (entier pour Hero noir)
             // Debug : stocke coeff utilisé pour affichage tableau
             const microBadgeEl = document.getElementById('hero-microclimate-badge');
             let microBadgeInfo = null;
