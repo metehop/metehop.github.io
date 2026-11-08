@@ -562,9 +562,14 @@
             opacity: 0.6;
         }
         .hero-trio-item:first-child, .hero-trio-item:last-child { margin-top: 14px; }
-        .hero-trio-item i {
-            width: 28px;
-            height: 28px;
+        /* Pictos météo Thème 1 : la pastille reste la même, le SVG remplace la fonte.
+           +20% : 28px -> 34px. Le SVG occupe 82% de la pastille pour respirer. */
+        .wx-picto { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; line-height: 0; vertical-align: middle; }
+        .wx-picto svg { display: block; width: 100%; height: 100%; overflow: visible; }
+        .hero-trio-item i,
+        .hero-trio-item .wx-picto {
+            width: 34px;
+            height: 34px;
             border-radius: 50%;
             background: #fcf6e6;
             color: var(--accent-orange);
@@ -573,6 +578,7 @@
             justify-content: center;
             font-size: 0.9rem;
         }
+        .hero-trio-item .wx-picto svg { width: 82%; height: 82%; }
         .hero-trio-item .hero-trio-label {
             font-size: 0.5rem;
             font-weight: 700;
@@ -581,9 +587,10 @@
             letter-spacing: 0.2px;
         }
         .hero-trio-item.hero-trio-now { opacity: 1; }
-        .hero-trio-item.hero-trio-now i {
-            width: 46px;
-            height: 46px;
+        .hero-trio-item.hero-trio-now i,
+        .hero-trio-item.hero-trio-now .wx-picto {
+            width: 55px;
+            height: 55px;
             font-size: 1.55rem;
             box-shadow: 0 2px 5px rgba(0,0,0,0.08);
         }
@@ -610,9 +617,9 @@
                 gap: 32px;
             }
             .hero-trio-item:first-child, .hero-trio-item:last-child { margin-top: 0; }
-            .hero-trio-item i { width: 42px; height: 42px; font-size: 1.35rem; }
+            .hero-trio-item i, .hero-trio-item .wx-picto { width: 50px; height: 50px; font-size: 1.35rem; }
             .hero-trio-item .hero-trio-label { font-size: 0.62rem; }
-            .hero-trio-item.hero-trio-now i { width: 70px; height: 70px; font-size: 2.3rem; }
+            .hero-trio-item.hero-trio-now i, .hero-trio-item.hero-trio-now .wx-picto { width: 84px; height: 84px; font-size: 2.3rem; }
         }
         /* Badge "risque de foudre à cette heure" (voir updateHeroLightningBadge) : en haut à gauche du
            pictogramme météo du bandeau "Votre météo, maintenant", visible uniquement si l'algo LPI
@@ -895,11 +902,13 @@
             scrollbar-width: none;
         }
         .days-scroll::-webkit-scrollbar { display: none; }
+        /* Carrousel v153 : picto au max (1.02 -> 1.65rem). La case grandit de 90 -> 108px
+           pour loger picto + Min/Max sans wrap ni débordement. Hero inchangé. */
         .day-tab {
             background: #ffffff;
             border-radius: var(--radius-medium);
-            padding: 10px 14px;
-            min-width: 90px;
+            padding: 10px 12px;
+            min-width: 108px;
             cursor: pointer;
             border: 1px solid transparent;
             display: flex;
@@ -926,9 +935,10 @@
             align-items: center;
             justify-content: space-between;
             margin-top: 4px;
-            gap: 4px;
+            gap: 6px;
         }
         .day-tab-bottom i { font-size: 0.85rem; color: var(--accent-orange); margin-right: 4px; }
+        .day-tab-bottom .wx-picto { width: 1.65rem; height: 1.65rem; margin-right: 0; flex-shrink: 0; }
         .day-tab.active .day-tab-bottom i { color: #f5d061; }
         .day-tab-temp { font-size: 0.8rem; font-weight: 700; display:flex; gap:2px; align-items:center; }
         .temp-min { color: #2b6cb0; } /* bleu min */
@@ -1049,7 +1059,8 @@
             gap: 3px;
         }
         .hour-time { font-size: 0.68rem; color: var(--text-muted); font-weight: 600; }
-        .hour-icon { font-size: 0.85rem; color: var(--accent-orange); margin: 2px 0; }
+        /* +20% : 0.85rem -> 1.02rem. SVG : largeur/hauteur, pas font-size. */
+        .hour-icon { width: 1.02rem; height: 1.02rem; font-size: 0.85rem; color: var(--accent-orange); margin: 2px 0; }
         .hour-temp { font-size: 0.78rem; font-weight: 700; color: var(--primary-dark); }
         .hour-micro-icon { font-size: 0.55rem; color: var(--accent-orange); margin-left: 2px; cursor: help; }
         .hour-precip { font-size: 0.6rem; color: var(--text-muted); display: flex; flex-direction: column; line-height: 1.1; }
@@ -1629,8 +1640,10 @@
             font-size: 0.68rem;
             white-space: nowrap;
         }
+        /* Tableau 16j v153 : picto au max (0.96 -> 1.45rem). Padding vertical 8 -> 10px
+           pour respirer. Colonnes Matin/A.-M. élargies ci-dessous pour ne pas écraser le libellé. */
         .sage-table td {
-            padding: 8px 2px;
+            padding: 10px 2px;
             border-bottom: 1px solid rgba(0,0,0,0.03);
             color: var(--primary-dark);
             vertical-align: middle;
@@ -1641,9 +1654,14 @@
         .sage-table td.day-cell { font-weight: 700; }
         .sage-table td.day-cell span { display: block; font-size: 0.63rem; color: var(--text-muted); font-weight: 400; }
         .sage-table tr.weekend-row td { background: rgba(46, 74, 63, 0.07); }
-        .table-cond { display: flex; align-items: center; gap: 4px; font-size: 0.72rem; }
+        /* v153 mobile : libellé sur 2 lignes si besoin (pas d'ellipsis). Sur desktop il tient
+           sur 1 ligne, donc rien ne change là-bas. */
+        .table-cond { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; }
+        .sage-table td:has(.table-cond) { white-space: normal; overflow: visible; }
+        .sage-table th { white-space: normal; line-height: 1.2; }
         .table-cond i { color: var(--accent-orange); font-size: 0.8rem; flex-shrink: 0; }
-        .table-cond span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .table-cond .wx-picto { width: 1.45rem; height: 1.45rem; flex-shrink: 0; }
+        .table-cond span { min-width: 0; line-height: 1.15; white-space: normal; overflow: visible; }
 
         .confidence-dots {
             display: inline-flex;
@@ -1722,6 +1740,23 @@
             gap: 8px;
         }
         .storm-proximity-box i { color: #ef4444; }
+        .storm-proximity-box .wx-picto { width: 1.15rem; height: 1.15rem; flex-shrink: 0; }
+        .snow-pill .wx-picto { width: 0.96rem; height: 0.96rem; }
+        .trajet-picto { width: 1.35rem; height: 1.35rem; flex-shrink: 0; }
+        /* Trajet v153 : cellule Condition en flex pour que picto + libellé restent alignés
+           sans wrap sauvage avec le picto agrandi. */
+        #trajet-schedule-tbody td:nth-child(2) { display: flex; align-items: center; gap: 6px; text-align: left; }
+        .trajet-cond-label { min-width: 0; line-height: 1.15; white-space: normal; }
+        /* v153 mobile (≤600px) : le mot le plus long (« verglaçante » ~62px) ne tient pas
+           à côté du picto 1.45rem dans une colonne de ~77px. On empile : picto au-dessus,
+           libellé en dessous sur toute la largeur de la colonne, lisible sans débordement.
+           Sur desktop, on garde côte à côte (règles ci-dessus). */
+        @media (max-width: 600px) {
+            .table-cond { flex-direction: column; align-items: flex-start; gap: 3px; }
+            #trajet-schedule-tbody td:nth-child(2) { flex-direction: column; align-items: flex-start; gap: 3px; }
+            .sage-table th { font-size: 0.62rem; }
+        }
+        #trajet-schedule-tbody td { padding: 7px 2px; }
         /* Palier "veille" (orange) : orage détecté au-delà du rayon de danger immédiat, ou plus
            loin mais dont la trajectoire projetée croise la position dans l'horizon d'alerte.
            Volontairement moins alarmant que le rouge, qui reste réservé au danger immédiat. */
@@ -3108,15 +3143,15 @@
                              soleil/lune de "maintenant" — voir updateDayView, inchangé pour ce chantier. -->
                         <i class="fa-solid fa-sun" id="hero-main-icon" style="display:none;"></i>
                         <div class="hero-trio-item" id="hero-trio-morning" title="Matin">
-                            <i class="fa-solid fa-sun" id="hero-trio-morning-icon"></i>
+                            <span class="wx-picto" id="hero-trio-morning-icon" aria-hidden="true"></span>
                             <span class="hero-trio-label">Matin</span>
                         </div>
                         <div class="hero-trio-item" id="hero-trio-afternoon" title="Après-midi">
-                            <i class="fa-solid fa-sun" id="hero-trio-afternoon-icon"></i>
+                            <span class="wx-picto" id="hero-trio-afternoon-icon" aria-hidden="true"></span>
                             <span class="hero-trio-label">Aprèm</span>
                         </div>
                         <div class="hero-trio-item" id="hero-trio-evening" title="Soir">
-                            <i class="fa-solid fa-moon" id="hero-trio-evening-icon"></i>
+                            <span class="wx-picto" id="hero-trio-evening-icon" aria-hidden="true"></span>
                             <span class="hero-trio-label">Soir</span>
                         </div>
                     </div>
@@ -3392,7 +3427,7 @@
                  accélérée à 1 minute sur le palier rouge et sur les approches à moins de
                  STORM_FAST_REFRESH_ETA_MIN (voir scheduleRadarRefresh()). -->
             <div class="storm-proximity-box" id="storm-proximity-box" style="display:none;">
-                <i class="fa-solid fa-bolt"></i>
+                <span class="wx-picto" aria-hidden="true"></span>
                 <span id="storm-proximity-text">--</span>
             </div>
         </div>
@@ -3638,12 +3673,12 @@
                 <table class="sage-table">
                     <thead>
                         <tr>
-                            <th style="width: 14%;">Jour</th>
-                            <th style="width: 18%;">Matin</th>
-                            <th style="width: 18%;">A.-M.</th>
-                            <th style="width: 13%;">Min/Max</th>
-                            <th style="width: 15%;">Précip.</th>
-                            <th style="width: 12%;">Vent</th>
+                            <th style="width: 11%;">Jour</th>
+                            <th style="width: 22%;">Matin</th>
+                            <th style="width: 22%;">A.-M.</th>
+                            <th style="width: 12%;">Min/<wbr>Max</th>
+                            <th style="width: 12%;">Précip.</th>
+                            <th style="width: 11%;">Vent</th>
                             <th style="width: 10%; text-align: center;">Conf.</th>
                         </tr>
                     </thead>
@@ -5941,19 +5976,19 @@
             const pInfo = pKey ? PRESENT[pKey] : null;
             const pStrong = pKey === 'storm' || pKey === 'hail';
             const usePresent = !!pInfo && (!level || pStrong);
-            const icon = box.querySelector('i');
+            const icon = box.querySelector('.wx-picto, i');
             if (usePresent) {
                 text.innerText = pInfo.msg;
                 box.classList.remove('level-watch');
                 box.style.background = pInfo.col + '1f';
                 box.style.borderColor = pInfo.col + '99';
                 box.style.color = pInfo.txt;
-                if (icon) { icon.className = 'fa-solid ' + pInfo.icon; icon.style.color = pInfo.col; }
+                if (icon) { setWxPictoOrFa(icon, pInfo.icon); icon.style.color = ''; }
                 box.style.display = 'flex';
                 if (pStrong) level = 'danger';
             } else {
                 box.style.background = ''; box.style.borderColor = ''; box.style.color = '';
-                if (icon) { icon.className = 'fa-solid fa-bolt'; icon.style.color = ''; }
+                if (icon) { setWxPicto(icon, 'fa-bolt'); }
                 if (level) {
                     text.innerText = message;
                     box.classList.toggle('level-watch', level === 'watch');
@@ -5981,6 +6016,54 @@
             } catch(e) { return true; }
         }
 
+        // ==== Pictos météo Metehop Nature — Thème 1 (v152) ====
+        // Remplace Font Awesome pour les CONDITIONS météo uniquement (wmoCond /
+        // Open-Meteo / MET Norway / proximité orage). Les icônes fonctionnelles
+        // (vent, humidité, UV, vigilance, micro-climat, etc.) restent en Font Awesome.
+        // Palette : soleil #FFB020/#D97736, nuages #5A9BD4/#5E7F95, pluie #2B6CB0,
+        // orage #334155/#FFC107, lune #F5D061, brouillard #8AA0B0/#7C9A8E.
+        // Tailles +20% : voir CSS .wx-picto (trio 28->34 / 46->55, desktop 42->50 /
+        // 70->84, horaire 0.85->1.02rem, tableau 0.8->0.96rem).
+        const METEHOP_WX_SVG = {
+            'fa-bolt': '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M36 6 L18 34 H29 L24 58 L46 28 H34 Z" fill="#FFC107" stroke="#B45309" stroke-width="1.5" stroke-linejoin="round"/></svg>',
+            'fa-cloud': '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="8" y="30" width="48" height="17" rx="8.5" fill="#5E7F95"/><circle cx="22" cy="30" r="12" fill="#5E7F95"/><circle cx="36" cy="24" r="14" fill="#5E7F95"/><circle cx="48" cy="31" r="10" fill="#5E7F95"/><ellipse cx="29" cy="28" rx="9" ry="3.5" fill="#FFFFFF" opacity="0.25"/></svg>',
+            'fa-cloud-bolt': '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="8" y="18" width="48" height="16" rx="8" fill="#334155"/><circle cx="22" cy="18" r="11" fill="#334155"/><circle cx="36" cy="13" r="13" fill="#334155"/><circle cx="48" cy="19" r="9" fill="#334155"/><path d="M36 30 L22 46 H30 L25 58 L42 40 H33 L38 30 Z" fill="#FFC107" stroke="#B45309" stroke-width="1" stroke-linejoin="round"/></svg>',
+            'fa-cloud-meatball': '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="8" y="18" width="48" height="15" rx="7.5" fill="#5E7F95"/><circle cx="22" cy="18" r="11" fill="#5E7F95"/><circle cx="36" cy="13" r="13" fill="#5E7F95"/><circle cx="48" cy="19" r="9" fill="#5E7F95"/><g fill="#FFFFFF" stroke="#2B6CB0" stroke-width="1.8"><circle cx="20" cy="46" r="4"/><circle cx="32" cy="50" r="4"/><circle cx="44" cy="46" r="4"/></g></svg>',
+            'fa-cloud-rain': '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="8" y="24" width="48" height="15" rx="7.5" fill="#5A9BD4"/><circle cx="22" cy="24" r="11" fill="#5A9BD4"/><circle cx="36" cy="18" r="13" fill="#5A9BD4"/><circle cx="48" cy="25" r="9" fill="#5A9BD4"/><g fill="#2B6CB0"><path d="M20 44 C20 44 16.5 51 16.5 53 A3.5 3.5 0 0 0 23.5 53 C23.5 51 20 44 20 44 Z"/><path d="M32 44 C32 44 28.5 51 28.5 53 A3.5 3.5 0 0 0 35.5 53 C35.5 51 32 44 32 44 Z"/><path d="M44 44 C44 44 40.5 51 40.5 53 A3.5 3.5 0 0 0 47.5 53 C47.5 51 44 44 44 44 Z"/></g></svg>',
+            'fa-cloud-showers-heavy': '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="8" y="20" width="48" height="15" rx="7.5" fill="#2B6CB0"/><circle cx="22" cy="20" r="11" fill="#2B6CB0"/><circle cx="36" cy="15" r="13" fill="#2B6CB0"/><circle cx="48" cy="21" r="9" fill="#2B6CB0"/><g fill="#1E5A8A"><path d="M16 40 C16 40 12.5 47 12.5 49 A3.5 3.5 0 0 0 19.5 49 C19.5 47 16 40 16 40 Z"/><path d="M28 40 C28 40 24.5 47 24.5 49 A3.5 3.5 0 0 0 31.5 49 C31.5 47 28 40 28 40 Z"/><path d="M40 40 C40 40 36.5 47 36.5 49 A3.5 3.5 0 0 0 43.5 49 C43.5 47 40 40 40 40 Z"/><path d="M52 40 C52 40 48.5 47 48.5 49 A3.5 3.5 0 0 0 55.5 49 C55.5 47 52 40 52 40 Z"/><path d="M22 51 C22 51 18.5 58 18.5 60 A3.5 3.5 0 0 0 25.5 60 C25.5 58 22 51 22 51 Z"/><path d="M34 51 C34 51 30.5 58 30.5 60 A3.5 3.5 0 0 0 37.5 60 C37.5 58 34 51 34 51 Z"/><path d="M46 51 C46 51 42.5 58 42.5 60 A3.5 3.5 0 0 0 49.5 60 C49.5 58 46 51 46 51 Z"/></g></svg>',
+            'fa-cloud-sun': '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><g stroke="#D97736" stroke-width="3.5" stroke-linecap="round"><line x1="20" y1="4" x2="20" y2="9"/><line x1="8" y1="8" x2="11" y2="11"/><line x1="4" y1="20" x2="9" y2="20"/><line x1="32" y1="8" x2="29" y2="11"/></g><circle cx="20" cy="20" r="11" fill="#FFB020"/><circle cx="16" cy="16" r="3" fill="#FFD166"/><rect x="22" y="36" width="36" height="14" rx="7" fill="#5A9BD4"/><circle cx="31" cy="36" r="9" fill="#5A9BD4"/><circle cx="41" cy="32" r="10" fill="#5A9BD4"/><circle cx="49" cy="37" r="7" fill="#5A9BD4"/><ellipse cx="34" cy="33" rx="7" ry="3" fill="#FFFFFF" opacity="0.28"/></svg>',
+            'fa-cloud-sun-rain': '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><g stroke="#D97736" stroke-width="3" stroke-linecap="round"><line x1="15" y1="4" x2="15" y2="8"/><line x1="6" y1="9" x2="9" y2="12"/><line x1="4" y1="17" x2="8" y2="17"/><line x1="24" y1="9" x2="21" y2="12"/></g><circle cx="15" cy="17" r="8.5" fill="#FFB020"/><rect x="18" y="28" width="40" height="14" rx="7" fill="#5A9BD4"/><circle cx="27" cy="28" r="9" fill="#5A9BD4"/><circle cx="37" cy="24" r="10" fill="#5A9BD4"/><circle cx="45" cy="29" r="7" fill="#5A9BD4"/><g fill="#2B6CB0"><path d="M26 46 C26 46 22.5 53 22.5 55 A3.5 3.5 0 0 0 29.5 55 C29.5 53 26 46 26 46 Z"/><path d="M38 46 C38 46 34.5 53 34.5 55 A3.5 3.5 0 0 0 41.5 55 C41.5 53 38 46 38 46 Z"/><path d="M48 46 C48 46 44.5 53 44.5 55 A3.5 3.5 0 0 0 51.5 55 C51.5 53 48 46 48 46 Z"/></g></svg>',
+            'fa-moon': '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M46 8 C34 14 28 22 28 32 C28 42 34 50 46 56 C38 52 34 42 34 32 C34 22 38 12 46 8 Z" fill="#F5D061"/><path d="M51 10 l1.4 2.8 2.8 1.4 -2.8 1.4 -1.4 2.8 -1.4 -2.8 -2.8 -1.4 2.8 -1.4 Z" fill="#FFB020"/><circle cx="51" cy="28" r="1.8" fill="#FFB020"/></svg>',
+            'fa-smog': '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="10" y="14" width="44" height="6" rx="3" fill="#8AA0B0"/><rect x="16" y="27" width="36" height="6" rx="3" fill="#7C9A8E"/><rect x="10" y="40" width="44" height="6" rx="3" fill="#8AA0B0"/><circle cx="32" cy="53" r="2.5" fill="#7C9A8E"/></svg>',
+            'fa-snowflake': '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="8" y="18" width="48" height="15" rx="7.5" fill="#5A9BD4"/><circle cx="22" cy="18" r="11" fill="#5A9BD4"/><circle cx="36" cy="13" r="13" fill="#5A9BD4"/><circle cx="48" cy="19" r="9" fill="#5A9BD4"/><g stroke="#2B6CB0" stroke-width="3.6" stroke-linecap="round"><line x1="20" y1="42" x2="20" y2="50"/><line x1="16.5" y1="44" x2="23.5" y2="48"/><line x1="23.5" y1="44" x2="16.5" y2="48"/></g><g stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round"><line x1="20" y1="42" x2="20" y2="50"/><line x1="16.5" y1="44" x2="23.5" y2="48"/><line x1="23.5" y1="44" x2="16.5" y2="48"/></g><g stroke="#2B6CB0" stroke-width="3.6" stroke-linecap="round"><line x1="32" y1="46" x2="32" y2="54"/><line x1="28.5" y1="48" x2="35.5" y2="52"/><line x1="35.5" y1="48" x2="28.5" y2="52"/></g><g stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round"><line x1="32" y1="46" x2="32" y2="54"/><line x1="28.5" y1="48" x2="35.5" y2="52"/><line x1="35.5" y1="48" x2="28.5" y2="52"/></g><g stroke="#2B6CB0" stroke-width="3.6" stroke-linecap="round"><line x1="44" y1="42" x2="44" y2="50"/><line x1="40.5" y1="44" x2="47.5" y2="48"/><line x1="47.5" y1="44" x2="40.5" y2="48"/></g><g stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round"><line x1="44" y1="42" x2="44" y2="50"/><line x1="40.5" y1="44" x2="47.5" y2="48"/><line x1="47.5" y1="44" x2="40.5" y2="48"/></g></svg>',
+            'fa-sun': '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><g stroke="#D97736" stroke-width="4" stroke-linecap="round"><line x1="32" y1="6" x2="32" y2="13"/><line x1="32" y1="51" x2="32" y2="58"/><line x1="6" y1="32" x2="13" y2="32"/><line x1="51" y1="32" x2="58" y2="32"/><line x1="14" y1="14" x2="19" y2="19"/><line x1="45" y1="45" x2="50" y2="50"/><line x1="50" y1="14" x2="45" y2="19"/><line x1="19" y1="45" x2="14" y2="50"/></g><circle cx="32" cy="32" r="14" fill="#FFB020"/><circle cx="27" cy="27" r="4" fill="#FFD166"/></svg>',
+        };
+        function metehopWxNormalizeKey(faKey) {
+            if (typeof faKey !== 'string' || !faKey) return 'fa-cloud';
+            const parts = faKey.trim().split(/\s+/);
+            const last = parts[parts.length - 1];
+            return last.indexOf('fa-') === 0 ? last : 'fa-' + last;
+        }
+        function metehopWxSvg(faKey) {
+            const k = metehopWxNormalizeKey(faKey);
+            return METEHOP_WX_SVG[k] || METEHOP_WX_SVG['fa-cloud'];
+        }
+        function wxPictoHTML(faKey, extraClass) {
+            const cls = 'wx-picto' + (extraClass ? ' ' + extraClass : '');
+            return '<span class="' + cls + '" role="img" aria-hidden="true">' + metehopWxSvg(faKey) + '</span>';
+        }
+        function setWxPicto(el, faKey, extraClass) {
+            if (!el) return;
+            el.className = 'wx-picto' + (extraClass ? ' ' + extraClass : '');
+            el.innerHTML = metehopWxSvg(faKey);
+            try { el.style.color = ''; } catch (e) {}
+        }
+        function setWxPictoOrFa(el, faKey) {
+            if (!el) return;
+            const k = metehopWxNormalizeKey(faKey);
+            if (METEHOP_WX_SVG[k]) { setWxPicto(el, k); return; }
+            el.className = 'fa-solid ' + k; el.innerHTML = '';
+        }
         const wmoMap = {
             0: { icon: 'fa-sun', label: 'Ensoleillé' },
             1: { icon: 'fa-cloud-sun', label: 'Peu nuageux' },
@@ -7531,7 +7614,7 @@ function applyDisplayMode() {
                 const cond = wmoCond(r.code);
                 return `<tr>
                     <td>${label}</td>
-                    <td><i class="fa-solid ${cond.icon}"></i> ${cond.label}</td>
+                    <td>${wxPictoHTML(cond.icon, 'trajet-picto')}<span class="trajet-cond-label">${cond.label}</span></td>
                     <td>${Math.round(r.temp)}°</td>
                     <td>${(r.precip || 0).toFixed(1)}mm</td>
                     <td>${Math.round(r.wind)} km/h</td>
@@ -8406,7 +8489,7 @@ function applyDisplayMode() {
                 }
                 if (isMet) html += `<span class="snow-pill"><i class="fa-solid fa-seedling"></i> Microclimat ${omSigned(cache.microCorr, 1)} °C</span>`;
                 html += `<span class="snow-pill" style="font-weight:700;"><i class="fa-solid fa-flask"></i> Méthode : ${mName} → ${omFmt(cache.temp, 1)} °C</span>`;
-                if (cache.weatherInfo) html += `<span class="snow-pill"><i class="${cache.weatherInfo.icon}"></i> ${cache.weatherInfo.label}</span>`;
+                if (cache.weatherInfo) html += `<span class="snow-pill">${wxPictoHTML(cache.weatherInfo.icon, 'snow-pill-picto')} ${cache.weatherInfo.label}</span>`;
                 if (cache.precip !== null) html += `<span class="snow-pill"><i class="fa-solid fa-cloud-rain"></i> Pluie ${omFmt(cache.precip, 1)} mm/h</span>`;
                 if (cache.rh !== null) html += `<span class="snow-pill"><i class="fa-solid fa-droplet"></i> Hum ${omFmt(cache.rh, 0)} %</span>`;
                 if (cache.windKmh !== null) html += `<span class="snow-pill"><i class="fa-solid fa-wind"></i> Vent ${Math.round(cache.windKmh)} km/h</span>`;
@@ -8831,7 +8914,7 @@ function applyDisplayMode() {
                 let html = '';
                 html += metChainHtml(d);
                 const symInfo = metNoSymbolLabel(d.symbolCode);
-                if (symInfo) html += `<span class="snow-pill"><i class="${symInfo.icon}"></i> ${symInfo.label}</span>`;
+                if (symInfo) html += `<span class="snow-pill">${wxPictoHTML(symInfo.icon, 'snow-pill-picto')} ${symInfo.label}</span>`;
                 if (typeof d.precipNext1h === 'number' && isFinite(d.precipNext1h)) {
                     html += `<span class="snow-pill"><i class="fa-solid fa-cloud-rain"></i> Pluie (1 h) ${omFmt(d.precipNext1h, 1)} mm</span>`;
                 }
@@ -15170,7 +15253,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                     <div class="day-tab-name">${dayName}</div>
                     <div class="day-tab-date">${dateStr}</div>
                     <div class="day-tab-bottom">
-                        <i class="fa-solid ${cond.icon}"></i>
+                        ${wxPictoHTML(cond.icon, 'day-tab-picto')}
                         <span class="day-tab-temp">${tempDisplay}</span>
                     </div>
                 `;
@@ -15842,7 +15925,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 const cond = heroTrioAt(h);
                 const iconEl = document.getElementById(`hero-trio-${key}-icon`);
                 const wrapEl = document.getElementById(`hero-trio-${key}`);
-                if (iconEl) iconEl.className = `fa-solid ${cond.icon}`;
+                if (iconEl) setWxPicto(iconEl, cond.icon);
                 if (wrapEl) wrapEl.title = `${key === 'morning' ? 'Matin' : key === 'afternoon' ? 'Après-midi' : 'Soir'} : ${cond.label}`;
             });
             // Période en cours mise en avant : mêmes bornes que les mascottes triples (matin 6-12h,
@@ -16023,7 +16106,7 @@ metehopAnalysis = { hasHail: clsNow.type === 'hail', hasStorm: clsNow.type === '
                 hoursContainer.innerHTML += `
                     <div class="hour-item${isCurrentHour ? ' hour-item-now' : ''}">
                         <span class="hour-time">${hTime}</span>
-                        <i class="fa-solid ${hCond.icon} hour-icon"></i>
+                        ${wxPictoHTML(hCond.icon, 'hour-icon')}
                         <span class="hour-temp">${hTemp}°${hMicroIcon}</span>
                         <div class="hour-precip"><span>${precipText}</span></div>
                     </div>
@@ -20525,8 +20608,8 @@ async function loadInversionLevels(lat, lon){
                 html += `
                     <tr class="${m.isWeekend ? 'weekend-row' : ''}">
                         <td class="day-cell">${m.dayStr} <span>${m.dateNum}</span></td>
-                        <td class="${matinClass}"><div class="table-cond"><i class="fa-solid ${m.condMatin.icon}"></i> <span>${m.condMatin.label}</span></div></td>
-                        <td class="${apresClass}"><div class="table-cond"><i class="fa-solid ${m.condApres.icon}"></i> <span>${m.condApres.label}</span></div></td>
+                        <td class="${matinClass}"><div class="table-cond">${wxPictoHTML(m.condMatin.icon, 'table-cond-picto')} <span>${m.condMatin.label}</span></div></td>
+                        <td class="${apresClass}"><div class="table-cond">${wxPictoHTML(m.condApres.icon, 'table-cond-picto')} <span>${m.condApres.label}</span></div></td>
                         <td class="${minMaxClass}"><strong>${m.minT}°/${m.maxT}°</strong></td>
                         <td class="${rainClass}"><span>${m.rain.toFixed(1)}mm</span></td>
                         <td class="${windClass}">${m.windAvg} km/h${gustLabel}</td>
